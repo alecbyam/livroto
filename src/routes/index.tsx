@@ -1,0 +1,282 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { ArrowRight, ShoppingBag, Store, MessageCircle, Check, MapPin, Zap, Quote } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SiteLayout } from "@/components/livroto/SiteLayout";
+import { useI18n } from "@/lib/i18n";
+import { categoryMeta, CATEGORY_LIST } from "@/components/livroto/products";
+import { genericWhatsAppUrl } from "@/lib/whatsapp";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Livroto — Bunia livre à ta porte" },
+      { name: "description", content: "Première marketplace locale de Bunia, Ituri. Accessoires, cuisine et livraison — cash à la porte." },
+      { property: "og:title", content: "Livroto — Bunia livre à ta porte" },
+      { property: "og:description", content: "Commande. Livroto arrive." },
+    ],
+  }),
+  component: Index,
+});
+
+const zones = [
+  { name: "Centre-ville", fee: 2 },
+  { name: "Sayo", fee: 3 },
+  { name: "Lumumba", fee: 3 },
+  { name: "Bankoko", fee: 3 },
+  { name: "Mudzi Pela", fee: 5 },
+  { name: "Nyakasansa", fee: 5 },
+  { name: "Bigo", fee: 5 },
+  { name: "Sukisa", fee: 3 },
+];
+
+const testimonials = [
+  { name: "Sarah, étudiante", quote: "J'ai commandé du fundi à 11h, livré à 11h45. Trop fort !", zone: "Lumumba" },
+  { name: "Patrick, vendeur", quote: "Depuis Livroto, je touche plus de clients sans bouger.", zone: "Centre-ville" },
+  { name: "ONG locale", quote: "Notre logistique interne, simplifiée. Pratique.", zone: "Mudzi Pela" },
+];
+
+function Index() {
+  return (
+    <SiteLayout>
+      <Hero />
+      <Categories />
+      <HowItWorks />
+      <Zones />
+      <SellerForm />
+      <Testimonials />
+    </SiteLayout>
+  );
+}
+
+function Hero() {
+  const { t } = useI18n();
+  return (
+    <section className="relative overflow-hidden">
+      <div className="bg-hero-gradient text-white">
+        <div className="container mx-auto px-4 py-16 md:py-28">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
+              <Zap className="h-3.5 w-3.5 text-[color:var(--amber)]" />
+              {t("hero.badge")}
+            </span>
+            <h1 className="mt-5 font-display text-4xl md:text-6xl lg:text-7xl font-bold leading-[1.05]">
+              {t("hero.tagline")}
+            </h1>
+            <p className="mt-5 max-w-xl text-base md:text-lg text-white/85">
+              {t("hero.subtitle")}
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="bg-[color:var(--amber)] text-[color:var(--amber-foreground)] hover:brightness-105 min-h-[52px] px-6">
+                <Link to="/catalog">
+                  <ShoppingBag className="h-5 w-5" />
+                  {t("cta.orderNow")}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 min-h-[52px]">
+                <a href="#seller">
+                  <Store className="h-5 w-5" />
+                  {t("cta.becomeSeller")}
+                </a>
+              </Button>
+              <Button asChild size="lg" variant="ghost" className="text-white hover:bg-white/10 min-h-[52px]">
+                <a href={genericWhatsAppUrl()} target="_blank" rel="noreferrer">
+                  <MessageCircle className="h-5 w-5" />
+                  {t("cta.whatsapp")}
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Categories() {
+  const { t } = useI18n();
+  return (
+    <section className="container mx-auto px-4 py-16 md:py-24">
+      <h2 className="font-display text-3xl md:text-4xl font-bold text-center">{t("categories.title")}</h2>
+      <p className="mt-2 text-center text-muted-foreground">Téléphone, cuisine, maison, beauté, bijoux, ordinateurs, électronique… tout au même endroit.</p>
+      <div className="mt-10 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {CATEGORY_LIST.map((c) => (
+          <Link key={c.id} to="/catalog" search={{ cat: c.id, sub: "all", q: "" } as any}
+                className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--brand-light)] text-3xl">
+              {c.emoji}
+            </div>
+            <h3 className="mt-4 font-display text-lg font-bold">{c.label}</h3>
+            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{c.desc}</p>
+            <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:gap-2 transition-all">
+              Voir <ArrowRight className="h-4 w-4" />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  const { t } = useI18n();
+  const steps = [1, 2, 3, 4].map((n) => ({
+    n,
+    title: t(`how.step${n}.title`),
+    desc: t(`how.step${n}.desc`),
+  }));
+  return (
+    <section id="how" className="bg-[color:var(--brand-light)]/60 py-16 md:py-24">
+      <div className="container mx-auto px-4">
+        <h2 className="font-display text-3xl md:text-4xl font-bold text-center">{t("how.title")}</h2>
+        <div className="mt-10 grid gap-6 md:grid-cols-4">
+          {steps.map((s) => (
+            <div key={s.n} className="relative rounded-2xl bg-card p-6 shadow-sm">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground font-display font-bold">
+                {s.n}
+              </div>
+              <h3 className="mt-4 font-display text-lg font-bold">{s.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Zones() {
+  const { t } = useI18n();
+  return (
+    <section id="zones" className="container mx-auto px-4 py-16 md:py-24">
+      <div className="max-w-2xl">
+        <h2 className="font-display text-3xl md:text-4xl font-bold">{t("zones.title")}</h2>
+        <p className="mt-3 text-muted-foreground">{t("zones.subtitle")}</p>
+      </div>
+      <div className="mt-10 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        {zones.map((z) => (
+          <div key={z.name} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <MapPin className="h-5 w-5 text-primary" />
+              <span className="font-medium">{z.name}</span>
+            </div>
+            <span className="text-xs italic text-muted-foreground">à négocier</span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs text-muted-foreground">
+        Le tarif de livraison se négocie directement avec le livreur selon la distance, la charge et l'urgence.
+      </p>
+    </section>
+  );
+}
+
+function SellerForm() {
+  const { t } = useI18n();
+  const [submitting, setSubmitting] = useState(false);
+  const [fields, setFields] = useState({ name: "", phone: "", category: "", zone: "" });
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const msg =
+      `Bonjour Livroto ! Je veux ouvrir ma boutique.\n` +
+      `Nom de la boutique : ${fields.name}\n` +
+      `Téléphone : ${fields.phone}\n` +
+      `Catégorie : ${fields.category}\n` +
+      `Quartier : ${fields.zone}`;
+    window.open(`https://wa.me/243988648433?text=${encodeURIComponent(msg)}`, "_blank");
+    toast.success(t("seller.success"));
+    setFields({ name: "", phone: "", category: "", zone: "" });
+    setSubmitting(false);
+  };
+
+  return (
+    <section id="seller" className="bg-[color:var(--brand-dark)] text-white py-16 md:py-24">
+      <div className="container mx-auto px-4 grid gap-10 md:grid-cols-2 md:items-center">
+        <div>
+          <h2 className="font-display text-3xl md:text-4xl font-bold">{t("seller.title")}</h2>
+          <p className="mt-3 text-white/80 max-w-md">{t("seller.subtitle")}</p>
+          <ul className="mt-6 space-y-2 text-sm text-white/85">
+            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Catalogue en ligne offert</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Commandes via WhatsApp</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Livraison gérée par Livroto</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Paiement cash sécurisé</li>
+          </ul>
+        </div>
+        <form onSubmit={onSubmit} className="rounded-2xl bg-white text-foreground p-6 shadow-xl space-y-4">
+          <div>
+            <Label htmlFor="s-name">{t("seller.name")}</Label>
+            <Input
+              id="s-name" required className="mt-1.5 min-h-[48px]"
+              placeholder="Ex. Maman Sarah Foods"
+              value={fields.name}
+              onChange={(e) => setFields({ ...fields, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="s-phone">{t("seller.phone")}</Label>
+            <Input
+              id="s-phone" required type="tel" className="mt-1.5 min-h-[48px]"
+              placeholder="+243 ..."
+              value={fields.phone}
+              onChange={(e) => setFields({ ...fields, phone: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="s-cat">{t("seller.category")}</Label>
+              <Input
+                id="s-cat" required className="mt-1.5 min-h-[48px]"
+                placeholder="Cuisine, accessoires…"
+                value={fields.category}
+                onChange={(e) => setFields({ ...fields, category: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="s-zone">{t("seller.zone")}</Label>
+              <Input
+                id="s-zone" required className="mt-1.5 min-h-[48px]"
+                placeholder="Sayo, Centre-ville…"
+                value={fields.zone}
+                onChange={(e) => setFields({ ...fields, zone: e.target.value })}
+              />
+            </div>
+          </div>
+          <Button type="submit" size="lg" disabled={submitting} className="w-full min-h-[52px]">
+            <MessageCircle className="h-5 w-5" />
+            {t("seller.submit")}
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            En cliquant, tu seras redirigé vers WhatsApp pour finaliser ta candidature.
+          </p>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function Testimonials() {
+  const { t } = useI18n();
+  return (
+    <section className="container mx-auto px-4 py-16 md:py-24">
+      <h2 className="font-display text-3xl md:text-4xl font-bold text-center">{t("testimonials.title")}</h2>
+      <div className="mt-10 grid gap-5 md:grid-cols-3">
+        {testimonials.map((tt) => (
+          <figure key={tt.name} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <Quote className="h-6 w-6 text-[color:var(--amber)]" />
+            <blockquote className="mt-3 text-base">{tt.quote}</blockquote>
+            <figcaption className="mt-4 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{tt.name}</span> · {tt.zone}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  );
+}
