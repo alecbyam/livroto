@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { ArrowLeft, Heart, ShoppingCart, Star, Store, Loader2, MessageCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Heart, ShoppingCart, Star, Store, Loader2, MessageCircle, Zap, AlertTriangle } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
+import { toast } from "sonner";
 import { useFavorite } from "@/lib/favorites";
 import { toast } from "sonner";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
@@ -31,7 +32,7 @@ type Review = { id: string; rating: number; comment: string | null; created_at: 
 
 function ProductPage() {
   const { productId } = Route.useParams();
-  const { add } = useCart();
+  const { add, items } = useCart();
   const { isFav, toggle } = useFavorite(productId);
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<Vendor | null>(null);
@@ -39,6 +40,8 @@ function ProductPage() {
   const [related, setRelated] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
+  const [stickyVisible, setStickyVisible] = useState(false);
+  const ctaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -80,6 +83,17 @@ function ProductPage() {
       document.title = `${product.name} — Livroto Bunia`;
     }
   }, [product?.name]);
+
+  // IntersectionObserver: show sticky bar when main CTA leaves viewport
+  useEffect(() => {
+    if (!ctaRef.current) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setStickyVisible(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    obs.observe(ctaRef.current);
+    return () => obs.disconnect();
+  }, [product]);
 
   if (loading) {
     return <SiteLayout><div className="container mx-auto px-4 py-20 grid place-items-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></SiteLayout>;
@@ -168,9 +182,24 @@ function ProductPage() {
             </div>
           )}
           <div className="mt-4 font-display text-4xl font-bold text-[color:var(--brand-dark)]">${Number(product.price_usd).toFixed(2)}</div>
+
+          {/* Stock urgency */}
+          {!out && product.stock > 0 && product.stock <= 3 && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm font-semibold text-red-700">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              🔴 Plus que {product.stock} en stock — commande vite !
+            </div>
+          )}
+          {!out && product.stock > 3 && product.stock <= 7 && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-200 px-3 py-2 text-sm font-semibold text-orange-700">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              ⚡ Stock limité — {product.stock} articles restants
+            </div>
+          )}
+
           <p className="mt-4 text-muted-foreground whitespace-pre-line">{product.description ?? "Pas de description fournie."}</p>
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div ref={ctaRef} className="mt-6 flex flex-wrap gap-2">
             <Button size="lg" disabled={out} onClick={() => {
               add({ id: product.id, name: product.name, price_usd: Number(product.price_usd), emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
               toast.success(`${product.name} ajouté au panier`);
@@ -242,6 +271,34 @@ function ProductPage() {
             {related.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         </section>
+      )}
+
+      {/* Sticky mobile CTA */}
+      {!out && stickyVisible && (
+        <div className="md:hidden fixed bottom-[60px] inset-x-0 z-30 px-4 pb-3 pt-2 bg-background/95 backdrop-blur border-t border-border shadow-lg animate-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-bold text-sm truncate">{product.name}</p>
+              <p className="text-[color:var(--brand-dark)] font-bold">${Number(product.price_usd).toFixed(2)}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                add({ id: product.id, name: product.name, price_usd: Number(product.price_usd), emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
+                toast.success(`${product.name} ajouté !`);
+              }}
+              className="shrink-0 min-h-[44px]"
+            >
+              <ShoppingCart className="h-4 w-4" />
+            </Button>
+            <Button asChild size="sm" className="shrink-0 min-h-[44px] bg-[color:var(--brand-dark)]">
+              <Link to="/order/$productId" params={{ productId: product.id }}>
+                <Zap className="h-4 w-4 mr-1" /> Commander
+              </Link>
+            </Button>
+          </div>
+        </div>
       )}
     </SiteLayout>
   );

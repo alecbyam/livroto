@@ -399,11 +399,26 @@ function CartPage() {
                 onClick={checkout}
                 disabled={submitting}
                 size="lg"
-                className="mt-3 w-full min-h-[52px] bg-[color:var(--whatsapp)] hover:brightness-105"
+                className="mt-3 w-full min-h-[52px] bg-[color:var(--whatsapp)] hover:brightness-105 text-base font-bold"
               >
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageCircle className="h-5 w-5" />}
                 Valider et envoyer sur WhatsApp
               </Button>
+
+              {/* Trust signals — psychologie : réduire l'anxiété d'achat */}
+              <div className="mt-4 space-y-2 border-t border-border pt-4">
+                {[
+                  { emoji: "💵", text: "Paiement cash à la livraison" },
+                  { emoji: "🚫", text: "Aucun frais caché" },
+                  { emoji: "✅", text: "Annulation gratuite avant confirmation" },
+                  { emoji: "🛵", text: "Livreur local de confiance, Bunia" },
+                ].map(({ emoji, text }) => (
+                  <div key={text} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="text-sm">{emoji}</span>
+                    <span>{text}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

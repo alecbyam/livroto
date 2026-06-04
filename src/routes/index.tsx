@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowRight, ShoppingBag, Store, MessageCircle, Check, MapPin, Zap, Quote } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, ShoppingBag, Store, MessageCircle, Check, MapPin, Zap, Quote, Loader2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,8 @@ import { useI18n } from "@/lib/i18n";
 import { categoryMeta, CATEGORY_LIST } from "@/components/livroto/products";
 import { genericWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -44,12 +46,63 @@ function Index() {
   return (
     <SiteLayout>
       <Hero />
+      <FeaturedProducts />
       <Categories />
       <HowItWorks />
       <Zones />
       <SellerForm />
       <Testimonials />
     </SiteLayout>
+  );
+}
+
+/* ---------- Featured Products (depuis la DB) ---------- */
+function FeaturedProducts() {
+  const [products, setProducts] = useState<DisplayProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("products")
+      .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count")
+      .eq("approved", true)
+      .gt("stock", 0)
+      .order("rating_count", { ascending: false })
+      .limit(8)
+      .then(({ data }) => {
+        if (data) setProducts(data.map((p) => ({ ...p, price_usd: Number(p.price_usd), rating_avg: p.rating_avg ? Number(p.rating_avg) : 0, rating_count: p.rating_count ?? 0 })));
+        setLoading(false);
+      });
+  }, []);
+
+  if (!loading && products.length === 0) return null;
+
+  return (
+    <section className="container mx-auto px-4 py-12 md:py-16">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="h-5 w-5 text-[color:var(--brand-dark)]" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-[color:var(--brand-dark)]">Tendances à Bunia</span>
+          </div>
+          <h2 className="font-display text-2xl md:text-3xl font-bold">Les plus commandés</h2>
+        </div>
+        <Button asChild variant="ghost" size="sm" className="shrink-0">
+          <Link to="/catalog">Tout voir <ArrowRight className="h-4 w-4 ml-1" /></Link>
+        </Button>
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-2xl bg-muted animate-pulse aspect-[3/4]" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {products.map((p) => <ProductCard key={p.id} product={p} />)}
+        </div>
+      )}
+    </section>
   );
 }
 
