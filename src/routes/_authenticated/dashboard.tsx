@@ -101,9 +101,11 @@ function CallMeBotCard({ role, currentKey, currentPhone }: { role: "vendor" | "r
 function DashboardPage() {
   const qc = useQueryClient();
   const fetchOverview = useServerFn(getMyOverview);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["overview"],
     queryFn: () => fetchOverview(),
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const roles = data?.roles ?? [];
@@ -138,6 +140,35 @@ function DashboardPage() {
         <div className="container mx-auto px-4 py-12">
           <div className="h-8 w-48 animate-pulse rounded bg-muted" />
           <div className="mt-4 h-32 animate-pulse rounded-2xl bg-muted" />
+          <div className="mt-3 h-24 animate-pulse rounded-2xl bg-muted" />
+        </div>
+      </SiteLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <SiteLayout>
+        <div className="container mx-auto px-4 py-16 max-w-lg text-center">
+          <p className="text-4xl">⚠️</p>
+          <h1 className="mt-4 font-display text-2xl font-bold">Erreur de chargement</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {(error as Error).message ?? "Impossible de charger ton espace. Vérifie ta connexion."}
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <button
+              onClick={() => refetch()}
+              className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              Réessayer
+            </button>
+            <button
+              onClick={signOut}
+              className="rounded-xl border px-6 py-2.5 text-sm font-semibold text-muted-foreground"
+            >
+              Se déconnecter
+            </button>
+          </div>
         </div>
       </SiteLayout>
     );

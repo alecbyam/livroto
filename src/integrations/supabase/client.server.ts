@@ -32,14 +32,33 @@ function createSupabaseAdminClient() {
   });
 }
 
-let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | undefined;
+// Initialise immédiatement au chargement du module (pas de lazy init)
+// pour détecter les erreurs de config au démarrage du serveur.
+function getAdminClient() {
+  try {
+    const client = createSupabaseAdminClient();
+    console.log('[Supabase Admin] ✅ Client service_role initialisé avec succès');
+    return client;
+  } catch (e: any) {
+    console.error('[Supabase Admin] ❌ ERREUR init:', e.message);
+    throw e;
+  }
+}
+
+let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | null = null;
+let _initError: Error | null = null;
+
+try {
+  _supabaseAdmin = getAdminClient();
+} catch (e: any) {
+  _initError = e;
+}
 
 // Server-side Supabase client with service role - bypasses RLS
-// SECURITY: Only use this for trusted server-side operations, never expose to client code
-// Import like: import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export const supabaseAdmin = new Proxy({} as ReturnType<typeof createSupabaseAdminClient>, {
   get(_, prop, receiver) {
-    if (!_supabaseAdmin) _supabaseAdmin = createSupabaseAdminClient();
+    if (_initError) throw _initError;
+    if (!_supabaseAdmin) throw new Error('supabaseAdmin not initialized');
     return Reflect.get(_supabaseAdmin, prop, receiver);
   },
 });

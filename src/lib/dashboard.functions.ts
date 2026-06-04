@@ -8,17 +8,32 @@ export const getMyOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const [profileRes, rolesRes, vendorRes, riderRes] = await Promise.all([
+
+    // Requêtes essentielles via le client de l'utilisateur (RLS)
+    const [profileRes, rolesRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabaseAdmin.from("vendors").select("*").eq("owner_id", userId).maybeSingle(),
-      supabaseAdmin.from("riders").select("*").eq("user_id", userId).maybeSingle(),
     ]);
+
+    // Requêtes admin via service_role (optionnelles — ne bloquent pas si la clé manque)
+    let vendorData = null;
+    let riderData = null;
+    try {
+      const [vendorRes, riderRes] = await Promise.all([
+        supabaseAdmin.from("vendors").select("*").eq("owner_id", userId).maybeSingle(),
+        supabaseAdmin.from("riders").select("*").eq("user_id", userId).maybeSingle(),
+      ]);
+      vendorData = vendorRes.data;
+      riderData = riderRes.data;
+    } catch (e) {
+      console.error("[getMyOverview] supabaseAdmin unavailable:", e);
+    }
+
     return {
       profile: profileRes.data,
       roles: (rolesRes.data ?? []).map((r) => r.role as string),
-      vendor: vendorRes.data,
-      rider: riderRes.data,
+      vendor: vendorData,
+      rider: riderData,
     };
   });
 
