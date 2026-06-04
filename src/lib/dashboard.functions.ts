@@ -75,7 +75,7 @@ export const getVendorDashboard = createServerFn({ method: "GET" })
     if (!vendor) return { vendor: null, products: [], orders: [], stats: null };
     const [products, orders] = await Promise.all([
       supabase.from("products").select("*, subcategory:product_subcategories(name,emoji)").eq("vendor_id", userId).order("created_at", { ascending: false }),
-      supabase.from("orders").select("*").eq("vendor_id", userId).order("created_at", { ascending: false }).limit(50),
+      supabase.from("orders").select("*, items:order_items(product_name,quantity,unit_price_usd,line_total_usd)").eq("vendor_id", userId).order("created_at", { ascending: false }).limit(50),
     ]);
     const stats = {
       productsCount: products.data?.length ?? 0,

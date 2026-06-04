@@ -164,6 +164,18 @@ function OrderDetailPage() {
           {order.customer_notes && <p className="mt-2 text-sm italic text-muted-foreground">"{order.customer_notes}"</p>}
         </div>
 
+        {/* Livreur assigné */}
+        {order.rider_id && (
+          <div className="mt-6 rounded-2xl border bg-card p-5">
+            <h2 className="font-display font-semibold flex items-center gap-2">
+              🛵 Ton livreur
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Un livreur a pris en charge ta commande. Tu peux le contacter directement.
+            </p>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="mt-6 flex flex-wrap gap-2">
           {order.status === "pending" && (
@@ -172,8 +184,8 @@ function OrderDetailPage() {
             </Button>
           )}
           <Button asChild variant="outline">
-            <a href={`https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(`Bonjour Livroto, info sur ma commande ${order.code ?? order.id.slice(0, 6)}`)}`} target="_blank" rel="noreferrer">
-              <MessageCircle className="h-4 w-4" /> Contacter le support
+            <a href={`https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(`Bonjour Livroto, info sur ma commande #${order.code ?? order.id.slice(0, 6)}`)}`} target="_blank" rel="noreferrer">
+              <MessageCircle className="h-4 w-4" /> Support Livroto
             </a>
           </Button>
         </div>

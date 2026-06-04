@@ -665,20 +665,48 @@ function VendorPanel() {
         <div className="divide-y">
           {data.orders.length === 0 && <p className="p-6 text-sm text-muted-foreground">Pas encore de commande.</p>}
           {data.orders.map((o: any) => (
-            <div key={o.id} className="flex flex-wrap items-center gap-3 p-4">
-              <div className="flex-1 min-w-[180px]">
-                <p className="font-medium">{o.code || o.id.slice(0, 8)} · {o.customer_name}</p>
-                <p className="text-xs text-muted-foreground">{o.zone} · ${Number(o.total_usd).toFixed(2)}</p>
+            <div key={o.id} className="p-4 space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[180px]">
+                  <p className="font-medium">#{o.code || o.id.slice(0, 8)} · {o.customer_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    📍 {o.zone} · 📞 {o.customer_phone} · ${Number(o.total_usd).toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(o.created_at).toLocaleString("fr-FR")}
+                  </p>
+                </div>
+                <Badge className={statusColor(o.status)} variant="outline">
+                  {{"pending":"En attente","confirmed":"Confirmée","ready":"Prête","picked_up":"En route","delivered":"Livrée","cancelled":"Annulée"}[o.status] ?? o.status}
+                </Badge>
+                <Select value={o.status} onValueChange={(s) => changeStatus(o.id, s)}>
+                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[
+                      {v:"pending",l:"En attente"},
+                      {v:"confirmed",l:"Confirmer"},
+                      {v:"ready",l:"Prête"},
+                      {v:"picked_up",l:"En route"},
+                      {v:"delivered",l:"Livrée"},
+                      {v:"cancelled",l:"Annuler"},
+                    ].map(({v,l}) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-              <Badge className={statusColor(o.status)} variant="outline">{o.status}</Badge>
-              <Select value={o.status} onValueChange={(s) => changeStatus(o.id, s)}>
-                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["pending", "confirmed", "ready", "picked_up", "delivered", "cancelled"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+              {/* Articles de la commande */}
+              {(o.items ?? []).length > 0 && (
+                <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs space-y-0.5">
+                  {(o.items as any[]).map((it: any, i: number) => (
+                    <div key={i} className="flex justify-between">
+                      <span>{it.product_name} × {it.quantity}</span>
+                      <span className="font-medium">${Number(it.line_total_usd).toFixed(2)}</span>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
+              {o.customer_notes && (
+                <p className="text-xs italic text-muted-foreground pl-1">📝 {o.customer_notes}</p>
+              )}
             </div>
           ))}
         </div>
