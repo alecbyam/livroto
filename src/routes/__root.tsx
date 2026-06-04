@@ -18,19 +18,26 @@ import { FavoritesProvider } from "@/lib/favorites";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+        <div className="text-8xl">🛵</div>
+        <h1 className="mt-4 font-display text-7xl font-bold text-foreground">404</h1>
+        <h2 className="mt-3 text-xl font-semibold">Page introuvable</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+          Cette page n'existe pas ou a été déplacée.
         </p>
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
             to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground"
           >
-            Go home
+            Retour à l'accueil
+          </Link>
+          <Link
+            to="/catalog"
+            className="inline-flex items-center justify-center rounded-xl border px-6 py-2.5 text-sm font-semibold"
+          >
+            Voir le catalogue
           </Link>
         </div>
       </div>
@@ -138,12 +145,17 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <CartProvider>
           <FavoritesProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
             <Toaster richColors position="top-center" />
           </FavoritesProvider>

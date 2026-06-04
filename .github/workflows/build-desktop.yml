@@ -1,0 +1,114 @@
+name: Build Desktop Apps (Windows, macOS, Linux)
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-desktop:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            artifact: "*.exe,*.zip"
+          - os: macos-latest
+            platform: macos
+            artifact: "*.dmg,*.zip"
+          - os: ubuntu-latest
+            platform: linux
+            artifact: "*.AppImage,*.deb,*.rpm"
+
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: electron/package.json
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Build Windows app
+        if: matrix.os == 'windows-latest'
+        working-directory: electron
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build macOS app
+        if: matrix.os == 'macos-latest'
+        working-directory: electron
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Build Linux app
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: electron
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: livroto-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            electron/dist/*.exe
+            electron/dist/*.zip
+            electron/dist/*.dmg
+            electron/dist/*.AppImage
+            electron/dist/*.deb
+            electron/dist/*.rpm
+          retention-days: 90
+          if-no-files-found: warn
+
+  # Release automatique sur les tags v*
+  release:
+    needs: build-desktop
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: release-files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-files/**/*
+          generate_release_notes: true
+          body: |
+            ## Livroto ${{ github.ref_name }} — Marketplace de Bunia
+
+            ### Installation
+
+            | Système | Fichier | Instructions |
+            |---------|---------|--------------|
+            | **Windows 10/11** | `Livroto-Setup-*.exe` | Double-clic → Installer |
+            | **Windows (portable)** | `Livroto-*.exe` | Exécuter directement |
+            | **macOS** | `Livroto-*.dmg` | Ouvrir → Glisser dans Applications |
+            | **Linux** | `Livroto-*.AppImage` | `chmod +x` puis exécuter |
+            | **Linux Ubuntu/Debian** | `livroto_*.deb` | `sudo dpkg -i livroto.deb` |
+            | **Android** | Télécharger depuis l'action Build Android | Installer l'APK |
+            | **iOS** | App Store (soumission en cours) | |
+            | **Tous les navigateurs** | [livroto.vercel.app](https://livroto.vercel.app) | Installer comme PWA |
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
