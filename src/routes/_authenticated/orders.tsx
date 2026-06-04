@@ -18,11 +18,20 @@ type OrderRow = {
   created_at: string;
 };
 
+const STATUS_FR: Record<string, string> = {
+  pending:   "En attente",
+  confirmed: "Confirmée",
+  ready:     "Prête",
+  picked_up: "En route",
+  delivered: "Livrée",
+  cancelled: "Annulée",
+};
+
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-900 border-amber-200",
+  pending:   "bg-amber-100 text-amber-900 border-amber-200",
   confirmed: "bg-blue-100 text-blue-900 border-blue-200",
-  preparing: "bg-purple-100 text-purple-900 border-purple-200",
-  out_for_delivery: "bg-indigo-100 text-indigo-900 border-indigo-200",
+  ready:     "bg-purple-100 text-purple-900 border-purple-200",
+  picked_up: "bg-indigo-100 text-indigo-900 border-indigo-200",
   delivered: "bg-emerald-100 text-emerald-900 border-emerald-200",
   cancelled: "bg-red-100 text-red-900 border-red-200",
 };
@@ -88,7 +97,7 @@ function MyOrdersPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-display font-bold">#{o.code ?? o.id.slice(0, 6)}</span>
                     <Badge variant="outline" className={STATUS_COLORS[o.status] ?? ""}>
-                      {o.status}
+                      {STATUS_FR[o.status] ?? o.status}
                     </Badge>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground truncate">

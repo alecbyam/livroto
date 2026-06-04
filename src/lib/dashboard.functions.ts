@@ -618,6 +618,65 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- VENDOR: update shop ----------
+export const vendorUpdateShop = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      shop_name: z.string().min(2).max(80).optional(),
+      description: z.string().max(500).nullable().optional(),
+      whatsapp: z.string().min(8).max(20).optional(),
+      logo_url: z.string().url().max(1000).nullable().optional(),
+      cover_url: z.string().url().max(1000).nullable().optional(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const patch: Record<string, unknown> = {};
+    if (data.shop_name !== undefined) patch.shop_name = data.shop_name;
+    if (data.description !== undefined) patch.description = data.description;
+    if (data.whatsapp !== undefined) patch.whatsapp = data.whatsapp;
+    if (data.logo_url !== undefined) patch.logo_url = data.logo_url;
+    if (data.cover_url !== undefined) patch.cover_url = data.cover_url;
+    const { error } = await supabase.from("vendors").update(patch).eq("owner_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- ADMIN: analytics ----------
+export const getAdminAnalytics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: orders } = await supabaseAdmin
+      .from("orders")
+      .select("created_at,total_usd,status")
+      .gte("created_at", since)
+      .order("created_at");
+
+    const byDay = new Map<string, { commandes: number; revenus: number }>();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      byDay.set(d.toISOString().slice(0, 10), { commandes: 0, revenus: 0 });
+    }
+    for (const o of orders ?? []) {
+      const day = (o.created_at as string).slice(0, 10);
+      const entry = byDay.get(day);
+      if (entry) {
+        entry.commandes++;
+        if (o.status === "delivered") entry.revenus += Number(o.total_usd ?? 0);
+      }
+    }
+    return {
+      daily: Array.from(byDay.entries()).map(([date, v]) => ({
+        date: date.slice(5),
+        ...v,
+      })),
+    };
+  });
+
 // ---------- ADMIN: coupons ----------
 export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Star, X } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,22 @@ function OrderDetailPage() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Realtime : mise à jour du statut en direct
+  useEffect(() => {
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "orders",
+        filter: `id=eq.${orderId}`,
+      }, () => {
+        qc.invalidateQueries({ queryKey: ["order-detail", orderId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [orderId]);
 
   if (isLoading) {
     return (

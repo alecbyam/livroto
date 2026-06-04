@@ -3,8 +3,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Store, Bike, ShieldCheck, Package, Truck, Plus, CheckCircle2, XCircle, Clock, LogOut, Upload, Loader2, UserCircle2 } from "lucide-react";
-import { Pencil, Trash2, DollarSign, MapPin } from "lucide-react";
+import { Store, Bike, ShieldCheck, Package, Truck, Plus, CheckCircle2, XCircle, Clock, LogOut, Upload, Loader2, UserCircle2, Bell } from "lucide-react";
+import { Pencil, Trash2, DollarSign, MapPin, ImageIcon } from "lucide-react";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Button } from "@/components/ui/button";
@@ -24,11 +25,12 @@ import {
   getVendorDashboard, createProduct, updateOrderStatusVendor,
   getRiderDashboard, toggleRiderAvailability,
   getAdminDashboard, adminUpdateVendorStatus, adminUpdateRiderStatus, adminApproveProduct,
-  vendorUpdateProduct, vendorDeleteProduct,
+  vendorUpdateProduct, vendorDeleteProduct, vendorUpdateShop,
   getAvailableDeliveries, riderClaimOrder, riderUpdateOrderStatus, riderConfirmCash,
   adminUpsertZone, adminResolveReport,
   adminListUsers, adminGrantRole, adminRevokeRole,
   adminListCoupons, adminUpsertCoupon,
+  getAdminAnalytics,
 } from "@/lib/dashboard.functions";
 import { saveCallmebotApiKey, notifyOrderStatusChanged } from "@/lib/notifications.functions";
 
@@ -386,6 +388,25 @@ function VendorPanel() {
   const notifyStatus = useServerFn(notifyOrderStatusChanged);
   const { data, isLoading } = useQuery({ queryKey: ["vendor-dash"], queryFn: () => fetchVendor() });
 
+  // Realtime : nouvelle commande → rafraîchit le dashboard + toast
+  useEffect(() => {
+    if (!data?.vendor) return;
+    const vendorId = (data.vendor as any).id;
+    const channel = supabase
+      .channel(`vendor-orders-${vendorId}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "orders",
+        filter: `vendor_id=eq.${vendorId}`,
+      }, () => {
+        qc.invalidateQueries({ queryKey: ["vendor-dash"] });
+        toast.info("🛒 Nouvelle commande reçue !");
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [(data?.vendor as any)?.id]);
+
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", category: "phone_accessories" as "phone_accessories" | "local_food" | "delivery_service", subcategory_id: "" as string, price_usd: "", stock: "1", emoji: "📦", description: "", images: [] as string[] });
   const [subcats, setSubcats] = useState<{ id: string; name: string; emoji: string | null; parent_category: string }[]>([]);
@@ -492,6 +513,8 @@ function VendorPanel() {
           </div>
         </div>
       </div>
+
+      <VendorShopCard vendor={v} onDone={() => qc.invalidateQueries({ queryKey: ["vendor-dash"] })} />
 
       <CallMeBotCard role="vendor" currentKey={v.callmebot_apikey} currentPhone={v.whatsapp} />
 
@@ -646,36 +669,91 @@ function VendorProductRow({
   product, onUpdate, onDelete,
 }: {
   product: any;
-  onUpdate: (patch: { price_usd?: number; stock?: number; name?: string }) => Promise<void>;
+  onUpdate: (patch: { price_usd?: number; stock?: number; name?: string; images?: string[] }) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [edit, setEdit] = useState(false);
   const [price, setPrice] = useState(String(product.price_usd));
   const [stock, setStock] = useState(String(product.stock));
+  const [images, setImages] = useState<string[]>(product.images ?? (product.image_url ? [product.image_url] : []));
+  const [uploading, setUploading] = useState(false);
+
+  const uploadImage = async (file: File) => {
+    setUploading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Non connecté");
+      if (file.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("products").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: signed, error: sErr } = await supabase.storage.from("products").createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      if (sErr || !signed) throw sErr ?? new Error("URL impossible");
+      setImages((prev) => prev.length >= 5 ? prev : [...prev, signed.signedUrl]);
+      toast.success("Photo ajoutée");
+    } catch (e: any) { toast.error(e.message ?? "Erreur upload"); }
+    finally { setUploading(false); }
+  };
+
   return (
-    <div className="flex flex-wrap items-center gap-3 p-4">
-      <div className="text-2xl">{product.emoji || "📦"}</div>
-      <div className="flex-1 min-w-[180px]">
-        <p className="font-medium">{product.name}</p>
-        <p className="text-xs text-muted-foreground">
-          ${Number(product.price_usd).toFixed(2)} · stock {product.stock}
-          {product.subcategory && <> · {product.subcategory.emoji} {product.subcategory.name}</>}
-        </p>
-      </div>
-      <Badge variant="outline" className={product.approved ? "border-primary/30 text-primary" : ""}>
-        {product.approved ? "Approuvé" : "En attente"}
-      </Badge>
-      {edit ? (
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <Input className="w-24" type="number" step="0.5" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Prix" />
-          <Input className="w-20" type="number" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" />
-          <Button size="sm" onClick={async () => { await onUpdate({ price_usd: Number(price), stock: Number(stock) }); setEdit(false); }}>OK</Button>
-          <Button size="sm" variant="ghost" onClick={() => setEdit(false)}>×</Button>
+    <div className="p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border bg-[color:var(--brand-light)] grid place-items-center text-xl">
+          {images[0]
+            ? <img src={images[0]} alt={product.name} className="h-full w-full object-cover" />
+            : <span>{product.emoji || "📦"}</span>}
         </div>
-      ) : (
+        <div className="flex-1 min-w-[160px]">
+          <p className="font-medium">{product.name}</p>
+          <p className="text-xs text-muted-foreground">
+            ${Number(product.price_usd).toFixed(2)} · stock {product.stock}
+            {product.subcategory && <> · {product.subcategory.emoji} {product.subcategory.name}</>}
+          </p>
+        </div>
+        <Badge variant="outline" className={product.approved ? "border-primary/30 text-primary" : ""}>
+          {product.approved ? "Approuvé" : "En attente"}
+        </Badge>
         <div className="flex gap-1">
-          <Button size="sm" variant="outline" onClick={() => setEdit(true)}><Pencil className="h-4 w-4" /></Button>
+          <Button size="sm" variant="outline" onClick={() => setEdit((v) => !v)}><Pencil className="h-4 w-4" /></Button>
           <Button size="sm" variant="outline" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+        </div>
+      </div>
+
+      {edit && (
+        <div className="rounded-xl border bg-background p-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input className="w-28" type="number" step="0.5" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Prix $" />
+            <Input className="w-24" type="number" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" />
+            <Button size="sm" onClick={async () => { await onUpdate({ price_usd: Number(price), stock: Number(stock), images }); setEdit(false); }}>
+              Enregistrer
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEdit(false)}>Annuler</Button>
+          </div>
+          {/* Images */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5">Photos ({images.length}/5)</p>
+            <div className="flex flex-wrap gap-2">
+              {images.map((url, idx) => (
+                <div key={idx} className="group relative h-16 w-16 overflow-hidden rounded-lg border">
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                    className="absolute inset-0 grid place-items-center bg-black/50 opacity-0 group-hover:opacity-100 text-white text-lg"
+                    aria-label="Supprimer"
+                  >×</button>
+                </div>
+              ))}
+              {images.length < 5 && (
+                <label className="grid h-16 w-16 cursor-pointer place-items-center rounded-lg border-2 border-dashed text-muted-foreground hover:bg-muted/40">
+                  {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }} />
+                </label>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -694,6 +772,30 @@ function RiderPanel() {
   const notifyStatus = useServerFn(notifyOrderStatusChanged);
   const { data, isLoading } = useQuery({ queryKey: ["rider-dash"], queryFn: () => fetchRider() });
   const { data: avail } = useQuery({ queryKey: ["rider-avail"], queryFn: () => fetchAvail(), refetchInterval: 15000 });
+
+  // Realtime : nouvelle commande disponible → rafraîchit la liste
+  useEffect(() => {
+    const channel = supabase
+      .channel("rider-available-orders")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "orders",
+      }, () => {
+        qc.invalidateQueries({ queryKey: ["rider-avail"] });
+        toast.info("🛵 Nouvelle course disponible !");
+      })
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "orders",
+      }, () => {
+        qc.invalidateQueries({ queryKey: ["rider-avail"] });
+        qc.invalidateQueries({ queryKey: ["rider-dash"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   if (isLoading) return <div className="h-32 animate-pulse rounded-2xl bg-muted" />;
   if (!data?.rider) return <p>Aucun profil livreur.</p>;
@@ -854,6 +956,8 @@ function AdminPanel() {
         <Stat label="Produits ⏳" value={data.stats.pendingProducts} />
       </div>
 
+      <AdminAnalyticsPanel />
+
       <AdminReportsPanel reports={data.reports ?? []} onRefresh={refresh} />
 
       <AdminUsersPanel />
@@ -911,6 +1015,185 @@ function AdminPanel() {
       <AdminCouponsPanel />
 
       <AdminZonesPanel zones={data.zones} onRefresh={refresh} />
+    </div>
+  );
+}
+
+/* ---------------- VENDOR: Shop editor ---------------- */
+function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void }) {
+  const updateShop = useServerFn(vendorUpdateShop);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    shop_name: vendor.shop_name ?? "",
+    description: vendor.description ?? "",
+    whatsapp: vendor.whatsapp ?? "",
+    logo_url: vendor.logo_url ?? "",
+    cover_url: vendor.cover_url ?? "",
+  });
+  const [uploading, setUploading] = useState<"logo" | "cover" | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const uploadImage = async (file: File, type: "logo" | "cover") => {
+    setUploading(type);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Non connecté");
+      if (file.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const path = `${u.user.id}/vendor-${type}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("products").upload(path, file, {
+        cacheControl: "31536000", upsert: true, contentType: file.type,
+      });
+      if (upErr) throw upErr;
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("products").createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      if (sErr || !signed) throw sErr ?? new Error("URL impossible");
+      setForm((f) => ({ ...f, [`${type}_url`]: signed.signedUrl }));
+      toast.success(`${type === "logo" ? "Logo" : "Couverture"} téléversé`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erreur upload");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const onSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await updateShop({ data: {
+        shop_name: form.shop_name,
+        description: form.description || null,
+        whatsapp: form.whatsapp,
+        logo_url: form.logo_url || null,
+        cover_url: form.cover_url || null,
+      }});
+      toast.success("Boutique mise à jour");
+      setOpen(false);
+      onDone();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      {/* Cover preview */}
+      <div className="relative h-28 overflow-hidden rounded-t-2xl bg-gradient-to-br from-[color:var(--brand-dark)] to-[color:var(--brand-light)]">
+        {form.cover_url && (
+          <img src={form.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
+        )}
+      </div>
+      <div className="p-5 -mt-8 flex items-end justify-between gap-4">
+        <div className="grid h-16 w-16 place-items-center rounded-2xl border-4 border-card bg-[color:var(--brand-light)] overflow-hidden text-2xl shadow-sm">
+          {form.logo_url
+            ? <img src={form.logo_url} alt={vendor.shop_name} className="h-full w-full object-cover" />
+            : <Store className="h-7 w-7 text-muted-foreground" />}
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
+          <Pencil className="h-4 w-4" /> Modifier la boutique
+        </Button>
+      </div>
+
+      {open && (
+        <form onSubmit={onSave} className="grid gap-4 border-t p-5 md:grid-cols-2">
+          <div>
+            <Label>Nom de la boutique</Label>
+            <Input required value={form.shop_name} onChange={(e) => setForm({ ...form, shop_name: e.target.value })} className="mt-1.5" maxLength={80} />
+          </div>
+          <div>
+            <Label>WhatsApp</Label>
+            <Input required value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} className="mt-1.5" placeholder="+243..." />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Description</Label>
+            <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1.5" maxLength={500} />
+          </div>
+
+          {/* Logo upload */}
+          <div>
+            <Label>Logo de la boutique</Label>
+            <div className="mt-1.5 flex items-center gap-3">
+              {form.logo_url && (
+                <img src={form.logo_url} alt="logo" className="h-12 w-12 rounded-lg object-cover border" />
+              )}
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-4 py-2 text-sm text-muted-foreground hover:bg-muted/40">
+                {uploading === "logo" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {form.logo_url ? "Changer" : "Uploader"}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, "logo"); }} />
+              </label>
+            </div>
+          </div>
+
+          {/* Cover upload */}
+          <div>
+            <Label>Image de couverture</Label>
+            <div className="mt-1.5 flex items-center gap-3">
+              {form.cover_url && (
+                <img src={form.cover_url} alt="cover" className="h-12 w-20 rounded-lg object-cover border" />
+              )}
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed px-4 py-2 text-sm text-muted-foreground hover:bg-muted/40">
+                {uploading === "cover" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                {form.cover_url ? "Changer" : "Uploader"}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, "cover"); }} />
+              </label>
+            </div>
+          </div>
+
+          <Button type="submit" disabled={saving} className="md:col-span-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer les modifications"}
+          </Button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- ADMIN: Analytics ---------------- */
+function AdminAnalyticsPanel() {
+  const fetchAnalytics = useServerFn(getAdminAnalytics);
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-analytics"],
+    queryFn: () => fetchAnalytics(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) return <div className="h-52 animate-pulse rounded-2xl bg-muted" />;
+
+  return (
+    <div className="rounded-2xl border bg-card p-5">
+      <h3 className="font-display text-lg font-bold mb-5">📊 Activité — 30 derniers jours</h3>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Commandes / jour</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={data?.daily ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.1} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={6} />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <Tooltip />
+              <Area
+                type="monotone"
+                dataKey="commandes"
+                stroke="hsl(var(--primary))"
+                fill="hsl(var(--primary) / 0.15)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Revenus livrés ($)</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={data?.daily ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.1} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={6} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Revenus"]} />
+              <Bar dataKey="revenus" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   );
 }
