@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Star, Heart, Zap, TrendingUp, Sparkles } from "lucide-react";
+import { ShoppingCart, Star, Heart, Zap } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { useFavorite } from "@/lib/favorites";

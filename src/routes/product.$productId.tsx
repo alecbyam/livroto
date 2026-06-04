@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
-import { toast } from "sonner";
 import { useFavorite } from "@/lib/favorites";
 import { toast } from "sonner";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
@@ -32,7 +31,7 @@ type Review = { id: string; rating: number; comment: string | null; created_at: 
 
 function ProductPage() {
   const { productId } = Route.useParams();
-  const { add, items } = useCart();
+  const { add } = useCart();
   const { isFav, toggle } = useFavorite(productId);
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<Vendor | null>(null);
