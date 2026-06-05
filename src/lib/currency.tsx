@@ -17,6 +17,8 @@ type CurrencyContextValue = {
   fmt: (usd: number) => string;
   /** Retourne le montant numérique converti */
   convert: (usd: number) => number;
+  /** Recharge le taux depuis Supabase (après modification admin) */
+  reloadRate: () => Promise<number>;
 };
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
@@ -33,16 +35,20 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   });
   const [rate, setRate] = useState(DEFAULT_RATE);
 
-  // Charger le taux depuis Supabase
-  useEffect(() => {
-    supabase
+  const reloadRate = async (): Promise<number> => {
+    const { data } = await supabase
       .from("app_settings")
       .select("value")
       .eq("key", "cdf_rate")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.value) setRate(Number(data.value) || DEFAULT_RATE);
-      });
+      .maybeSingle();
+    const r = Number(data?.value) || DEFAULT_RATE;
+    setRate(r);
+    return r;
+  };
+
+  // Charger le taux depuis Supabase
+  useEffect(() => {
+    reloadRate();
   }, []);
 
   const setCurrency = (c: Currency) => {
@@ -60,7 +66,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <CurrencyContext.Provider value={{ currency, rate, setCurrency, fmt, convert }}>
+    <CurrencyContext.Provider value={{ currency, rate, setCurrency, fmt, convert, reloadRate }}>
       {children}
     </CurrencyContext.Provider>
   );

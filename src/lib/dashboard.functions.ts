@@ -574,6 +574,25 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   if (!(roles ?? []).some((r: any) => r.role === "admin")) throw new Error("Forbidden: admin only");
 }
 
+// ---------- ADMIN: taux de change USD -> CDF ----------
+export const adminUpdateCdfRate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ rate: z.number().int("Taux entier en FC").min(100).max(100000) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("app_settings")
+      .upsert(
+        { key: "cdf_rate", value: String(data.rate), updated_at: new Date().toISOString() },
+        { onConflict: "key" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true, rate: data.rate };
+  });
+
 export const adminListUsers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ search: z.string().max(120).optional() }).parse(input ?? {}))

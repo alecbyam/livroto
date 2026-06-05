@@ -30,9 +30,10 @@ import {
   adminUpsertZone, adminResolveReport,
   adminListUsers, adminGrantRole, adminRevokeRole,
   adminListCoupons, adminUpsertCoupon,
-  getAdminAnalytics,
+  getAdminAnalytics, adminUpdateCdfRate,
 } from "@/lib/dashboard.functions";
 import { saveCallmebotApiKey, notifyOrderStatusChanged } from "@/lib/notifications.functions";
+import { useCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -1015,6 +1016,8 @@ function AdminPanel() {
         <Stat label="Produits ⏳" value={data.stats.pendingProducts} />
       </div>
 
+      <AdminRatePanel />
+
       <AdminAnalyticsPanel />
 
       <AdminReportsPanel reports={data.reports ?? []} onRefresh={refresh} />
@@ -1488,6 +1491,58 @@ function AdminCouponsPanel() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function AdminRatePanel() {
+  const { rate, reloadRate } = useCurrency();
+  const update = useServerFn(adminUpdateCdfRate);
+  const [val, setVal] = useState(String(rate));
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { setVal(String(rate)); }, [rate]);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = Math.round(Number(val));
+    if (!n || n < 100 || n > 100000) { toast.error("Taux invalide (entre 100 et 100 000 FC)"); return; }
+    setBusy(true);
+    try {
+      await update({ data: { rate: n } });
+      await reloadRate();
+      toast.success(`Taux mis à jour : 1 $ = ${n.toLocaleString("fr-CD")} FC`);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      <div className="border-b p-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-display text-lg font-bold">💱 Taux de change USD → CDF</h3>
+          <p className="text-xs text-muted-foreground">Mets à jour le taux quand le franc fluctue. Appliqué partout dans l'app.</p>
+        </div>
+        <Badge variant="outline" className="shrink-0 whitespace-nowrap">1 $ = {rate.toLocaleString("fr-CD")} FC</Badge>
+      </div>
+      <form onSubmit={save} className="flex flex-wrap items-end gap-2 p-4">
+        <div className="flex-1 min-w-[180px]">
+          <Label className="text-xs">1 USD = ? Francs Congolais (FC)</Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={100}
+            max={100000}
+            step={50}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="min-h-[44px]"
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="min-h-[44px]">
+          {busy ? "Enregistrement…" : "Enregistrer le taux"}
+        </Button>
+      </form>
     </div>
   );
 }
