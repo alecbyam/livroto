@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 
 const SUPABASE_PROJECT = "kbsjmshirukgnrljhdye";
-const AUTH_TIMEOUT_MS = 20000; // tolérant pour les connexions lentes de Bunia (2G/3G)
+const AUTH_ATTEMPT_MS = 15000;   // délai par essai
+const AUTH_MAX_ATTEMPTS = 3;     // réessais auto pour connexions mobiles instables (Bunia)
 
 /** Nettoie les sessions Supabase d'anciens projets dans localStorage */
 function cleanStaleSupabaseSessions() {
@@ -27,7 +28,7 @@ function readableAuthError(err: any): string {
   const code = err?.code ?? err?.status;
   const message = String(err?.message ?? "").toLowerCase();
   if (message.includes("timeout") || message.includes("aborted") || message.includes("connexion trop lente")) {
-    return "Connexion trop lente. Vérifie ta connexion internet et réessaie.";
+    return "Connexion instable (plusieurs essais échoués). Passe en WiFi ou rapproche-toi du réseau, puis réessaie.";
   }
   if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
     return "Email ou mot de passe incorrect.";
@@ -50,6 +51,34 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Pro
     setTimeout(() => reject(new Error(msg)), ms),
   );
   return Promise.race([promise, timeout]);
+}
+
+/**
+ * Exécute un appel d'auth Supabase avec réessais automatiques.
+ * Réessaie uniquement les échecs transitoires (timeout / réseau) — jamais
+ * un mauvais mot de passe. Pensé pour les connexions mobiles instables de Bunia.
+ */
+async function authWithRetry<T extends { error: unknown }>(fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= AUTH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await withTimeout(fn(), AUTH_ATTEMPT_MS, "connexion trop lente");
+      const err = res.error as { message?: string; status?: number } | null;
+      if (!err) return res; // succès
+      const m = String(err.message ?? "").toLowerCase();
+      const transient =
+        m.includes("fetch") || m.includes("network") || m.includes("timeout") ||
+        err.status === 0 || err.status === 502 || err.status === 503 || err.status === 504;
+      if (!transient) return res; // erreur terminale (identifiants, email non confirmé…) → ne pas réessayer
+      lastErr = err;
+    } catch (e) {
+      lastErr = e; // timeout → réessayer
+    }
+    if (attempt < AUTH_MAX_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, 1000 * attempt)); // backoff progressif
+    }
+  }
+  throw lastErr ?? new Error("connexion trop lente");
 }
 
 async function postLoginRedirect(navigate: ReturnType<typeof useNavigate>) {
@@ -126,12 +155,10 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "forgot") {
-        const { error } = await withTimeout(
+        const { error } = await authWithRetry(() =>
           supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${window.location.origin}/reset-password`,
           }),
-          AUTH_TIMEOUT_MS,
-          "Connexion trop lente.",
         );
         if (error) throw error;
         const msg = "Email envoyé ! Vérifie ta boîte de réception.";
@@ -140,7 +167,7 @@ function AuthPage() {
         setMode("signin");
 
       } else if (mode === "signup") {
-        const { error } = await withTimeout(
+        const { error } = await authWithRetry(() =>
           supabase.auth.signUp({
             email,
             password,
@@ -149,8 +176,6 @@ function AuthPage() {
               data: { name, phone },
             },
           }),
-          AUTH_TIMEOUT_MS,
-          "Connexion trop lente.",
         );
         if (error) throw error;
         const msg = "Compte créé ! Vérifie ton email pour confirmer.";
@@ -158,10 +183,8 @@ function AuthPage() {
         setFormMessage({ type: "success", text: msg });
 
       } else {
-        const { error } = await withTimeout(
+        const { error } = await authWithRetry(() =>
           supabase.auth.signInWithPassword({ email, password }),
-          AUTH_TIMEOUT_MS,
-          "Connexion trop lente. Vérifie ta connexion internet et réessaie.",
         );
         if (error) throw error;
         toast.success("Connexion réussie !");
