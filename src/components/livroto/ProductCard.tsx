@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Star, Heart, Zap } from "lucide-react";
+import { useCurrency } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { useFavorite } from "@/lib/favorites";
@@ -56,6 +57,7 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
   const { t } = useI18n();
   const { add } = useCart();
   const { isFav, toggle } = useFavorite(product.id);
+  const { fmt, currency } = useCurrency();
   const out = product.stock === 0;
   const rating = Number(product.rating_avg ?? 0);
   const reviews = Number(product.rating_count ?? 0);
@@ -126,10 +128,15 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
         )}
 
         <div className="mt-auto pt-2.5 space-y-2">
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex flex-col gap-0.5">
             <span className="font-display text-xl font-bold text-[color:var(--brand-dark)]">
-              ${Number(product.price_usd).toFixed(2)}
+              {fmt(Number(product.price_usd))}
             </span>
+            {currency === "USD" && (
+              <span className="text-[10px] text-muted-foreground">
+                ≈ {Math.round(Number(product.price_usd) * 2800).toLocaleString("fr-CD")} FC
+              </span>
+            )}
           </div>
 
           {/* CTAs */}

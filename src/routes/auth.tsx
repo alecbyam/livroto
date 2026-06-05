@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 
 const SUPABASE_PROJECT = "kbsjmshirukgnrljhdye";
-const AUTH_TIMEOUT_MS = 12000;
+const AUTH_TIMEOUT_MS = 20000; // tolérant pour les connexions lentes de Bunia (2G/3G)
 
 /** Nettoie les sessions Supabase d'anciens projets dans localStorage */
 function cleanStaleSupabaseSessions() {

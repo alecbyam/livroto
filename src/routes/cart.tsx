@@ -15,9 +15,12 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
+import { LandmarkPicker } from "@/components/livroto/LandmarkPicker";
+import { offlineQueue, isOnline } from "@/lib/offline-queue";
 import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyOrderCreated } from "@/lib/notifications.functions";
+import { notifyOrderCreatedSMS } from "@/lib/sms.functions";
 import { validateCoupon, recordCouponUse } from "@/lib/coupons.functions";
 
 type Zone = { id: string; name: string; delivery_fee_usd: number };
@@ -37,6 +40,7 @@ function CartPage() {
   const { items, count, subtotal, setQty, remove, clear } = useCart();
   const navigate = useNavigate();
   const notify = useServerFn(notifyOrderCreated);
+  const notifySMS = useServerFn(notifyOrderCreatedSMS);
   const validate = useServerFn(validateCoupon);
   const recordUse = useServerFn(recordCouponUse);
 
@@ -138,7 +142,54 @@ function CartPage() {
         return;
       }
 
+      // Mode hors-ligne : mettre en file d'attente
+      if (!isOnline()) {
+        for (const g of groups) {
+          const first = g.items[0];
+          const groupDiscount = Math.min(discount, g.subtotal);
+          offlineQueue.add({
+            id: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+            customerName: name,
+            zone: zoneName,
+            payload: {
+              customer_name: name,
+              customer_phone: phone,
+              customer_address: address,
+              zone: zoneName,
+              zone_id: selectedZone?.id ?? null,
+              product_id: first.id,
+              vendor_id: g.vendor_id,
+              quantity: g.items.reduce((s, i) => s + i.qty, 0),
+              subtotal_usd: g.subtotal,
+              total_usd: Math.max(0, g.subtotal - groupDiscount),
+              delivery_fee: 0,
+              payment_method: payment,
+              customer_notes: notes || null,
+              coupon_code: coupon?.code ?? null,
+              discount_usd: groupDiscount,
+              status: "pending",
+            },
+            items: g.items.map((it) => ({
+              product_id: it.id,
+              vendor_id: g.vendor_id,
+              product_name: it.name,
+              unit_price_usd: it.price_usd,
+              quantity: it.qty,
+              line_total_usd: it.qty * it.price_usd,
+            })),
+          });
+        }
+        clear();
+        toast.success("📥 Commande sauvegardée hors-ligne !", {
+          description: "Elle sera envoyée automatiquement à la reconnexion.",
+        });
+        setTimeout(() => navigate({ to: "/" }), 1000);
+        return;
+      }
+
       const createdCodes: string[] = [];
+      let firstOrderId: string | null = null;
       // Apply the discount entirely on the first order group
       let discountToApply = discount;
 
@@ -185,8 +236,15 @@ function CartPage() {
         await supabase.from("order_items").insert(lines);
 
         if (order.code) createdCodes.push(order.code);
+        if (!firstOrderId) firstOrderId = order.id;
         // Fire-and-forget WhatsApp auto-notification to vendor + available riders
         notify({ data: { order_id: order.id } }).catch(() => {});
+      }
+
+      // SMS de confirmation au client (une seule fois, fire-and-forget).
+      // Garantit une notif même sans WhatsApp — utile en cas de réseau faible à Bunia.
+      if (firstOrderId) {
+        notifySMS({ data: { order_id: firstOrderId } }).catch(() => {});
       }
 
       if (coupon && discount > 0) {
@@ -304,10 +362,11 @@ function CartPage() {
                 <Label htmlFor="c-phone">WhatsApp</Label>
                 <Input id="c-phone" required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+243 ..." className="mt-1.5 min-h-[44px]" />
               </div>
-              <div>
-                <Label htmlFor="c-addr">Adresse exacte</Label>
-                <Textarea id="c-addr" required value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 min-h-[72px]" />
-              </div>
+              <LandmarkPicker
+                value={address}
+                onChange={setAddress}
+                required
+              />
               <div>
                 <Label htmlFor="c-zone">Quartier</Label>
                 <Select value={zoneId} onValueChange={setZoneId}>

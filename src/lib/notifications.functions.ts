@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendAfricasTalkingSMS, STATUS_SMS } from "./sms.functions";
 
 // CallMeBot WhatsApp sender.
 // Each recipient must have activated CallMeBot on his own WhatsApp number
@@ -189,30 +190,55 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
       .eq("id", data.order_id)
       .maybeSingle();
     if (!order || !order.customer_id) return { ok: false, reason: "no_order" };
+    if (!order.customer_phone) return { ok: false, reason: "no_phone" };
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("callmebot_apikey")
       .eq("id", order.customer_id)
       .maybeSingle();
-    if (!profile?.callmebot_apikey || !order.customer_phone) {
-      return { ok: false, reason: "no_apikey" };
-    }
 
     const codeLabel = order.code ?? order.id.slice(0, 8);
-    const msg =
-      `Livroto — Commande ${codeLabel}\n` +
-      `${STATUS_MSG[data.status] ?? `Statut : ${data.status}`}\n` +
-      `Total produits : $${Number(order.total_usd).toFixed(2)} (livraison à négocier)`;
 
-    const r = await sendCallMeBot(order.customer_phone, msg, profile.callmebot_apikey);
-    await logNotification({
-      user_id: order.customer_id,
-      order_id: order.id,
-      to_phone: order.customer_phone,
-      payload: { kind: "customer_status", status: data.status, code: codeLabel },
-      ok: r.ok,
-      error: r.ok ? undefined : `HTTP ${r.status}: ${r.body.slice(0, 200)}`,
-    });
-    return { ok: r.ok };
+    // 1) Canal préféré : WhatsApp (CallMeBot) si le client a configuré sa clé.
+    let waOk = false;
+    if (profile?.callmebot_apikey) {
+      const msg =
+        `Livroto — Commande ${codeLabel}\n` +
+        `${STATUS_MSG[data.status] ?? `Statut : ${data.status}`}\n` +
+        `Total produits : $${Number(order.total_usd).toFixed(2)} (livraison à négocier)`;
+      const r = await sendCallMeBot(order.customer_phone, msg, profile.callmebot_apikey);
+      waOk = r.ok;
+      await logNotification({
+        user_id: order.customer_id,
+        order_id: order.id,
+        to_phone: order.customer_phone,
+        payload: { kind: "customer_status", status: data.status, code: codeLabel },
+        ok: r.ok,
+        error: r.ok ? undefined : `HTTP ${r.status}: ${r.body.slice(0, 200)}`,
+      });
+    }
+
+    // 2) Fallback SMS : si pas de WhatsApp configuré ou si l'envoi a échoué,
+    //    on bascule sur Africa's Talking (couvre Airtel/Vodacom/Orange à Bunia).
+    if (!waOk && STATUS_SMS[data.status]) {
+      const smsText = `${STATUS_SMS[data.status]} (Cmd #${codeLabel})`;
+      const sms = await sendAfricasTalkingSMS(order.customer_phone, smsText);
+      await supabaseAdmin
+        .from("notifications")
+        .insert({
+          user_id: order.customer_id,
+          order_id: order.id,
+          to_phone: order.customer_phone,
+          channel: "sms",
+          status: sms.ok ? "sent" : "failed",
+          sent_at: sms.ok ? new Date().toISOString() : null,
+          error: sms.error ?? null,
+          payload: { kind: "customer_status_sms", status: data.status, code: codeLabel },
+        })
+        .then(undefined, () => {});
+      return { ok: sms.ok, channel: "sms", fallback: true };
+    }
+
+    return { ok: waOk, channel: "whatsapp" };
   });

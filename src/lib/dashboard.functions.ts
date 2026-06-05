@@ -692,6 +692,20 @@ export const getAdminAnalytics = createServerFn({ method: "GET" })
     };
   });
 
+// ---------- ADMIN: taux de change CDF ----------
+export const adminSetCdfRate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ rate: z.number().positive().max(100000) }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("app_settings")
+      .upsert({ key: "cdf_rate", value: String(data.rate) }, { onConflict: "key" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // ---------- ADMIN: coupons ----------
 export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

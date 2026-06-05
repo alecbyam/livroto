@@ -15,6 +15,7 @@ import { I18nProvider } from "@/lib/i18n";
 import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { FavoritesProvider } from "@/lib/favorites";
+import { CurrencyProvider } from "@/lib/currency";
 
 function NotFoundComponent() {
   return (
@@ -154,12 +155,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <CartProvider>
-          <FavoritesProvider>
-            <Outlet />
-            <Toaster richColors position="top-center" />
-          </FavoritesProvider>
-        </CartProvider>
+        <CurrencyProvider>
+          <CartProvider>
+            <FavoritesProvider>
+              <Outlet />
+              <Toaster richColors position="top-center" />
+            </FavoritesProvider>
+          </CartProvider>
+        </CurrencyProvider>
       </I18nProvider>
     </QueryClientProvider>
   );
