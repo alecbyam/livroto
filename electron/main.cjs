@@ -40,7 +40,7 @@ function createWindow() {
       shell.openExternal(url);
       return { action: 'deny' };
     }
-    if (!url.startsWith(APP_URL) && !url.startsWith('https://kbsjmshirukgnrljhdye.supabase.co')) {
+    if (!url.startsWith(APP_URL) && !url.startsWith('https://joaepnfhhewadcklsquk.supabase.co')) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
@@ -127,7 +127,7 @@ app.on('window-all-closed', () => {
 // Sécurité : empêche la navigation vers des URLs inconnues
 app.on('web-contents-created', (_, contents) => {
   contents.on('will-navigate', (e, url) => {
-    if (!url.startsWith(APP_URL) && !url.startsWith('https://kbsjmshirukgnrljhdye.supabase.co')) {
+    if (!url.startsWith(APP_URL) && !url.startsWith('https://joaepnfhhewadcklsquk.supabase.co')) {
       e.preventDefault();
     }
   });

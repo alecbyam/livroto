@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 
-const SUPABASE_PROJECT = "kbsjmshirukgnrljhdye";
+const SUPABASE_PROJECT = "joaepnfhhewadcklsquk";
 const AUTH_ATTEMPT_MS = 15000;   // délai par essai
 const AUTH_MAX_ATTEMPTS = 3;     // réessais auto pour connexions mobiles instables (Bunia)
 
