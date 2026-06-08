@@ -34,6 +34,7 @@ import {
 } from "@/lib/dashboard.functions";
 import { saveCallmebotApiKey, notifyOrderStatusChanged } from "@/lib/notifications.functions";
 import { useCurrency } from "@/lib/currency";
+import { compressImage } from "@/lib/image";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -460,7 +461,7 @@ function VendorPanel() {
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Non connecté");
-      if (file.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
+      file = await compressImage(file);
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("products").upload(path, file, {
@@ -743,7 +744,7 @@ function VendorProductRow({
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Non connecté");
-      if (file.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
+      file = await compressImage(file);
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
       const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("products").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
@@ -1100,7 +1101,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Non connecté");
-      if (file.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
+      file = await compressImage(file, { maxSize: 1024 });
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
       const path = `${u.user.id}/vendor-${type}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("products").upload(path, file, {

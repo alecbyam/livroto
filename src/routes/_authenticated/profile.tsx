@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { updateMyProfile } from "@/lib/profile.functions";
+import { compressImage } from "@/lib/image";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -52,6 +53,7 @@ function ProfilePage() {
 
   const onUpload = async (file: File) => {
     if (!userId) return;
+    file = await compressImage(file, { maxSize: 512 });
     if (file.size > 3 * 1024 * 1024) {
       toast.error("Image trop lourde (max 3MB)");
       return;
