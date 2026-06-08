@@ -57,7 +57,7 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
   const { t } = useI18n();
   const { add } = useCart();
   const { isFav, toggle } = useFavorite(product.id);
-  const { fmt, currency } = useCurrency();
+  const { fmt, currency, rate } = useCurrency();
   const out = product.stock === 0;
   const rating = Number(product.rating_avg ?? 0);
   const reviews = Number(product.rating_count ?? 0);
@@ -134,7 +134,7 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
             </span>
             {currency === "USD" && (
               <span className="text-[10px] text-muted-foreground">
-                ≈ {Math.round(Number(product.price_usd) * 2800).toLocaleString("fr-CD")} FC
+                ≈ {Math.round(Number(product.price_usd) * rate).toLocaleString("fr-CD")} FC
               </span>
             )}
           </div>

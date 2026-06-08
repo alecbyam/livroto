@@ -768,7 +768,11 @@ function VendorProductRow({
         <div className="flex-1 min-w-[160px]">
           <p className="font-medium">{product.name}</p>
           <p className="text-xs text-muted-foreground">
-            ${Number(product.price_usd).toFixed(2)} · stock {product.stock}
+            ${Number(product.price_usd).toFixed(2)} ·{" "}
+            <span className={product.stock === 0 ? "font-semibold text-destructive" : product.stock <= 5 ? "font-semibold text-orange-600 dark:text-orange-400" : ""}>
+              stock {product.stock}
+              {product.stock === 0 ? " — rupture 🔴" : product.stock <= 5 ? " — faible ⚠️" : ""}
+            </span>
             {product.subcategory && <> · {product.subcategory.emoji} {product.subcategory.name}</>}
           </p>
         </div>
