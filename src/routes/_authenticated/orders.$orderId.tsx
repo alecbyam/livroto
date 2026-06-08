@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Star, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Share2, Star, X } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -183,6 +183,28 @@ function OrderDetailPage() {
               <X className="h-4 w-4" /> Annuler la commande
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => {
+              const code = order.code ?? order.id.slice(0, 6);
+              const lignes = items.length
+                ? items.map((it: any) => `• ${it.product_name} ×${it.quantity} — $${Number(it.line_total_usd).toFixed(2)}`).join("\n")
+                : `• Quantité : ${order.quantity}`;
+              const recu =
+                `🧾 *Reçu Livroto* — Commande #${code}\n` +
+                `${new Date(order.created_at).toLocaleString("fr-FR")}\n\n` +
+                `${lignes}\n` +
+                (Number(order.discount_usd) > 0 ? `Réduction${order.coupon_code ? ` (${order.coupon_code})` : ""} : -$${Number(order.discount_usd).toFixed(2)}\n` : "") +
+                `*Total produits : $${Number(order.total_usd).toFixed(2)}* — livraison à négocier\n` +
+                `Paiement : ${order.payment_method ?? "cash"}\n` +
+                `Statut : ${STATUS_LABEL[order.status] ?? order.status}\n` +
+                `Livraison : ${order.customer_name}, ${order.zone} — ${order.customer_address}\n\n` +
+                `Livroto Bunia 🛵 — Senda order yako !`;
+              window.open(`https://wa.me/?text=${encodeURIComponent(recu)}`, "_blank");
+            }}
+          >
+            <Share2 className="h-4 w-4" /> Partager le reçu
+          </Button>
           <Button asChild variant="outline">
             <a href={`https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(`Bonjour Livroto, info sur ma commande #${order.code ?? order.id.slice(0, 6)}`)}`} target="_blank" rel="noreferrer">
               <MessageCircle className="h-4 w-4" /> Support Livroto
