@@ -170,3 +170,98 @@
     color: transparent;
   }
 }
+
+/* ============================================================
+   Polish global : fluidité, UX & thème (Livroto)
+   ============================================================ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;        /* décale les ancres sous la navbar sticky */
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-wrap: break-word;
+  }
+  /* Taps mobiles plus nets (pas de flash bleu) */
+  a, button, [role="button"], input, select, textarea, label, summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Transitions douces et cohérentes sur les éléments interactifs */
+  a, button, [role="button"] {
+    transition:
+      color .18s ease, background-color .18s ease, border-color .18s ease,
+      box-shadow .18s ease, transform .18s ease, opacity .18s ease, filter .18s ease;
+  }
+  /* Focus clavier accessible et joli */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 4px);
+  }
+  /* Sélection de texte aux couleurs de la marque */
+  ::selection {
+    background: color-mix(in oklch, var(--brand) 30%, transparent);
+  }
+  /* Barre de défilement discrète et thémée */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--brand) 35%, transparent) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--brand) 35%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--brand) 60%, transparent);
+    background-clip: content-box;
+  }
+}
+
+/* Respect des préférences d'accessibilité (mouvement réduit) */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes lv-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes lv-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lv-shimmer { 100% { transform: translateX(100%); } }
+
+@layer utilities {
+  .animate-fade-up { animation: lv-fade-up .45s cubic-bezier(.22,.61,.36,1) both; }
+  .animate-fade-in { animation: lv-fade-in .4s ease both; }
+  /* Entrée de page douce (utilisée par SiteLayout) */
+  .page-enter { animation: lv-fade-in .35s ease both; }
+
+  /* Ombres douces, légèrement teintées */
+  .shadow-soft {
+    box-shadow: 0 1px 2px oklch(0.18 0.03 170 / 6%), 0 10px 30px -12px oklch(0.18 0.03 170 / 14%);
+  }
+  .shadow-brand {
+    box-shadow: 0 10px 34px -12px color-mix(in oklch, var(--brand) 45%, transparent);
+  }
+
+  /* Feedback tactile : léger enfoncement au clic */
+  .tap { transition: transform .12s ease; }
+  .tap:active { transform: scale(.97); }
+
+  /* Skeleton shimmer pour les chargements */
+  .skeleton { position: relative; overflow: hidden; background: var(--muted); }
+  .skeleton::after {
+    content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--card) 65%, transparent), transparent);
+    animation: lv-shimmer 1.5s infinite;
+  }
+}

@@ -13,7 +13,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       <Navbar />
       <OfflineBanner />
       <WelcomeBanner />
-      <main className="flex-1 pb-24 md:pb-0">{children}</main>
+      <main className="flex-1 pb-24 md:pb-0 page-enter">{children}</main>
       <Footer />
       <WhatsAppFab />
       <InstallPWA />
