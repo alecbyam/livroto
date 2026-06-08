@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff } from "lucide-react";
 
 const SUPABASE_PROJECT = "joaepnfhhewadcklsquk";
-const AUTH_ATTEMPT_MS = 15000;   // délai par essai
-const AUTH_MAX_ATTEMPTS = 3;     // réessais auto pour connexions mobiles instables (Bunia)
+const AUTH_ATTEMPT_MS = 30000;   // délai généreux (connexions lentes Bunia)
+const AUTH_MAX_ATTEMPTS = 1;     // PAS de réessai auto : un login lent réussit souvent côté
+                                 // serveur — réessayer créerait des sessions en double et
+                                 // déclencherait la révocation de token (déconnexion en boucle).
 
 /** Nettoie les sessions Supabase d'anciens projets dans localStorage */
 function cleanStaleSupabaseSessions() {
@@ -28,7 +30,7 @@ function readableAuthError(err: any): string {
   const code = err?.code ?? err?.status;
   const message = String(err?.message ?? "").toLowerCase();
   if (message.includes("timeout") || message.includes("aborted") || message.includes("connexion trop lente")) {
-    return "Connexion instable (plusieurs essais échoués). Passe en WiFi ou rapproche-toi du réseau, puis réessaie.";
+    return "Connexion lente. Attends quelques secondes et réessaie (ne clique pas plusieurs fois).";
   }
   if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
     return "Email ou mot de passe incorrect.";
@@ -183,10 +185,22 @@ function AuthPage() {
         setFormMessage({ type: "success", text: msg });
 
       } else {
-        const { error } = await authWithRetry(() =>
-          supabase.auth.signInWithPassword({ email, password }),
-        );
-        if (error) throw error;
+        let signInError: any = null;
+        try {
+          const { error } = await withTimeout(
+            supabase.auth.signInWithPassword({ email, password }),
+            AUTH_ATTEMPT_MS,
+            "connexion trop lente",
+          );
+          signInError = error;
+        } catch (e) {
+          // Timeout : le login a peut-être réussi malgré la lenteur du réseau.
+          // On vérifie la session AVANT d'échouer — surtout ne pas relancer un login
+          // (ça créerait des sessions en double → révocation de token → déconnexion).
+          const { data: s } = await supabase.auth.getSession();
+          if (!s.session) throw e;
+        }
+        if (signInError) throw signInError;
         toast.success("Connexion réussie !");
         await postLoginRedirect(navigate);
       }
