@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Store, Bike, ShieldCheck, Package, Truck, Plus, CheckCircle2, XCircle, Clock, LogOut, Upload, Loader2, UserCircle2, Bell } from "lucide-react";
 import { Pencil, Trash2, DollarSign, MapPin, ImageIcon } from "lucide-react";
@@ -26,7 +26,7 @@ import {
   getRiderDashboard, toggleRiderAvailability,
   getAdminDashboard, adminUpdateVendorStatus, adminUpdateRiderStatus, adminApproveProduct,
   vendorUpdateProduct, vendorDeleteProduct, vendorUpdateShop,
-  getAvailableDeliveries, riderClaimOrder, riderUpdateOrderStatus, riderConfirmCash,
+  getAvailableDeliveries, riderClaimOrder, riderUpdateOrderStatus, riderConfirmCash, riderUpdateLocation,
   adminUpsertZone, adminResolveReport,
   adminListUsers, adminGrantRole, adminRevokeRole,
   adminListCoupons, adminUpsertCoupon,
@@ -719,6 +719,58 @@ function VendorPanel() {
   );
 }
 
+function RiderLiveShareCard() {
+  const update = useServerFn(riderUpdateLocation);
+  const [sharing, setSharing] = useState(false);
+  const [lastSent, setLastSent] = useState<Date | null>(null);
+  const watchId = useRef<number | null>(null);
+  const lastPush = useRef(0);
+
+  const stop = () => {
+    if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
+    setSharing(false);
+  };
+  useEffect(() => () => { if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current); }, []);
+
+  const start = () => {
+    if (!navigator.geolocation) { toast.error("Géolocalisation indisponible sur cet appareil"); return; }
+    setSharing(true);
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const now = Date.now();
+        if (now - lastPush.current < 15000) return; // throttle ~15s (data + batterie)
+        lastPush.current = now;
+        update({ data: { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6) } })
+          .then(() => setLastSent(new Date()))
+          .catch(() => {});
+      },
+      () => { toast.error("Active le GPS pour partager ta position"); stop(); },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
+    );
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-display font-bold flex items-center gap-2">
+            📍 Partage de position en direct
+            {sharing && <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {sharing
+              ? (lastSent ? `Position envoyée à ${lastSent.toLocaleTimeString("fr-FR")}` : "Recherche du signal GPS…")
+              : "Active-le pendant tes courses : le client te suit en temps réel."}
+          </p>
+        </div>
+        <Button size="sm" variant={sharing ? "default" : "outline"} onClick={sharing ? stop : start} className="shrink-0">
+          {sharing ? "⏹ Arrêter" : "▶ Activer"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: any }) {
   return (
     <div className="rounded-xl border bg-background p-3">
@@ -922,6 +974,8 @@ function RiderPanel() {
       </div>
 
       <CallMeBotCard role="rider" currentKey={r.callmebot_apikey} currentPhone={r.whatsapp} />
+
+      <RiderLiveShareCard />
 
       <div className="rounded-2xl border bg-card">
         <div className="border-b p-4"><h3 className="font-display text-lg font-bold">Mes courses</h3></div>

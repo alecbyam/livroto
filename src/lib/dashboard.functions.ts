@@ -463,6 +463,53 @@ export const getCustomerOrderDetail = createServerFn({ method: "POST" })
     return { order, items: items.data ?? [], history: history.data ?? [], review: review.data ?? null, rider, mobileMoney };
   });
 
+// Suivi en temps réel du livreur (le client poll cette fonction quand sa commande est en route)
+export const getDeliveryTracking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ order_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: order } = await supabase
+      .from("orders")
+      .select("id,customer_id,rider_id")
+      .eq("id", data.order_id)
+      .maybeSingle();
+    if (!order || order.customer_id !== userId) return { ok: false as const, reason: "forbidden" };
+    if (!order.rider_id) return { ok: false as const, reason: "no_rider" };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rider } = await supabaseAdmin
+      .from("riders")
+      .select("current_lat,current_lng,updated_at,full_name")
+      .eq("user_id", order.rider_id)
+      .maybeSingle();
+    if (rider?.current_lat == null || rider?.current_lng == null) {
+      return { ok: false as const, reason: "no_location" };
+    }
+    return {
+      ok: true as const,
+      lat: Number(rider.current_lat),
+      lng: Number(rider.current_lng),
+      updated_at: rider.updated_at,
+      name: rider.full_name,
+    };
+  });
+
+// Le livreur pousse sa position GPS (partage en direct pendant la course)
+export const riderUpdateLocation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("riders")
+      .update({ current_lat: data.lat, current_lng: data.lng })
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const customerCancelOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ order_id: z.string().uuid() }).parse(input))

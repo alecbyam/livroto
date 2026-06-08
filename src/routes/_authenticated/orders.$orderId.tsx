@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { getCustomerOrderDetail, customerCancelOrder, customerLeaveReview } from "@/lib/dashboard.functions";
+import { getCustomerOrderDetail, customerCancelOrder, customerLeaveReview, getDeliveryTracking } from "@/lib/dashboard.functions";
 import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
 
 export const Route = createFileRoute("/_authenticated/orders/$orderId")({
@@ -232,6 +232,11 @@ function OrderDetailPage() {
           )}
         </div>
 
+        {/* Suivi en temps réel quand le livreur est en route */}
+        {order.status === "picked_up" && (
+          <DeliveryTracker orderId={order.id} custLat={order.customer_lat} custLng={order.customer_lng} />
+        )}
+
         {/* Livreur assigné */}
         {order.rider_id && (
           <div className="mt-6 rounded-2xl border bg-card p-5">
@@ -340,5 +345,62 @@ function OrderDetailPage() {
         )}
       </div>
     </SiteLayout>
+  );
+}
+
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function DeliveryTracker({ orderId, custLat, custLng }: { orderId: string; custLat: number | null; custLng: number | null }) {
+  const track = useServerFn(getDeliveryTracking);
+  const { data } = useQuery({
+    queryKey: ["delivery-track", orderId],
+    queryFn: () => track({ data: { order_id: orderId } }),
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
+  });
+
+  if (!data?.ok) {
+    return (
+      <div className="mt-6 rounded-2xl border bg-card p-5">
+        <h2 className="font-display font-semibold flex items-center gap-2">🛵 Suivi en direct</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {(data as any)?.reason === "no_location"
+            ? "Le livreur n'a pas encore activé le partage de sa position. Contacte-le directement ci-dessous."
+            : "Suivi en cours d'activation…"}
+        </p>
+      </div>
+    );
+  }
+
+  const ageSec = Math.max(0, Math.round((Date.now() - new Date(data.updated_at as string).getTime()) / 1000));
+  const ageLabel = ageSec < 60 ? `il y a ${ageSec}s` : `il y a ${Math.round(ageSec / 60)} min`;
+  const dist = custLat != null && custLng != null ? distanceKm(data.lat, data.lng, custLat, custLng) : null;
+  const mapsUrl = `https://maps.google.com/?q=${data.lat},${data.lng}`;
+
+  return (
+    <div className="mt-6 rounded-2xl border-2 border-[color:var(--brand-dark)]/30 bg-[color:var(--brand-light)] p-5">
+      <h2 className="font-display font-semibold flex items-center gap-2">🛵 {data.name} arrive vers toi</h2>
+      {dist != null ? (
+        <p className="mt-2 font-display text-3xl font-bold text-[color:var(--brand-dark)]">
+          ~{dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`}
+          <span className="ml-2 text-sm font-normal text-muted-foreground">de toi</span>
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">Position du livreur partagée.</p>
+      )}
+      <p className="mt-1 text-[11px] text-muted-foreground">Mise à jour {ageLabel} · actualisation automatique</p>
+      <Button asChild size="sm" variant="outline" className="mt-3">
+        <a href={mapsUrl} target="_blank" rel="noreferrer">📍 Voir le livreur sur la carte</a>
+      </Button>
+    </div>
   );
 }
