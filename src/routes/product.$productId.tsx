@@ -215,6 +215,14 @@ function ProductPage() {
             <ReportDialog targetType="product" targetId={product.id} variant="ghost" />
           </div>
 
+          {!out && (
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">💵 Paiement cash à la livraison</span>
+              <span className="inline-flex items-center gap-1">🛵 Livreur local de Bunia</span>
+              <span className="inline-flex items-center gap-1">🚫 Aucun frais caché</span>
+            </div>
+          )}
+
           {vendor && (
             <div className="mt-6 rounded-2xl border bg-card p-4 flex items-center gap-3">
               <Link to="/vendor/$slug" params={{ slug: vendor.slug }} className="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--brand-light)] text-xl overflow-hidden shrink-0">

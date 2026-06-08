@@ -458,6 +458,11 @@ function CartPage() {
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-4 space-y-2 text-sm">
+              {items.some((i) => (i.stock ?? 99) <= 5) && (
+                <div className="-mt-1 mb-1 flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                  ⏰ Stock limité sur certains articles — finalise vite ta commande !
+                </div>
+              )}
               <div className="flex justify-between"><span>Sous-total produits</span><span>${subtotal.toFixed(2)}</span></div>
               {/* Coupon code */}
               <div className="pt-2 border-t border-border">
@@ -498,9 +503,18 @@ function CartPage() {
                 <span>Total produits</span>
                 <span>${payable.toFixed(2)}</span>
               </div>
+              {coupon && discount > 0 && (
+                <div className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                  💰 Tu économises ${discount.toFixed(2)} !
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground">
                 Le tarif de la course se discute directement avec le livreur selon la distance et la charge.
               </p>
+              <div className="flex items-center justify-center gap-1.5 pt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                Livreurs disponibles maintenant à Bunia
+              </div>
               <Button
                 onClick={checkout}
                 disabled={submitting}

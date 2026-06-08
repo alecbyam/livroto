@@ -304,8 +304,17 @@ function Catalog() {
 
       <section className="container mx-auto px-4 mt-8">
         {loading ? (
-          <div className="grid place-items-center py-20 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin" />
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card">
+                <div className="skeleton aspect-square" />
+                <div className="space-y-2 p-3">
+                  <div className="skeleton h-4 w-3/4 rounded" />
+                  <div className="skeleton h-4 w-1/2 rounded" />
+                  <div className="skeleton mt-2 h-9 w-full rounded-xl" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
@@ -313,8 +322,10 @@ function Catalog() {
           </div>
         ) : (
           <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filtered.map((p) => (
-              <ProductCard key={p.id} product={p} />
+            {filtered.map((p, i) => (
+              <div key={p.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
+                <ProductCard product={p} />
+              </div>
             ))}
           </div>
         )}
