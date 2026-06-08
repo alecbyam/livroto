@@ -3,6 +3,7 @@ import { Menu, User, Package, ShoppingCart, Heart, Store, Bike, ShieldCheck } fr
 import { Logo } from "./Logo";
 import { LangSwitcher } from "./LangSwitcher";
 import { CurrencyToggle } from "./CurrencyToggle";
+import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
@@ -45,6 +46,7 @@ export function Navbar() {
               )}
             </Link>
           </Button>
+          {signedIn && <NotificationBell />}
           {signedIn && (
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex" aria-label="Mes favoris">
               <Link to="/favorites"><Heart className="h-5 w-5" /></Link>

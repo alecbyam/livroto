@@ -190,15 +190,29 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
       .eq("id", data.order_id)
       .maybeSingle();
     if (!order || !order.customer_id) return { ok: false, reason: "no_order" };
-    if (!order.customer_phone) return { ok: false, reason: "no_phone" };
+
+    const codeLabel = order.code ?? order.id.slice(0, 8);
+
+    // Notification in-app (cloche) — créée systématiquement, indépendante du téléphone
+    await supabaseAdmin
+      .from("notifications")
+      .insert({
+        user_id: order.customer_id,
+        order_id: order.id,
+        channel: "in_app",
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        payload: { kind: "status", status: data.status, code: codeLabel, message: STATUS_MSG[data.status] ?? `Statut : ${data.status}` },
+      })
+      .then(undefined, () => {});
+
+    if (!order.customer_phone) return { ok: true, channel: "in_app" };
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("callmebot_apikey")
       .eq("id", order.customer_id)
       .maybeSingle();
-
-    const codeLabel = order.code ?? order.id.slice(0, 8);
 
     // 1) Canal préféré : WhatsApp (CallMeBot) si le client a configuré sa clé.
     let waOk = false;
@@ -241,4 +255,35 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
     }
 
     return { ok: waOk, channel: "whatsapp" };
+  });
+
+// ---------- Notifications in-app (cloche) ----------
+export const getMyNotifications = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data } = await supabase
+      .from("notifications")
+      .select("id,order_id,payload,read_at,created_at")
+      .eq("user_id", userId)
+      .eq("channel", "in_app")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const list = data ?? [];
+    const unread = list.filter((n: any) => !n.read_at).length;
+    return { list, unread };
+  });
+
+export const markNotificationsRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(() => ({}))
+  .handler(async ({ context }) => {
+    const { userId } = context;
+    await supabaseAdmin
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("channel", "in_app")
+      .is("read_at", null);
+    return { ok: true };
   });

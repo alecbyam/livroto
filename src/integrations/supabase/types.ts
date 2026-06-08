@@ -184,6 +184,7 @@ export type Database = {
           id: string
           order_id: string | null
           payload: Json
+          read_at: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["notification_status"]
           to_phone: string | null
@@ -196,6 +197,7 @@ export type Database = {
           id?: string
           order_id?: string | null
           payload?: Json
+          read_at?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           to_phone?: string | null
@@ -208,6 +210,7 @@ export type Database = {
           id?: string
           order_id?: string | null
           payload?: Json
+          read_at?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           to_phone?: string | null
