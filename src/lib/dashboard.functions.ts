@@ -88,6 +88,51 @@ export const getVendorDashboard = createServerFn({ method: "GET" })
     return { vendor, products: products.data ?? [], orders: orders.data ?? [], stats };
   });
 
+// Statistiques enrichies du vendeur : ventes/jour, top produits, revenus (30 jours)
+export const getVendorAnalytics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: orders } = await supabaseAdmin
+      .from("orders")
+      .select("created_at,total_usd,status,items:order_items(product_name,quantity,line_total_usd)")
+      .eq("vendor_id", userId)
+      .gte("created_at", since)
+      .order("created_at");
+
+    const byDay = new Map<string, { commandes: number; revenus: number }>();
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      byDay.set(d.toISOString().slice(0, 10), { commandes: 0, revenus: 0 });
+    }
+    let revenue30 = 0, delivered = 0, pending = 0;
+    const prod = new Map<string, { qty: number; revenue: number }>();
+    for (const o of orders ?? []) {
+      const day = (o.created_at as string).slice(0, 10);
+      const e = byDay.get(day);
+      if (e) { e.commandes++; if (o.status === "delivered") e.revenus += Number(o.total_usd ?? 0); }
+      if (o.status === "delivered") { delivered++; revenue30 += Number(o.total_usd ?? 0); }
+      if (o.status === "pending") pending++;
+      for (const it of ((o as any).items ?? [])) {
+        const cur = prod.get(it.product_name) ?? { qty: 0, revenue: 0 };
+        cur.qty += Number(it.quantity ?? 0);
+        cur.revenue += Number(it.line_total_usd ?? 0);
+        prod.set(it.product_name, cur);
+      }
+    }
+    const topProducts = Array.from(prod.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+    return {
+      daily: Array.from(byDay.entries()).map(([date, v]) => ({ date: date.slice(5), ...v })),
+      topProducts,
+      totals: { orders: (orders ?? []).length, delivered, pending, revenue30 },
+    };
+  });
+
 export const createProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>

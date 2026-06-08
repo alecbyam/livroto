@@ -22,7 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import {
   getMyOverview, applyAsVendor, applyAsRider, getZones,
-  getVendorDashboard, createProduct, updateOrderStatusVendor,
+  getVendorDashboard, getVendorAnalytics, createProduct, updateOrderStatusVendor,
   getRiderDashboard, toggleRiderAvailability,
   getAdminDashboard, adminUpdateVendorStatus, adminUpdateRiderStatus, adminApproveProduct,
   vendorUpdateProduct, vendorDeleteProduct, vendorUpdateShop,
@@ -548,6 +548,8 @@ function VendorPanel() {
       </div>
 
       <VendorShopCard vendor={v} onDone={() => qc.invalidateQueries({ queryKey: ["vendor-dash"] })} />
+
+      <VendorAnalyticsPanel />
 
       <CallMeBotCard role="vendor" currentKey={v.callmebot_apikey} currentPhone={v.whatsapp} />
 
@@ -1099,6 +1101,52 @@ function AdminPanel() {
 }
 
 /* ---------------- VENDOR: Shop editor ---------------- */
+function VendorAnalyticsPanel() {
+  const fetchA = useServerFn(getVendorAnalytics);
+  const { data } = useQuery({ queryKey: ["vendor-analytics"], queryFn: () => fetchA() });
+  const totals = data?.totals;
+  const top = data?.topProducts ?? [];
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      <div className="border-b p-4">
+        <h3 className="font-display text-lg font-bold">📊 Mes statistiques (30 jours)</h3>
+      </div>
+      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+        <Stat label="Commandes" value={totals?.orders ?? 0} />
+        <Stat label="Livrées" value={totals?.delivered ?? 0} />
+        <Stat label="En attente" value={totals?.pending ?? 0} />
+        <Stat label="Revenu $" value={(totals?.revenue30 ?? 0).toFixed(2)} />
+      </div>
+      <div className="px-4 pb-4">
+        <p className="mb-1 text-xs text-muted-foreground">Commandes par jour (14 derniers jours)</p>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={data?.daily ?? []} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+            <Tooltip />
+            <Bar dataKey="commandes" fill="var(--brand-dark)" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {top.length > 0 && (
+        <div className="border-t p-4">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">🏆 Top produits (par quantité vendue)</p>
+          <ul className="space-y-1.5">
+            {top.map((p: any, i: number) => (
+              <li key={p.name} className="flex items-center justify-between gap-2 text-sm">
+                <span className="truncate">{i + 1}. {p.name}</span>
+                <span className="shrink-0 text-muted-foreground">{p.qty} vendus · ${Number(p.revenue).toFixed(2)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void }) {
   const updateShop = useServerFn(vendorUpdateShop);
   const [open, setOpen] = useState(false);
