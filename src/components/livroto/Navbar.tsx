@@ -4,6 +4,7 @@ import { Logo } from "./Logo";
 import { LangSwitcher } from "./LangSwitcher";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { NotificationBell } from "./NotificationBell";
+import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
@@ -35,6 +36,7 @@ export function Navbar() {
         <nav className="hidden md:flex items-center gap-7">{links}</nav>
         <div className="flex items-center gap-1.5">
           <CurrencyToggle />
+          <ThemeToggle />
           <LangSwitcher />
           <Button asChild variant="ghost" size="sm" className="relative">
             <Link to="/cart" aria-label="Panier">

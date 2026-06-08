@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
 import { FavoritesProvider } from "@/lib/favorites";
 import { CurrencyProvider } from "@/lib/currency";
+import { ThemeProvider } from "@/lib/theme";
 
 function NotFoundComponent() {
   return (
@@ -128,6 +129,13 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Applique le thème avant le 1er rendu pour éviter tout flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('livroto.theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;if(d)e.classList.add('dark');e.style.colorScheme=d?'dark':'light';}catch(_){}})();",
+          }}
+        />
       </head>
       <body>
         {children}
@@ -141,23 +149,52 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
-    }
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // Auto-mise à jour : recharge la page quand une nouvelle version prend le contrôle.
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((reg) => {
+        // Vérifie les mises à jour régulièrement et au retour sur l'onglet
+        const check = () => reg.update().catch(() => {});
+        const interval = setInterval(check, 60_000);
+        window.addEventListener("focus", check);
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            // Nouvelle version installée alors qu'une ancienne contrôle déjà la page
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              nw.postMessage({ type: "SKIP_WAITING" }); // sw.js s'active → controllerchange → reload
+            }
+          });
+        });
+        return () => { clearInterval(interval); window.removeEventListener("focus", check); };
+      })
+      .catch(() => {});
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <CurrencyProvider>
-          <CartProvider>
-            <FavoritesProvider>
-              <Outlet />
-              <Toaster richColors position="top-center" />
-            </FavoritesProvider>
-          </CartProvider>
-        </CurrencyProvider>
-      </I18nProvider>
+      <ThemeProvider>
+        <I18nProvider>
+          <CurrencyProvider>
+            <CartProvider>
+              <FavoritesProvider>
+                <Outlet />
+                <Toaster richColors position="top-center" />
+              </FavoritesProvider>
+            </CartProvider>
+          </CurrencyProvider>
+        </I18nProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
