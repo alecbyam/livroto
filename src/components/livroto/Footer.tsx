@@ -24,8 +24,8 @@ export function Footer() {
         <div className="text-sm">
           <h4 className="font-display font-semibold mb-3 text-white">Livroto</h4>
           <ul className="space-y-2 text-white/80">
+            <li><Link to="/aide" className="hover:text-white">Aide & Contact</Link></li>
             <li><Link to="/about" className="hover:text-white">À propos</Link></li>
-            <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
             <li><Link to="/terms" className="hover:text-white">Conditions générales</Link></li>
             <li><Link to="/catalog" className="hover:text-white">Catalogue</Link></li>
           </ul>
