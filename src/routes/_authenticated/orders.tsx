@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, Package, ArrowLeft } from "lucide-react";
+import { Loader2, Package, ArrowLeft, RotateCcw } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useCart } from "@/lib/cart";
+import { toast } from "sonner";
 
 type OrderRow = {
   id: string;
@@ -43,6 +45,38 @@ export const Route = createFileRoute("/_authenticated/orders")({
 function MyOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { add } = useCart();
+  const [reordering, setReordering] = useState<string | null>(null);
+
+  const reorder = async (orderId: string) => {
+    setReordering(orderId);
+    try {
+      const { data: its } = await supabase.from("order_items").select("product_id,quantity").eq("order_id", orderId);
+      const lines = (its ?? []).filter((it: any) => it.product_id);
+      if (lines.length === 0) { toast.error("Aucun article à recommander"); return; }
+      const { data: prods } = await supabase
+        .from("products")
+        .select("id,name,price_usd,emoji,image_url,vendor_id,stock,approved")
+        .in("id", lines.map((it: any) => it.product_id));
+      const byId = new Map((prods ?? []).map((p: any) => [p.id, p]));
+      let added = 0, skipped = 0;
+      for (const it of lines) {
+        const p: any = byId.get(it.product_id);
+        if (!p || !p.approved || (p.stock ?? 0) <= 0) { skipped++; continue; }
+        add(
+          { id: p.id, name: p.name, price_usd: Number(p.price_usd), emoji: p.emoji ?? null, image_url: p.image_url ?? null, vendor_id: p.vendor_id ?? null, stock: p.stock },
+          Math.min(it.quantity ?? 1, p.stock),
+        );
+        added++;
+      }
+      if (added === 0) { toast.error("Ces produits ne sont plus disponibles."); return; }
+      toast.success(`🔁 ${added} article${added > 1 ? "s" : ""} ajouté${added > 1 ? "s" : ""} au panier${skipped > 0 ? ` · ${skipped} indisponible${skipped > 1 ? "s" : ""}` : ""}`);
+      navigate({ to: "/cart" });
+    } finally {
+      setReordering(null);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -114,6 +148,18 @@ function MyOrdersPage() {
                   <p className="text-xs text-muted-foreground">
                     qty {o.quantity} · livraison à négocier
                   </p>
+                  {o.status !== "cancelled" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      disabled={reordering === o.id}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); reorder(o.id); }}
+                    >
+                      {reordering === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                      Recommander
+                    </Button>
+                  )}
                 </div>
                 </Link>
               </li>

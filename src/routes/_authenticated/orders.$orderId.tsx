@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Phone, Share2, Star, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Phone, RotateCcw, Share2, Star, X } from "lucide-react";
+import { useCart } from "@/lib/cart";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,32 @@ function OrderDetailPage() {
   }
   if (!data) return null;
   const { order, items, history, review: existingReview, rider, mobileMoney } = data as any;
+
+  const navigate = useNavigate();
+  const { add } = useCart();
+
+  const reorder = async () => {
+    const lines = (items as any[]).filter((it) => it.product_id);
+    if (lines.length === 0) { toast.error("Aucun article à recommander"); return; }
+    const { data: prods } = await supabase
+      .from("products")
+      .select("id,name,price_usd,emoji,image_url,vendor_id,stock,approved")
+      .in("id", lines.map((it) => it.product_id));
+    const byId = new Map((prods ?? []).map((p: any) => [p.id, p]));
+    let added = 0, skipped = 0;
+    for (const it of lines) {
+      const p: any = byId.get(it.product_id);
+      if (!p || !p.approved || (p.stock ?? 0) <= 0) { skipped++; continue; }
+      add(
+        { id: p.id, name: p.name, price_usd: Number(p.price_usd), emoji: p.emoji ?? null, image_url: p.image_url ?? null, vendor_id: p.vendor_id ?? null, stock: p.stock },
+        Math.min(it.quantity ?? 1, p.stock),
+      );
+      added++;
+    }
+    if (added === 0) { toast.error("Ces produits ne sont plus disponibles."); return; }
+    toast.success(`🔁 ${added} article${added > 1 ? "s" : ""} ajouté${added > 1 ? "s" : ""} au panier${skipped > 0 ? ` · ${skipped} indisponible${skipped > 1 ? "s" : ""}` : ""}`);
+    navigate({ to: "/cart" });
+  };
 
   const onCancel = async () => {
     if (!confirm("Annuler cette commande ?")) return;
@@ -246,6 +273,9 @@ function OrderDetailPage() {
 
         {/* Actions */}
         <div className="mt-6 flex flex-wrap gap-2">
+          <Button onClick={reorder}>
+            <RotateCcw className="h-4 w-4" /> Recommander
+          </Button>
           {order.status === "pending" && (
             <Button variant="outline" onClick={onCancel} disabled={busy}>
               <X className="h-4 w-4" /> Annuler la commande
