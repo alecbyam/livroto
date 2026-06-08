@@ -193,6 +193,16 @@ function OrderDetailPage() {
           <p className="mt-2 text-sm">{order.customer_name} · {order.customer_phone}</p>
           <p className="text-sm text-muted-foreground">{order.zone} · {order.customer_address}</p>
           {order.customer_notes && <p className="mt-2 text-sm italic text-muted-foreground">"{order.customer_notes}"</p>}
+          {order.customer_lat != null && order.customer_lng != null && (
+            <a
+              href={`https://maps.google.com/?q=${order.customer_lat},${order.customer_lng}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--brand-dark)] hover:underline"
+            >
+              📍 Position GPS partagée — voir sur la carte
+            </a>
+          )}
         </div>
 
         {/* Livreur assigné */}

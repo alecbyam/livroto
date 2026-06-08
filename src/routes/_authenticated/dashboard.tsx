@@ -935,6 +935,13 @@ function RiderPanel() {
                 <p className="text-xs text-muted-foreground">📞 {o.customer_phone} · ${Number(o.total_usd).toFixed(2)}</p>
               </div>
               <Badge className={statusColor(o.status)} variant="outline">{o.status}</Badge>
+              {o.customer_lat != null && o.customer_lng != null && (
+                <Button asChild size="sm" variant="outline">
+                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${o.customer_lat},${o.customer_lng}`} target="_blank" rel="noreferrer">
+                    <MapPin className="h-4 w-4" /> Itinéraire
+                  </a>
+                </Button>
+              )}
               {o.status === "ready" && (
                 <Button size="sm" variant="outline" onClick={() => onStatus(o.id, "picked_up")}>Récupéré</Button>
               )}
@@ -970,6 +977,11 @@ function RiderPanel() {
                 <p className="font-medium">{o.code || o.id.slice(0, 8)} · {o.customer_name}</p>
                 <p className="text-xs text-muted-foreground"><MapPin className="inline h-3 w-3" /> {o.zone} · {o.customer_address}</p>
                 <p className="text-xs text-muted-foreground">${Number(o.total_usd).toFixed(2)} · livraison à négocier</p>
+                {o.customer_lat != null && o.customer_lng != null && (
+                  <a href={`https://maps.google.com/?q=${o.customer_lat},${o.customer_lng}`} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-[color:var(--brand-dark)] hover:underline">
+                    📍 Position GPS partagée
+                  </a>
+                )}
               </div>
               <Button size="sm" onClick={() => onClaim(o.id)} disabled={!r.is_available}>
                 Prendre

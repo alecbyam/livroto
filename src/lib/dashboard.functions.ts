@@ -506,7 +506,7 @@ export const getAvailableDeliveries = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("id,code,zone,customer_address,customer_name,total_usd,delivery_fee,status,created_at")
+      .select("id,code,zone,customer_address,customer_name,customer_lat,customer_lng,total_usd,delivery_fee,status,created_at")
       .is("rider_id", null)
       .in("status", ["confirmed", "ready"])
       .order("created_at", { ascending: true })

@@ -49,6 +49,8 @@ function CartPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoBusy, setGeoBusy] = useState(false);
   const [payment, setPayment] = useState<Payment>("cash");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -127,6 +129,20 @@ function CartPage() {
 
   const removeCoupon = () => { setCoupon(null); setCouponInput(""); };
 
+  const captureLocation = () => {
+    if (!navigator.geolocation) { toast.error("Géolocalisation indisponible sur cet appareil"); return; }
+    setGeoBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6) });
+        setGeoBusy(false);
+        toast.success("📍 Position partagée — le livreur te trouvera plus facilement !");
+      },
+      () => { setGeoBusy(false); toast.error("Impossible d'obtenir ta position. Active le GPS."); },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
   const checkout = async () => {
     if (!name || !phone || !address) {
       toast.error("Remplis ton nom, téléphone et adresse");
@@ -168,6 +184,8 @@ function CartPage() {
               customer_notes: notes || null,
               coupon_code: coupon?.code ?? null,
               discount_usd: groupDiscount,
+              customer_lat: coords?.lat ?? null,
+              customer_lng: coords?.lng ?? null,
               status: "pending",
             },
             items: g.items.map((it) => ({
@@ -218,6 +236,8 @@ function CartPage() {
           customer_notes: notes || null,
           coupon_code: coupon && groupDiscount > 0 ? coupon.code : null,
           discount_usd: groupDiscount,
+          customer_lat: coords?.lat ?? null,
+          customer_lng: coords?.lng ?? null,
           status: "pending",
         }).select("id,code").single();
 
@@ -256,6 +276,7 @@ function CartPage() {
       const text =
         `Bonjour Livroto ! Nouvelle commande (${createdCodes.join(", ")}) :\n${summary}\n` +
         (coupon && discount > 0 ? `Code promo ${coupon.code} : -$${discount.toFixed(2)}\n` : "") +
+        (coords ? `📍 Position GPS : https://maps.google.com/?q=${coords.lat},${coords.lng}\n` : "") +
         `Total produits : $${payable.toFixed(2)} — Livraison à négocier avec le livreur. Adresse : ${address}, ${zoneName}. Paiement : ${payment}. Nom : ${name}.`;
       const waUrl = `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(text)}`;
       clear();
@@ -367,6 +388,32 @@ function CartPage() {
                 onChange={setAddress}
                 required
               />
+
+              {/* Partage de position GPS — aide le livreur à localiser (adresses informelles) */}
+              <div className="rounded-xl border border-dashed border-[color:var(--brand-dark)]/40 bg-[color:var(--brand-light)]/40 p-3">
+                {coords ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-[color:var(--brand-dark)]">
+                      📍 Position partagée ✓
+                      <span className="block text-[11px] font-normal text-muted-foreground">{coords.lat}, {coords.lng}</span>
+                    </p>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setCoords(null)}>Retirer</Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={captureLocation}
+                    disabled={geoBusy}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--brand-dark)] px-3 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-60 min-h-[44px]"
+                  >
+                    {geoBusy ? "Localisation…" : "📍 Partager ma position GPS"}
+                  </button>
+                )}
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Recommandé : le livreur te trouve précisément, même sans adresse exacte.
+                </p>
+              </div>
+
               <div>
                 <Label htmlFor="c-zone">Quartier</Label>
                 <Select value={zoneId} onValueChange={setZoneId}>
