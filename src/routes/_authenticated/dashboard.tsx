@@ -1092,6 +1092,8 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
     whatsapp: vendor.whatsapp ?? "",
     logo_url: vendor.logo_url ?? "",
     cover_url: vendor.cover_url ?? "",
+    mobile_money_number: vendor.mobile_money_number ?? "",
+    mobile_money_name: vendor.mobile_money_name ?? "",
   });
   const [uploading, setUploading] = useState<"logo" | "cover" | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1130,6 +1132,8 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
         whatsapp: form.whatsapp,
         logo_url: form.logo_url || null,
         cover_url: form.cover_url || null,
+        mobile_money_number: form.mobile_money_number.trim() || null,
+        mobile_money_name: form.mobile_money_name.trim() || null,
       }});
       toast.success("Boutique mise à jour");
       setOpen(false);
@@ -1170,6 +1174,37 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
           <div className="md:col-span-2">
             <Label>Description</Label>
             <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1.5" maxLength={500} />
+          </div>
+
+          {/* Mobile Money — affiché au client qui paie par M-Pesa / Airtel / Orange */}
+          <div className="md:col-span-2 rounded-xl border border-dashed bg-muted/30 p-3">
+            <p className="text-sm font-semibold">📱 Paiement Mobile Money (optionnel)</p>
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              Affiché au client s'il choisit M-Pesa, Airtel Money ou Orange Money. Laisse vide pour cash uniquement.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Numéro Mobile Money</Label>
+                <Input
+                  value={form.mobile_money_number}
+                  onChange={(e) => setForm({ ...form, mobile_money_number: e.target.value })}
+                  className="mt-1.5"
+                  placeholder="+243 ..."
+                  maxLength={30}
+                  inputMode="tel"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Nom du compte</Label>
+                <Input
+                  value={form.mobile_money_name}
+                  onChange={(e) => setForm({ ...form, mobile_money_name: e.target.value })}
+                  className="mt-1.5"
+                  placeholder="Ex : MOISE BYAMUNGU"
+                  maxLength={80}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Logo upload */}

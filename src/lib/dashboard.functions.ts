@@ -388,10 +388,11 @@ export const getCustomerOrderDetail = createServerFn({ method: "POST" })
       supabase.from("order_status_history").select("*").eq("order_id", data.order_id).order("created_at"),
       supabase.from("reviews").select("*").eq("order_id", data.order_id).eq("author_id", userId).maybeSingle(),
     ]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     // Contact du livreur assigné (le client possède la commande → autorisé à le joindre)
     let rider: { full_name: string; whatsapp: string; vehicle: string } | null = null;
     if (order.rider_id) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: r } = await supabaseAdmin
         .from("riders")
         .select("full_name,whatsapp,vehicle")
@@ -399,7 +400,22 @@ export const getCustomerOrderDetail = createServerFn({ method: "POST" })
         .maybeSingle();
       rider = r ?? null;
     }
-    return { order, items: items.data ?? [], history: history.data ?? [], review: review.data ?? null, rider };
+
+    // Instructions Mobile Money du vendeur (si le client a choisi un paiement mobile)
+    let mobileMoney: { number: string; name: string | null; operator: string } | null = null;
+    const mmMethods = ["mpesa", "airtel_money", "orange_money"];
+    if (order.vendor_id && mmMethods.includes(order.payment_method as string)) {
+      const { data: v } = await supabaseAdmin
+        .from("vendors")
+        .select("mobile_money_number,mobile_money_name")
+        .eq("owner_id", order.vendor_id)
+        .maybeSingle();
+      if (v?.mobile_money_number) {
+        mobileMoney = { number: v.mobile_money_number, name: v.mobile_money_name ?? null, operator: order.payment_method as string };
+      }
+    }
+
+    return { order, items: items.data ?? [], history: history.data ?? [], review: review.data ?? null, rider, mobileMoney };
   });
 
 export const customerCancelOrder = createServerFn({ method: "POST" })
@@ -673,6 +689,8 @@ export const vendorUpdateShop = createServerFn({ method: "POST" })
       whatsapp: z.string().min(8).max(20).optional(),
       logo_url: z.string().url().max(1000).nullable().optional(),
       cover_url: z.string().url().max(1000).nullable().optional(),
+      mobile_money_number: z.string().max(30).nullable().optional(),
+      mobile_money_name: z.string().max(80).nullable().optional(),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -683,6 +701,8 @@ export const vendorUpdateShop = createServerFn({ method: "POST" })
     if (data.whatsapp !== undefined) patch.whatsapp = data.whatsapp;
     if (data.logo_url !== undefined) patch.logo_url = data.logo_url;
     if (data.cover_url !== undefined) patch.cover_url = data.cover_url;
+    if (data.mobile_money_number !== undefined) patch.mobile_money_number = data.mobile_money_number;
+    if (data.mobile_money_name !== undefined) patch.mobile_money_name = data.mobile_money_name;
     const { error } = await supabase.from("vendors").update(patch).eq("owner_id", userId);
     if (error) throw new Error(error.message);
     return { ok: true };

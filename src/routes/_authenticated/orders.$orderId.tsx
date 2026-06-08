@@ -21,6 +21,9 @@ const STATUS_LABEL: Record<string, string> = {
   pending: "En attente", confirmed: "Confirmée", ready: "Prête",
   picked_up: "En route", delivered: "Livrée", cancelled: "Annulée",
 };
+const MM_LABEL: Record<string, string> = {
+  mpesa: "M-Pesa (Vodacom)", airtel_money: "Airtel Money", orange_money: "Orange Money",
+};
 
 function OrderDetailPage() {
   const { orderId } = Route.useParams();
@@ -63,7 +66,7 @@ function OrderDetailPage() {
     );
   }
   if (!data) return null;
-  const { order, items, history, review: existingReview, rider } = data as any;
+  const { order, items, history, review: existingReview, rider, mobileMoney } = data as any;
 
   const onCancel = async () => {
     if (!confirm("Annuler cette commande ?")) return;
@@ -155,6 +158,34 @@ function OrderDetailPage() {
             <div className="flex justify-between font-display text-base font-bold"><span>Total produits</span><span>${Number(order.total_usd).toFixed(2)}</span></div>
           </div>
         </div>
+
+        {/* Instructions Mobile Money */}
+        {mobileMoney && (
+          <div className="mt-6 rounded-2xl border-2 border-[color:var(--brand-dark)]/30 bg-[color:var(--brand-light)] p-5">
+            <h2 className="font-display font-semibold flex items-center gap-2">
+              📱 Paiement {MM_LABEL[mobileMoney.operator] ?? mobileMoney.operator}
+            </h2>
+            <p className="mt-2 text-sm">
+              Envoie <span className="font-bold">${Number(order.total_usd).toFixed(2)}</span> au numéro :
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border bg-card p-3">
+              <div>
+                <p className="font-display text-lg font-bold tracking-wide">{mobileMoney.number}</p>
+                {mobileMoney.name && <p className="text-xs text-muted-foreground">{mobileMoney.name}</p>}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { navigator.clipboard?.writeText(mobileMoney.number); toast.success("Numéro copié"); }}
+              >
+                Copier
+              </Button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Après le paiement, garde le SMS de confirmation — le livreur peut le demander.
+            </p>
+          </div>
+        )}
 
         {/* Delivery info */}
         <div className="mt-6 rounded-2xl border bg-card p-5">

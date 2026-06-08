@@ -875,6 +875,8 @@ export type Database = {
           cover_url: string | null
           created_at: string
           description: string | null
+          mobile_money_name: string | null
+          mobile_money_number: string | null
           id: string
           logo_url: string | null
           owner_id: string
@@ -894,6 +896,8 @@ export type Database = {
           description?: string | null
           id?: string
           logo_url?: string | null
+          mobile_money_name?: string | null
+          mobile_money_number?: string | null
           owner_id: string
           rating_avg?: number
           rating_count?: number
@@ -911,6 +915,8 @@ export type Database = {
           description?: string | null
           id?: string
           logo_url?: string | null
+          mobile_money_name?: string | null
+          mobile_money_number?: string | null
           owner_id?: string
           rating_avg?: number
           rating_count?: number
