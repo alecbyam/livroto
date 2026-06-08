@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Share2, Star, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Phone, Share2, Star, X } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ function OrderDetailPage() {
     );
   }
   if (!data) return null;
-  const { order, items, history, review: existingReview } = data as any;
+  const { order, items, history, review: existingReview, rider } = data as any;
 
   const onCancel = async () => {
     if (!confirm("Annuler cette commande ?")) return;
@@ -167,12 +167,39 @@ function OrderDetailPage() {
         {/* Livreur assigné */}
         {order.rider_id && (
           <div className="mt-6 rounded-2xl border bg-card p-5">
-            <h2 className="font-display font-semibold flex items-center gap-2">
-              🛵 Ton livreur
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Un livreur a pris en charge ta commande. Tu peux le contacter directement.
-            </p>
+            <h2 className="font-display font-semibold flex items-center gap-2">🛵 Ton livreur</h2>
+            {rider ? (
+              <>
+                <p className="mt-2 text-sm">
+                  <span className="font-medium">{rider.full_name}</span>
+                  <span className="text-muted-foreground"> · {rider.vehicle}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">{rider.whatsapp}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Appelle-le pour préciser ta position (repère, rue, maison).
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button asChild size="sm" className="bg-[color:var(--whatsapp)] hover:brightness-105 text-white">
+                    <a
+                      href={`https://wa.me/${String(rider.whatsapp).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Bonjour, je suis ${order.customer_name} (commande Livroto #${order.code ?? order.id.slice(0, 6)}). Ma position : ${order.customer_address}, ${order.zone}.`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <MessageCircle className="h-4 w-4" /> WhatsApp livreur
+                    </a>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <a href={`tel:${String(rider.whatsapp).replace(/[^\d+]/g, "")}`}>
+                      <Phone className="h-4 w-4" /> Appeler
+                    </a>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Un livreur a pris en charge ta commande. Tu peux le contacter directement.
+              </p>
+            )}
           </div>
         )}
 

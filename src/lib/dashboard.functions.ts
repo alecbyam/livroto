@@ -388,7 +388,18 @@ export const getCustomerOrderDetail = createServerFn({ method: "POST" })
       supabase.from("order_status_history").select("*").eq("order_id", data.order_id).order("created_at"),
       supabase.from("reviews").select("*").eq("order_id", data.order_id).eq("author_id", userId).maybeSingle(),
     ]);
-    return { order, items: items.data ?? [], history: history.data ?? [], review: review.data ?? null };
+    // Contact du livreur assigné (le client possède la commande → autorisé à le joindre)
+    let rider: { full_name: string; whatsapp: string; vehicle: string } | null = null;
+    if (order.rider_id) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: r } = await supabaseAdmin
+        .from("riders")
+        .select("full_name,whatsapp,vehicle")
+        .eq("user_id", order.rider_id)
+        .maybeSingle();
+      rider = r ?? null;
+    }
+    return { order, items: items.data ?? [], history: history.data ?? [], review: review.data ?? null, rider };
   });
 
 export const customerCancelOrder = createServerFn({ method: "POST" })
