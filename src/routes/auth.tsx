@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Wifi, WifiOff } from "lucide-react";
+import { Loader2, Wifi, WifiOff, ShieldCheck } from "lucide-react";
 
 const SUPABASE_PROJECT = "joaepnfhhewadcklsquk";
 const AUTH_ATTEMPT_MS = 30000;   // délai généreux (connexions lentes Bunia)
@@ -117,6 +117,9 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(true);
   const [formMessage, setFormMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // Étape 2FA : après un mot de passe valide, si le compte a la 2FA activée.
+  const [mfaStep, setMfaStep] = useState<{ factorId: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
     // Nettoie les sessions d'anciens projets Supabase
@@ -201,6 +204,19 @@ function AuthPage() {
           if (!s.session) throw e;
         }
         if (signInError) throw signInError;
+
+        // 2FA : si le compte a un facteur vérifié, exiger le code avant d'entrer.
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+          const { data: factors } = await supabase.auth.mfa.listFactors();
+          const totp = factors?.totp?.find((f) => f.status === "verified");
+          if (totp) {
+            setMfaStep({ factorId: totp.id });
+            setMfaCode("");
+            return;
+          }
+        }
+
         toast.success("Connexion réussie !");
         await postLoginRedirect(navigate);
       }
@@ -212,6 +228,86 @@ function AuthPage() {
       setBusy(false);
     }
   };
+
+  const verifyMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaStep || mfaCode.trim().length < 6) return;
+    setBusy(true);
+    setFormMessage(null);
+    try {
+      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({ factorId: mfaStep.factorId });
+      if (cErr) throw cErr;
+      const { error: vErr } = await supabase.auth.mfa.verify({
+        factorId: mfaStep.factorId,
+        challengeId: ch.id,
+        code: mfaCode.trim(),
+      });
+      if (vErr) throw vErr;
+      setMfaStep(null);
+      toast.success("Connexion réussie !");
+      await postLoginRedirect(navigate);
+    } catch (err: any) {
+      const msg = /invalid|code|expired/i.test(err?.message ?? "")
+        ? "Code incorrect ou expiré. Réessaie."
+        : err?.message ?? "Erreur de vérification 2FA";
+      setFormMessage({ type: "error", text: msg });
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelMfa = async () => {
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    setMfaStep(null);
+    setMfaCode("");
+    setFormMessage(null);
+  };
+
+  // Écran 2FA : saisie du code à 6 chiffres après un mot de passe valide.
+  if (mfaStep) {
+    return (
+      <SiteLayout>
+        <div className="container mx-auto px-4 py-12 max-w-md">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--brand-light)] text-[color:var(--brand-dark)]">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <h1 className="mt-4 font-display text-2xl font-bold">Vérification en deux étapes</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Entre le code à 6 chiffres de ton application d'authentification.
+            </p>
+
+            {formMessage && (
+              <div role="alert" className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {formMessage.text}
+              </div>
+            )}
+
+            <form onSubmit={verifyMfa} className="mt-6 space-y-4">
+              <Input
+                autoFocus
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+                className="h-14 text-center text-2xl font-mono tracking-[0.4em]"
+              />
+              <Button type="submit" size="lg" disabled={busy || mfaCode.length < 6} className="w-full min-h-[52px] text-base font-bold">
+                {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+                Vérifier et se connecter
+              </Button>
+            </form>
+
+            <button onClick={cancelMfa} className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-primary">
+              ← Annuler
+            </button>
+          </div>
+        </div>
+      </SiteLayout>
+    );
+  }
 
   return (
     <SiteLayout>

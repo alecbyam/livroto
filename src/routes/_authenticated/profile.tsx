@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { updateMyProfile } from "@/lib/profile.functions";
 import { compressImage } from "@/lib/image";
+import { SecuritySettings } from "@/components/livroto/SecuritySettings";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -110,7 +111,7 @@ function ProfilePage() {
   return (
     <SiteLayout>
       <div className="container mx-auto max-w-xl px-4 py-8">
-        <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/dashboard" search={{ tab: "home" } as any} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Tableau de bord
         </Link>
         <h1 className="mt-3 font-display text-3xl font-bold">Mon profil</h1>
@@ -166,6 +167,11 @@ function ProfilePage() {
             Enregistrer
           </Button>
         </form>
+
+        {/* Sécurité : 2FA + gestion des appareils connectés */}
+        <h2 className="mt-10 font-display text-2xl font-bold">Sécurité</h2>
+        <p className="text-sm text-muted-foreground">Protège ton compte et gère tes appareils.</p>
+        <SecuritySettings />
       </div>
     </SiteLayout>
   );
