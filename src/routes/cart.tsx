@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
 import { LandmarkPicker } from "@/components/livroto/LandmarkPicker";
+import { RecommendedProducts } from "@/components/livroto/RecommendedProducts";
 import { FlexPayDialog } from "@/components/livroto/FlexPayDialog";
 import { offlineQueue, isOnline } from "@/lib/offline-queue";
 import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
@@ -311,15 +312,18 @@ function CartPage() {
   if (items.length === 0) {
     return (
       <SiteLayout>
-        <div className="container mx-auto px-4 py-16 max-w-xl text-center">
-          <div className="grid place-items-center">
-            <div className="h-20 w-20 grid place-items-center rounded-full bg-[color:var(--brand-light)]">
-              <ShoppingCart className="h-10 w-10 text-[color:var(--brand-dark)]" />
+        <div className="container mx-auto px-4 py-16 max-w-4xl">
+          <div className="text-center">
+            <div className="grid place-items-center">
+              <div className="h-20 w-20 grid place-items-center rounded-full bg-[color:var(--brand-light)]">
+                <ShoppingCart className="h-10 w-10 text-[color:var(--brand-dark)]" />
+              </div>
             </div>
+            <h1 className="mt-6 font-display text-2xl font-bold">Ton panier est vide</h1>
+            <p className="mt-2 text-muted-foreground">Ajoute des produits depuis le catalogue.</p>
+            <Button asChild className="mt-6"><Link to="/catalog">Voir le catalogue</Link></Button>
           </div>
-          <h1 className="mt-6 font-display text-2xl font-bold">Ton panier est vide</h1>
-          <p className="mt-2 text-muted-foreground">Ajoute des produits depuis le catalogue.</p>
-          <Button asChild className="mt-6"><Link to="/catalog">Voir le catalogue</Link></Button>
+          <RecommendedProducts />
         </div>
       </SiteLayout>
     );
@@ -519,8 +523,12 @@ function CartPage() {
                 )}
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Frais de livraison</span>
-                <span className="italic">à négocier</span>
+                <span>Livraison{zoneName ? ` · ${zoneName}` : ""}</span>
+                <span className="font-medium text-foreground">
+                  {selectedZone && selectedZone.delivery_fee_usd > 0
+                    ? `≈ $${selectedZone.delivery_fee_usd.toFixed(2)}`
+                    : "à confirmer"}
+                </span>
               </div>
               <div className="flex justify-between font-display text-base font-bold pt-2 border-t border-border">
                 <span>Total produits</span>

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Menu, User, Package, ShoppingCart, Heart, Store, Bike, ShieldCheck } from "lucide-react";
 import { Logo } from "./Logo";
+import { NavSearch } from "./NavSearch";
 import { LangSwitcher } from "./LangSwitcher";
 import { CurrencyToggle } from "./CurrencyToggle";
 import { NotificationBell } from "./NotificationBell";
@@ -32,9 +33,11 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      <div className="container mx-auto px-4">
+       <div className="flex h-16 items-center justify-between gap-3">
         <Logo />
-        <nav className="hidden md:flex items-center gap-7">{links}</nav>
+        <NavSearch className="hidden md:block flex-1 max-w-xs lg:max-w-sm" />
+        <nav className="hidden lg:flex items-center gap-6">{links}</nav>
         <div className="flex items-center gap-1.5">
           <CurrencyToggle />
           <ThemeToggle />
@@ -105,6 +108,11 @@ export function Navbar() {
             </SheetContent>
           </Sheet>
         </div>
+       </div>
+       {/* Recherche persistante mobile — pleine largeur (réflexe Jumia) */}
+       <div className="md:hidden pb-3">
+         <NavSearch />
+       </div>
       </div>
     </header>
   );

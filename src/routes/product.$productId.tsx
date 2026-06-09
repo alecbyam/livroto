@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
 import { useFavorite } from "@/lib/favorites";
+import { recordView } from "@/lib/recently-viewed";
 import { toast } from "sonner";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
 
@@ -53,6 +54,7 @@ function ProductPage() {
       if (cancel) return;
       setProduct(p as any);
       setActiveImg(0);
+      if (p) recordView(p.id);
       if (p?.vendor_id) {
         supabase.from("vendors").select("id,shop_name,slug,whatsapp,logo_url,rating_avg,rating_count")
           .eq("owner_id", p.vendor_id).maybeSingle()

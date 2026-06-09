@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ShoppingBag, Store, MessageCircle, Check, MapPin, Zap, Quote, TrendingUp } from "lucide-react";
+import { ArrowRight, ShoppingBag, Store, MessageCircle, Check, MapPin, Zap, Quote, TrendingUp, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { useI18n } from "@/lib/i18n";
+import { useCurrency } from "@/lib/currency";
 import { categoryMeta, CATEGORY_LIST } from "@/components/livroto/products";
 import { genericWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
@@ -35,12 +36,6 @@ const zones = [
   { name: "Nyakasansa", fee: 5 },
   { name: "Bigo", fee: 5 },
   { name: "Sukisa", fee: 3 },
-];
-
-const testimonials = [
-  { name: "Sarah, étudiante", quote: "J'ai commandé du fundi à 11h, livré à 11h45. Trop fort !", zone: "Lumumba" },
-  { name: "Patrick, vendeur", quote: "Depuis Livroto, je touche plus de clients sans bouger.", zone: "Centre-ville" },
-  { name: "ONG locale", quote: "Notre logistique interne, simplifiée. Pratique.", zone: "Mudzi Pela" },
 ];
 
 function Index() {
@@ -209,6 +204,22 @@ function HowItWorks() {
 
 function Zones() {
   const { t } = useI18n();
+  const { fmt } = useCurrency();
+  // Zones réelles depuis la DB → l'estimation affichée colle au panier (anti-anxiété prix).
+  const { data: dbZones = [] } = useQuery({
+    queryKey: ["home-zones"],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("zones")
+        .select("id,name,delivery_fee_usd")
+        .eq("active", true)
+        .order("delivery_fee_usd", { ascending: true });
+      return (data ?? []).map((z) => ({ ...z, delivery_fee_usd: Number(z.delivery_fee_usd) }));
+    },
+  });
+  const list = dbZones.length > 0 ? dbZones : zones.map((z) => ({ id: z.name, name: z.name, delivery_fee_usd: z.fee }));
+
   return (
     <section id="zones" className="container mx-auto px-4 py-16 md:py-24">
       <div className="max-w-2xl">
@@ -216,18 +227,20 @@ function Zones() {
         <p className="mt-3 text-muted-foreground">{t("zones.subtitle")}</p>
       </div>
       <div className="mt-10 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-        {zones.map((z) => (
-          <div key={z.name} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between">
+        {list.map((z) => (
+          <div key={z.id} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <MapPin className="h-5 w-5 text-primary" />
               <span className="font-medium">{z.name}</span>
             </div>
-            <span className="text-xs italic text-muted-foreground">à négocier</span>
+            <span className="text-xs font-semibold text-[color:var(--brand-dark)]">
+              {z.delivery_fee_usd > 0 ? `≈ ${fmt(z.delivery_fee_usd)}` : "à confirmer"}
+            </span>
           </div>
         ))}
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
-        Le tarif de livraison se négocie directement avec le livreur selon la distance, la charge et l'urgence.
+        Estimation indicative. Le tarif final se confirme avec le livreur selon la distance, la charge et l'urgence.
       </p>
     </section>
   );
@@ -320,13 +333,59 @@ function SellerForm() {
 
 function Testimonials() {
   const { t } = useI18n();
+  // Vrais avis clients (preuve sociale authentique — réflexe Airbnb/Amazon).
+  // On masque la section tant qu'il n'y a pas de vrais avis : jamais de faux témoignages.
+  const { data: items = [] } = useQuery({
+    queryKey: ["home-testimonials"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data: revs } = await supabase
+        .from("reviews")
+        .select("id,rating,comment,created_at,author_id,product_id")
+        .eq("target", "product")
+        .gte("rating", 4)
+        .not("comment", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(12);
+      const clean = (revs ?? []).filter((r) => (r.comment ?? "").trim().length >= 8).slice(0, 3);
+      if (clean.length === 0) return [];
+
+      const authorIds = [...new Set(clean.map((r) => r.author_id))];
+      const productIds = [...new Set(clean.map((r) => r.product_id).filter(Boolean) as string[])];
+      const [{ data: profs }, { data: prods }] = await Promise.all([
+        supabase.from("profiles").select("id,name,zone").in("id", authorIds),
+        productIds.length ? supabase.from("products").select("id,name").in("id", productIds) : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const nameById = new Map((profs ?? []).map((p) => [p.id, p]));
+      const prodById = new Map((prods ?? []).map((p) => [p.id, p.name]));
+
+      return clean.map((r) => {
+        const prof = nameById.get(r.author_id);
+        return {
+          id: r.id,
+          quote: (r.comment ?? "").trim(),
+          rating: r.rating,
+          name: prof?.name?.trim() || "Client Livroto",
+          zone: prof?.zone?.trim() || (r.product_id ? prodById.get(r.product_id) ?? "Bunia" : "Bunia"),
+        };
+      });
+    },
+  });
+
+  if (items.length === 0) return null;
+
   return (
     <section className="container mx-auto px-4 py-16 md:py-24">
       <h2 className="font-display text-3xl md:text-4xl font-bold text-center">{t("testimonials.title")}</h2>
       <div className="mt-10 grid gap-5 md:grid-cols-3">
-        {testimonials.map((tt) => (
-          <figure key={tt.name} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        {items.map((tt) => (
+          <figure key={tt.id} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <Quote className="h-6 w-6 text-[color:var(--amber)]" />
+            <div className="mt-2 flex items-center gap-0.5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} className={`h-4 w-4 ${i <= tt.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+              ))}
+            </div>
             <blockquote className="mt-3 text-base">{tt.quote}</blockquote>
             <figcaption className="mt-4 text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">{tt.name}</span> · {tt.zone}
