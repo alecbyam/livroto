@@ -85,6 +85,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+// Origine Supabase (API + images produits) — on ouvre la connexion tôt pour
+// accélérer la 1ère requête sur réseau lent (Bunia).
+const SUPABASE_ORIGIN = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -108,6 +112,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "format-detection", content: "telephone=no" },
     ],
     links: [
+      ...(SUPABASE_ORIGIN
+        ? [
+            { rel: "preconnect", href: SUPABASE_ORIGIN, crossOrigin: "anonymous" as const },
+            { rel: "dns-prefetch", href: SUPABASE_ORIGIN },
+          ]
+        : []),
       {
         rel: "stylesheet",
         href: appCss,
