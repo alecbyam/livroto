@@ -795,7 +795,7 @@ export const vendorUpdateShop = createServerFn({ method: "POST" })
     if (data.cover_url !== undefined) patch.cover_url = data.cover_url;
     if (data.mobile_money_number !== undefined) patch.mobile_money_number = data.mobile_money_number;
     if (data.mobile_money_name !== undefined) patch.mobile_money_name = data.mobile_money_name;
-    const { error } = await supabase.from("vendors").update(patch).eq("owner_id", userId);
+    const { error } = await supabase.from("vendors").update(patch as never).eq("owner_id", userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

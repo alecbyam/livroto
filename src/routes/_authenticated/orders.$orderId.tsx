@@ -29,6 +29,8 @@ const MM_LABEL: Record<string, string> = {
 function OrderDetailPage() {
   const { orderId } = Route.useParams();
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { add } = useCart();
   const fetchDetail = useServerFn(getCustomerOrderDetail);
   const cancel = useServerFn(customerCancelOrder);
   const review = useServerFn(customerLeaveReview);
@@ -68,9 +70,6 @@ function OrderDetailPage() {
   }
   if (!data) return null;
   const { order, items, history, review: existingReview, rider, mobileMoney } = data as any;
-
-  const navigate = useNavigate();
-  const { add } = useCart();
 
   const reorder = async () => {
     const lines = (items as any[]).filter((it) => it.product_id);

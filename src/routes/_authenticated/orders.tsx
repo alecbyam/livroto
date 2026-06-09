@@ -97,6 +97,7 @@ function MyOrdersPage() {
       <div className="container mx-auto px-4 py-10 max-w-3xl">
         <Link
           to="/dashboard"
+          search={{ tab: "home" } as any}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Tableau de bord

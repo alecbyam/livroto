@@ -689,7 +689,7 @@ function VendorPanel() {
                   </p>
                 </div>
                 <Badge className={statusColor(o.status)} variant="outline">
-                  {{"pending":"En attente","confirmed":"Confirmée","ready":"Prête","picked_up":"En route","delivered":"Livrée","cancelled":"Annulée"}[o.status] ?? o.status}
+                  {({"pending":"En attente","confirmed":"Confirmée","ready":"Prête","picked_up":"En route","delivered":"Livrée","cancelled":"Annulée"} as Record<string, string>)[o.status] ?? o.status}
                 </Badge>
                 <Select value={o.status} onValueChange={(s) => changeStatus(o.id, s)}>
                   <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
