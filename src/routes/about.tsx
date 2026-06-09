@@ -9,14 +9,35 @@ export const Route = createFileRoute("/about")({
       { name: "description", content: "Livroto connecte vendeurs, livreurs et clients à Bunia (Ituri, RDC). Commande locale, livraison rapide, paiement à la porte." },
       { property: "og:title", content: "À propos — Livroto" },
       { property: "og:description", content: "La marketplace locale de Bunia : commerçants vérifiés, livreurs du quartier, paiement cash." },
+      { name: "author", content: "iNova" },
+      { name: "publisher", content: "iNova" },
     ],
   }),
   component: AboutPage,
 });
 
+// Données structurées : iNova édite Livroto (marque/produit).
+const INOVA_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "iNova",
+  description: "iNova conçoit des produits numériques pensés pour la RDC.",
+  brand: { "@type": "Brand", name: "Livroto" },
+  makesOffer: {
+    "@type": "Offer",
+    itemOffered: {
+      "@type": "Service",
+      name: "Livroto",
+      description: "Marketplace de livraison locale à Bunia, Ituri (RDC).",
+      areaServed: "Bunia, Ituri, RDC",
+    },
+  },
+};
+
 function AboutPage() {
   return (
     <SiteLayout>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(INOVA_JSONLD) }} />
       <section className="container mx-auto max-w-4xl px-4 py-12 md:py-20">
         <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5" /> Notre histoire
@@ -51,6 +72,24 @@ function AboutPage() {
           <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4" /> Bunia, Ituri — RDC</span>
             <span className="inline-flex items-center gap-1.5"><Heart className="h-4 w-4 text-primary" /> Fait avec amour ici, chez nous</span>
+          </div>
+        </div>
+
+        {/* Édité par iNova */}
+        <div className="mt-12 rounded-3xl border border-border bg-gradient-to-br from-[color:var(--brand-light)]/60 to-card p-8 md:p-10">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[color:var(--brand-dark)] font-display text-2xl font-bold tracking-tight text-white">
+              iN
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Édité par</p>
+              <h2 className="font-display text-2xl md:text-3xl font-bold">Livroto by iNova</h2>
+              <p className="mt-2 max-w-2xl text-muted-foreground">
+                Livroto est un produit de <span className="font-semibold text-foreground">iNova</span>, qui conçoit
+                des produits numériques pensés pour les réalités de la RDC. Notre ambition : mettre la technologie
+                au service du commerce de proximité — à Bunia, et au-delà.
+              </p>
+            </div>
           </div>
         </div>
 

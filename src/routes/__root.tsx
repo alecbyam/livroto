@@ -110,6 +110,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-title", content: "Livroto" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "format-detection", content: "telephone=no" },
+      { name: "author", content: "iNova" },
+      { name: "publisher", content: "iNova" },
+      { property: "og:site_name", content: "Livroto" },
     ],
     links: [
       ...(SUPABASE_ORIGIN

@@ -35,6 +35,9 @@ export function Footer() {
           <h4 className="font-display font-semibold mb-3 text-white">À Bunia</h4>
           <p>Bunia livre à ta porte. Commande. Livroto arrive.</p>
           <p className="mt-6 text-xs text-white/50" suppressHydrationWarning>© {new Date().getFullYear()} Livroto. {t("footer.rights")}</p>
+          <p className="mt-1 text-xs text-white/60">
+            Un produit <Link to="/about" className="font-semibold text-white hover:underline">iNova</Link>
+          </p>
         </div>
       </div>
     </footer>
