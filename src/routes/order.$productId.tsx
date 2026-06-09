@@ -83,12 +83,12 @@ function OrderPage() {
         if (zs[0]) setZoneId(zs[0].id);
       }
       // prefill from profile if logged in
-      const { data: u } = await supabase.auth.getUser();
-      if (u.user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
         const { data: prof } = await supabase
           .from("profiles")
           .select("name,phone,zone")
-          .eq("id", u.user.id)
+          .eq("id", session.user.id)
           .maybeSingle();
         if (prof) {
           if (prof.name) setName(prof.name);
@@ -133,8 +133,8 @@ function OrderPage() {
     if (!name || !phone || !address) return;
     setSubmitting(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         toast.error("Connectez-vous pour passer commande");
         navigate({ to: "/auth" });
         return;
@@ -142,7 +142,7 @@ function OrderPage() {
       const { data: orderRow, error } = await supabase
         .from("orders")
         .insert({
-          customer_id: userData.user.id,
+          customer_id: session.user.id,
           customer_name: name,
           customer_phone: phone,
           customer_address: address,

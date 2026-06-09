@@ -467,11 +467,11 @@ function VendorPanel() {
   const uploadImage = async (file: File) => {
     setUploading(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Non connecté");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Non connecté");
       file = await compressImage(file);
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
+      const path = `${session.user.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("products").upload(path, file, {
         cacheControl: "31536000",
         upsert: false,
@@ -804,11 +804,11 @@ function VendorProductRow({
   const uploadImage = async (file: File) => {
     setUploading(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Non connecté");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Non connecté");
       file = await compressImage(file);
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
+      const path = `${session.user.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("products").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
       if (upErr) throw upErr;
       const { data: signed, error: sErr } = await supabase.storage.from("products").createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
@@ -1185,11 +1185,11 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
   const uploadImage = async (file: File, type: "logo" | "cover") => {
     setUploading(type);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Non connecté");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Non connecté");
       file = await compressImage(file, { maxSize: 1024 });
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${u.user.id}/vendor-${type}-${Date.now()}.${ext}`;
+      const path = `${session.user.id}/vendor-${type}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("products").upload(path, file, {
         cacheControl: "31536000", upsert: true, contentType: file.type,
       });

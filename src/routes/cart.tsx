@@ -70,18 +70,18 @@ function CartPage() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: z }, { data: u }] = await Promise.all([
+      const [{ data: z }, { data: s }] = await Promise.all([
         supabase.from("zones").select("id,name,delivery_fee_usd").eq("active", true).order("name"),
-        supabase.auth.getUser(),
+        supabase.auth.getSession(),
       ]);
       if (z) {
         const zs = z.map((zz) => ({ ...zz, delivery_fee_usd: Number(zz.delivery_fee_usd) }));
         setZones(zs);
         if (zs[0]) setZoneId(zs[0].id);
       }
-      if (u.user) {
+      if (s.session) {
         const { data: prof } = await supabase
-          .from("profiles").select("name,phone").eq("id", u.user.id).maybeSingle();
+          .from("profiles").select("name,phone").eq("id", s.session.user.id).maybeSingle();
         if (prof?.name) setName(prof.name);
         if (prof?.phone) setPhone(prof.phone);
       }
@@ -116,8 +116,8 @@ function CartPage() {
     if (!code) return;
     setValidatingCoupon(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         toast.error("Connecte-toi pour utiliser un code promo");
         navigate({ to: "/auth" });
         return;
@@ -161,8 +161,8 @@ function CartPage() {
     if (items.length === 0) return;
     setSubmitting(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         toast.error("Connecte-toi pour passer commande");
         navigate({ to: "/auth" });
         return;
@@ -230,7 +230,7 @@ function CartPage() {
         const totalQty = g.items.reduce((s, i) => s + i.qty, 0);
 
         const { data: order, error: oErr } = await supabase.from("orders").insert({
-          customer_id: u.user.id,
+          customer_id: session.user.id,
           customer_name: name,
           customer_phone: phone,
           customer_address: address,

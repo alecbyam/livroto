@@ -80,12 +80,12 @@ function MyOrdersPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setLoading(false); return; }
       const { data } = await supabase
         .from("orders")
         .select("id,code,status,total_usd,delivery_fee,zone,customer_address,quantity,created_at")
-        .eq("customer_id", u.user.id)
+        .eq("customer_id", session.user.id)
         .order("created_at", { ascending: false });
       if (data) setOrders(data as OrderRow[]);
       setLoading(false);

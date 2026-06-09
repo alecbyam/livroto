@@ -32,13 +32,13 @@ function ProfilePage() {
 
   useEffect(() => {
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
-      setUserId(u.user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setLoading(false); return; }
+      setUserId(session.user.id);
       const { data: p } = await supabase
         .from("profiles")
         .select("name,phone,zone,avatar_url")
-        .eq("id", u.user.id)
+        .eq("id", session.user.id)
         .maybeSingle();
       if (p) {
         setForm({
