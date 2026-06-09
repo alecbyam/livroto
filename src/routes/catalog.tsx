@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Loader2, X, SlidersHorizontal, Star } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -44,6 +45,14 @@ const CATS: { id: "all" | ProductCategory; label: string; emoji: string }[] = [
 ];
 
 type Subcat = { id: string; name: string; emoji: string | null; parent_category: ProductCategory };
+type CatProduct = DisplayProduct & { category: ProductCategory; subcategory_id: string | null };
+type VendorMeta = Map<string, { shopName: string; zoneIds: Set<string> }>;
+
+// Références vides stables -> évitent de recalculer les useMemo à chaque rendu.
+const EMPTY_PRODUCTS: CatProduct[] = [];
+const EMPTY_SUBCATS: Subcat[] = [];
+const EMPTY_ZONES: { id: string; name: string }[] = [];
+const EMPTY_META: VendorMeta = new Map();
 
 function Catalog() {
   const { t } = useI18n();
@@ -58,12 +67,6 @@ function Catalog() {
   const patchSearch = (patch: Record<string, any>) =>
     navigate({ search: (p: any) => ({ ...p, ...patch }), replace: true });
   const [openFilters, setOpenFilters] = useState(false);
-  const [products, setProducts] = useState<(DisplayProduct & { category: ProductCategory; subcategory_id: string | null })[]>([]);
-  const [subcats, setSubcats] = useState<Subcat[]>([]);
-  const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
-  // Map owner_id (= product.vendor_id) -> { boutique, quartiers desservis }
-  const [vendorMeta, setVendorMeta] = useState<Map<string, { shopName: string; zoneIds: Set<string> }>>(new Map());
-  const [loading, setLoading] = useState(true);
 
   // Recherche locale + debounce (évite de re-router à chaque frappe sur connexion lente)
   const [searchInput, setSearchInput] = useState(query);
@@ -75,9 +78,11 @@ function Catalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
+  // Données du catalogue, mises en cache (react-query) -> retour instantané + moins de data.
+  const { data: catalog, isLoading: loading } = useQuery({
+    queryKey: ["catalog-data"],
+    staleTime: 2 * 60_000,
+    queryFn: async () => {
       const [{ data, error }, { data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
         supabase
           .from("products")
@@ -102,7 +107,6 @@ function Catalog() {
           .from("vendor_zones")
           .select("vendor_id,zone_id"),
       ]);
-      if (cancel) return;
 
       // Quartiers desservis par chaque boutique : base_zone_id + vendor_zones,
       // indexés par owner_id car products.vendor_id = owner_id du vendeur.
@@ -112,40 +116,41 @@ function Catalog() {
         set.add(vz.zone_id);
         zonesByVendorRowId.set(vz.vendor_id, set);
       });
-      const meta = new Map<string, { shopName: string; zoneIds: Set<string> }>();
+      const meta: VendorMeta = new Map();
       (vendorRows ?? []).forEach((v: any) => {
         const zoneIds = new Set<string>(zonesByVendorRowId.get(v.id) ?? []);
         if (v.base_zone_id) zoneIds.add(v.base_zone_id);
         meta.set(v.owner_id, { shopName: v.shop_name ?? "", zoneIds });
       });
-      setVendorMeta(meta);
-      setZones((zoneRows ?? []) as { id: string; name: string }[]);
 
-      if (!error && data) {
-        setProducts(
-          data.map((p) => ({
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            price_usd: Number(p.price_usd),
-            stock: p.stock,
-            emoji: p.emoji,
-            image_url: p.image_url,
-            category: p.category as ProductCategory,
-            subcategory_id: p.subcategory_id,
-            vendor_id: p.vendor_id,
-            rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
-            rating_count: p.rating_count ?? 0,
-          })),
-        );
-      }
-      if (subs) setSubcats(subs as Subcat[]);
-      setLoading(false);
-    })();
-    return () => {
-      cancel = true;
-    };
-  }, []);
+      const products: CatProduct[] = (!error && data ? data : []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price_usd: Number(p.price_usd),
+        stock: p.stock,
+        emoji: p.emoji,
+        image_url: p.image_url,
+        category: p.category as ProductCategory,
+        subcategory_id: p.subcategory_id,
+        vendor_id: p.vendor_id,
+        rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
+        rating_count: p.rating_count ?? 0,
+      }));
+
+      return {
+        products,
+        subcats: (subs ?? []) as Subcat[],
+        zones: (zoneRows ?? []) as { id: string; name: string }[],
+        vendorMeta: meta,
+      };
+    },
+  });
+
+  const products = catalog?.products ?? EMPTY_PRODUCTS;
+  const subcats = catalog?.subcats ?? EMPTY_SUBCATS;
+  const zones = catalog?.zones ?? EMPTY_ZONES;
+  const vendorMeta = catalog?.vendorMeta ?? EMPTY_META;
 
   const visibleSubcats = useMemo(
     () => (cat === "all" ? [] : subcats.filter((s) => s.parent_category === cat)),

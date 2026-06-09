@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ShoppingBag, Store, MessageCircle, Check, MapPin, Zap, Quote, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,22 +59,25 @@ function Index() {
 
 /* ---------- Featured Products (depuis la DB) ---------- */
 function FeaturedProducts() {
-  const [products, setProducts] = useState<DisplayProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase
-      .from("products")
-      .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count")
-      .eq("approved", true)
-      .gt("stock", 0)
-      .order("rating_count", { ascending: false })
-      .limit(8)
-      .then(({ data }) => {
-        if (data) setProducts(data.map((p) => ({ ...p, price_usd: Number(p.price_usd), rating_avg: p.rating_avg ? Number(p.rating_avg) : 0, rating_count: p.rating_count ?? 0 })));
-        setLoading(false);
-      });
-  }, []);
+  const { data: products = [], isLoading: loading } = useQuery({
+    queryKey: ["featured-products"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count")
+        .eq("approved", true)
+        .gt("stock", 0)
+        .order("rating_count", { ascending: false })
+        .limit(8);
+      return (data ?? []).map((p) => ({
+        ...p,
+        price_usd: Number(p.price_usd),
+        rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
+        rating_count: p.rating_count ?? 0,
+      })) as DisplayProduct[];
+    },
+    staleTime: 5 * 60_000, // produits tendances : pas besoin de re-fetch souvent
+  });
 
   if (!loading && products.length === 0) return null;
 
