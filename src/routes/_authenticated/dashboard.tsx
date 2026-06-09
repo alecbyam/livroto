@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Store, Bike, ShieldCheck, Package, Truck, Plus, CheckCircle2, XCircle, Clock, LogOut, Upload, Loader2, UserCircle2, Bell } from "lucide-react";
-import { Pencil, Trash2, DollarSign, MapPin, ImageIcon } from "lucide-react";
+import { Pencil, Trash2, DollarSign, MapPin, ImageIcon, TrendingUp, TrendingDown, Wallet, Users, Store as StoreIcon, Bike as BikeIcon, RefreshCw } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 import { SiteLayout } from "@/components/livroto/SiteLayout";
@@ -30,7 +30,7 @@ import {
   adminUpsertZone, adminResolveReport,
   adminListUsers, adminGrantRole, adminRevokeRole,
   adminListCoupons, adminUpsertCoupon,
-  getAdminAnalytics, adminUpdateCdfRate,
+  getAdminAnalytics, adminUpdateCdfRate, getAdminOverview,
 } from "@/lib/dashboard.functions";
 import { saveCallmebotApiKey, notifyOrderStatusChanged } from "@/lib/notifications.functions";
 import { useCurrency } from "@/lib/currency";
@@ -1080,10 +1080,12 @@ function AdminPanel() {
 
   return (
     <div className="space-y-6">
+      <AdminOverviewPanel />
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat label="Commandes" value={data.stats.totalOrders} />
-        <Stat label="Livrées" value={data.stats.delivered} />
-        <Stat label="Revenu $" value={data.stats.revenue.toFixed(2)} />
+        <Stat label="Commandes (tot.)" value={data.stats.totalOrders} />
+        <Stat label="Livrées (tot.)" value={data.stats.delivered} />
+        <Stat label="Revenu total $" value={data.stats.revenue.toFixed(2)} />
         <Stat label="Vendeurs ⏳" value={data.stats.pendingVendors} />
         <Stat label="Livreurs ⏳" value={data.stats.pendingRiders} />
         <Stat label="Produits ⏳" value={data.stats.pendingProducts} />
@@ -1360,6 +1362,147 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
           </Button>
         </form>
       )}
+    </div>
+  );
+}
+
+/* ---------------- ADMIN: Vue d'ensemble (pilotage quotidien) ---------------- */
+function BigStat({
+  label, value, sub, icon: Icon, accent,
+}: { label: string; value: string; sub?: React.ReactNode; icon: any; accent?: boolean }) {
+  return (
+    <div className={`rounded-2xl border p-4 ${accent ? "bg-[color:var(--brand-dark)] text-white border-transparent" : "bg-card"}`}>
+      <div className="flex items-center justify-between">
+        <p className={`text-[11px] font-medium uppercase tracking-wider ${accent ? "text-white/70" : "text-muted-foreground"}`}>{label}</p>
+        <Icon className={`h-4 w-4 ${accent ? "text-white/80" : "text-muted-foreground"}`} />
+      </div>
+      <p className="mt-2 font-display text-2xl font-bold leading-none">{value}</p>
+      {sub != null && <div className={`mt-1.5 text-xs ${accent ? "text-white/75" : "text-muted-foreground"}`}>{sub}</div>}
+    </div>
+  );
+}
+
+function AdminOverviewPanel() {
+  const qc = useQueryClient();
+  const fetchOverview = useServerFn(getAdminOverview);
+  const { fmt } = useCurrency();
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["admin-overview"],
+    queryFn: () => fetchOverview(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  if (isLoading) return <div className="h-44 animate-pulse rounded-2xl bg-muted" />;
+  if (!data) return null;
+
+  const trend = data.today.trendOrders;
+  const TrendIcon = trend >= 0 ? TrendingUp : TrendingDown;
+  const maxZone = Math.max(1, ...data.hotZones.map((z) => z.orders));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-lg font-bold">🧭 Vue d'ensemble</h3>
+        <button
+          onClick={() => qc.invalidateQueries({ queryKey: ["admin-overview"] })}
+          className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted/50"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} /> Actualiser
+        </button>
+      </div>
+
+      {/* KPIs principaux */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <BigStat
+          accent
+          label="Aujourd'hui"
+          value={String(data.today.orders)}
+          icon={Package}
+          sub={
+            <span className="inline-flex items-center gap-1">
+              commandes ·
+              <span className={`inline-flex items-center gap-0.5 font-semibold ${trend >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                <TrendIcon className="h-3 w-3" />{Math.abs(trend)}%
+              </span>
+              <span className="text-white/60">vs hier</span>
+            </span>
+          }
+        />
+        <BigStat
+          label="Revenu du jour"
+          value={fmt(data.today.revenue)}
+          icon={DollarSign}
+          sub="commandes livrées"
+        />
+        <BigStat
+          label="Cette semaine"
+          value={fmt(data.week.revenue)}
+          icon={TrendingUp}
+          sub={`${data.week.orders} commandes · panier moy. ${fmt(data.week.avgBasket)}`}
+        />
+        <BigStat
+          label="Cash à encaisser"
+          value={fmt(data.cashToCollect)}
+          icon={Wallet}
+          sub="livrées non payées"
+        />
+      </div>
+
+      {/* Réseau + zones chaudes */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Réseau actif</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <StoreIcon className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1.5 font-display text-xl font-bold">{data.network.vendorsActive}</p>
+              <p className="text-[11px] text-muted-foreground">vendeurs actifs</p>
+              {data.network.vendorsPending > 0 && (
+                <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">{data.network.vendorsPending} en attente</p>
+              )}
+            </div>
+            <div className="text-center">
+              <BikeIcon className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1.5 font-display text-xl font-bold">{data.network.ridersActive}</p>
+              <p className="text-[11px] text-muted-foreground">livreurs actifs</p>
+              <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                {data.network.ridersOnline} en ligne <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 align-middle" />
+              </p>
+            </div>
+            <div className="text-center">
+              <Users className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1.5 font-display text-xl font-bold">{data.network.customers}</p>
+              <p className="text-[11px] text-muted-foreground">clients</p>
+              {data.network.newCustomers7d > 0 && (
+                <p className="text-[11px] font-medium text-primary">+{data.network.newCustomers7d} cette sem.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">🔥 Quartiers les plus actifs (7 j)</p>
+          {data.hotZones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Pas encore de commande cette semaine.</p>
+          ) : (
+            <ul className="space-y-2">
+              {data.hotZones.map((z) => (
+                <li key={z.zone} className="flex items-center gap-3">
+                  <span className="w-24 shrink-0 truncate text-sm font-medium">{z.zone}</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-[color:var(--brand-dark)]"
+                      style={{ width: `${Math.round((z.orders / maxZone) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right text-sm font-semibold">{z.orders}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

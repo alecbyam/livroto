@@ -834,6 +834,102 @@ export const getAdminAnalytics = createServerFn({ method: "GET" })
     };
   });
 
+// ---------- ADMIN: vue d'ensemble (pilotage quotidien) ----------
+// Bunia / Ituri = CAT (UTC+2). On calcule les bornes "aujourd'hui"/"hier" dans ce fuseau
+// pour que les chiffres collent à la journée réelle du gérant, pas à l'UTC.
+const BUNIA_TZ_OFFSET_MS = 2 * 60 * 60 * 1000;
+function startOfLocalDayUtc(ts: number): number {
+  const local = new Date(ts + BUNIA_TZ_OFFSET_MS);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - BUNIA_TZ_OFFSET_MS;
+}
+
+export const getAdminOverview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+    const startToday = startOfLocalDayUtc(now);
+    const startYesterday = startToday - DAY;
+    const since7 = now - 7 * DAY;
+    const since30 = now - 30 * DAY;
+
+    const [ordersRes, vendorsRes, ridersRes, customersHead, newCustomersHead] = await Promise.all([
+      supabaseAdmin
+        .from("orders")
+        .select("created_at,total_usd,status,zone,payment_status")
+        .gte("created_at", new Date(since30).toISOString()),
+      supabaseAdmin.from("vendors").select("status"),
+      supabaseAdmin.from("riders").select("status,is_available"),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", new Date(since7).toISOString()),
+    ]);
+
+    const orders = ordersRes.data ?? [];
+    const vendors = vendorsRes.data ?? [];
+    const riders = ridersRes.data ?? [];
+    const tms = (o: any) => new Date(o.created_at as string).getTime();
+    const delivered = (o: any) => o.status === "delivered";
+
+    const window = (from: number, to: number) => {
+      const inWin = orders.filter((o) => tms(o) >= from && tms(o) < to);
+      const deliv = inWin.filter(delivered);
+      return {
+        orders: inWin.length,
+        revenue: deliv.reduce((s, o) => s + Number(o.total_usd ?? 0), 0),
+        delivered: deliv.length,
+      };
+    };
+
+    const today = window(startToday, now + 1);
+    const yesterday = window(startYesterday, startToday);
+    const week = window(since7, now + 1);
+
+    // Tendance jour vs hier (% commandes)
+    const trendOrders = yesterday.orders === 0
+      ? (today.orders > 0 ? 100 : 0)
+      : Math.round(((today.orders - yesterday.orders) / yesterday.orders) * 100);
+
+    // Zones chaudes : top quartiers par nombre de commandes (7 derniers jours)
+    const zoneMap = new Map<string, { orders: number; revenue: number }>();
+    for (const o of orders) {
+      if (tms(o) < since7) continue;
+      const z = (o.zone as string) || "—";
+      const e = zoneMap.get(z) ?? { orders: 0, revenue: 0 };
+      e.orders++;
+      if (delivered(o)) e.revenue += Number(o.total_usd ?? 0);
+      zoneMap.set(z, e);
+    }
+    const hotZones = Array.from(zoneMap.entries())
+      .map(([zone, v]) => ({ zone, ...v }))
+      .sort((a, b) => b.orders - a.orders)
+      .slice(0, 6);
+
+    // Cash à encaisser : commandes livrées mais non payées (30 j)
+    const cashToCollect = orders
+      .filter((o) => delivered(o) && o.payment_status !== "paid")
+      .reduce((s, o) => s + Number(o.total_usd ?? 0), 0);
+
+    const avgBasket = week.delivered > 0 ? week.revenue / week.delivered : 0;
+
+    return {
+      today: { orders: today.orders, revenue: today.revenue, trendOrders },
+      week: { orders: week.orders, revenue: week.revenue, avgBasket },
+      network: {
+        vendorsActive: vendors.filter((v: any) => v.status === "approved").length,
+        vendorsPending: vendors.filter((v: any) => v.status === "pending").length,
+        ridersActive: riders.filter((r: any) => r.status === "active").length,
+        ridersOnline: riders.filter((r: any) => r.status === "active" && r.is_available).length,
+        customers: customersHead.count ?? 0,
+        newCustomers7d: newCustomersHead.count ?? 0,
+      },
+      cashToCollect,
+      hotZones,
+    };
+  });
+
 // ---------- ADMIN: taux de change CDF ----------
 export const adminSetCdfRate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
