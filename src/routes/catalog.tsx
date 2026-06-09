@@ -16,6 +16,7 @@ const CATEGORY_IDS = CATEGORY_LIST.map((c) => c.id) as [ProductCategory, ...Prod
 const catalogSearchSchema = z.object({
   cat: fallback(z.enum(["all", ...CATEGORY_IDS]), "all").default("all"),
   sub: fallback(z.string(), "all").default("all"),
+  zone: fallback(z.string(), "all").default("all"),
   q:   fallback(z.string(), "").default(""),
   sort: fallback(z.enum(["new", "price_asc", "price_desc", "rating", "popular"]), "new").default("new"),
   min:  fallback(z.coerce.number().min(0), 0).default(0),
@@ -46,7 +47,7 @@ type Subcat = { id: string; name: string; emoji: string | null; parent_category:
 
 function Catalog() {
   const { t } = useI18n();
-  const { cat, sub: subId, q: query, sort, min, max, rate, stk } = Route.useSearch();
+  const { cat, sub: subId, zone, q: query, sort, min, max, rate, stk } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
   const setCat = (next: "all" | ProductCategory) =>
     navigate({ search: (p: any) => ({ ...p, cat: next, sub: "all" }) });
@@ -59,12 +60,25 @@ function Catalog() {
   const [openFilters, setOpenFilters] = useState(false);
   const [products, setProducts] = useState<(DisplayProduct & { category: ProductCategory; subcategory_id: string | null })[]>([]);
   const [subcats, setSubcats] = useState<Subcat[]>([]);
+  const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
+  // Map owner_id (= product.vendor_id) -> { boutique, quartiers desservis }
+  const [vendorMeta, setVendorMeta] = useState<Map<string, { shopName: string; zoneIds: Set<string> }>>(new Map());
   const [loading, setLoading] = useState(true);
+
+  // Recherche locale + debounce (évite de re-router à chaque frappe sur connexion lente)
+  const [searchInput, setSearchInput] = useState(query);
+  useEffect(() => { setSearchInput(query); }, [query]);
+  useEffect(() => {
+    if (searchInput === query) return;
+    const id = setTimeout(() => setQuery(searchInput), 250);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   useEffect(() => {
     let cancel = false;
     (async () => {
-      const [{ data, error }, { data: subs }] = await Promise.all([
+      const [{ data, error }, { data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
         supabase
           .from("products")
           .select("id,name,description,price_usd,stock,emoji,image_url,category,subcategory_id,vendor_id,rating_avg,rating_count")
@@ -75,8 +89,38 @@ function Catalog() {
           .select("id,name,emoji,parent_category,sort_order")
           .eq("active", true)
           .order("sort_order", { ascending: true }),
+        supabase
+          .from("zones")
+          .select("id,name")
+          .eq("active", true)
+          .order("name", { ascending: true }),
+        supabase
+          .from("vendors")
+          .select("id,owner_id,shop_name,base_zone_id")
+          .eq("status", "approved"),
+        supabase
+          .from("vendor_zones")
+          .select("vendor_id,zone_id"),
       ]);
       if (cancel) return;
+
+      // Quartiers desservis par chaque boutique : base_zone_id + vendor_zones,
+      // indexés par owner_id car products.vendor_id = owner_id du vendeur.
+      const zonesByVendorRowId = new Map<string, Set<string>>();
+      (vzRows ?? []).forEach((vz: any) => {
+        const set = zonesByVendorRowId.get(vz.vendor_id) ?? new Set<string>();
+        set.add(vz.zone_id);
+        zonesByVendorRowId.set(vz.vendor_id, set);
+      });
+      const meta = new Map<string, { shopName: string; zoneIds: Set<string> }>();
+      (vendorRows ?? []).forEach((v: any) => {
+        const zoneIds = new Set<string>(zonesByVendorRowId.get(v.id) ?? []);
+        if (v.base_zone_id) zoneIds.add(v.base_zone_id);
+        meta.set(v.owner_id, { shopName: v.shop_name ?? "", zoneIds });
+      });
+      setVendorMeta(meta);
+      setZones((zoneRows ?? []) as { id: string; name: string }[]);
+
       if (!error && data) {
         setProducts(
           data.map((p) => ({
@@ -113,12 +157,14 @@ function Catalog() {
     const list = products.filter((p) => {
       if (cat !== "all" && p.category !== cat) return false;
       if (subId !== "all" && p.subcategory_id !== subId) return false;
+      const meta = p.vendor_id ? vendorMeta.get(p.vendor_id) : undefined;
+      if (zone !== "all" && !(meta?.zoneIds.has(zone))) return false;
       if (stk && p.stock <= 0) return false;
       if (min > 0 && p.price_usd < min) return false;
       if (max > 0 && p.price_usd > max) return false;
       if (rate > 0 && Number(p.rating_avg ?? 0) < rate) return false;
       if (q) {
-        const hay = `${p.name} ${p.description ?? ""}`.toLowerCase();
+        const hay = `${p.name} ${p.description ?? ""} ${meta?.shopName ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -132,10 +178,11 @@ function Catalog() {
       default: break;
     }
     return sorted;
-  }, [query, cat, subId, products, sort, min, max, rate, stk]);
+  }, [query, cat, subId, zone, products, vendorMeta, sort, min, max, rate, stk]);
 
-  const activeFiltersCount = (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) + (rate > 0 ? 1 : 0) + (stk ? 1 : 0);
-  const resetFilters = () => patchSearch({ min: 0, max: 0, rate: 0, stk: false, sort: "new" });
+  const activeFiltersCount = (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) + (rate > 0 ? 1 : 0) + (stk ? 1 : 0) + (zone !== "all" ? 1 : 0);
+  const resetFilters = () => patchSearch({ min: 0, max: 0, rate: 0, stk: false, sort: "new", zone: "all" });
+  const zoneName = zone === "all" ? null : (zones.find((z) => z.id === zone)?.name ?? null);
 
   return (
     <SiteLayout>
@@ -147,16 +194,16 @@ function Catalog() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder={t("catalog.search")}
               className="pl-9 pr-10 min-h-[48px]"
             />
-            {query && (
+            {searchInput && (
               <button
                 type="button"
                 aria-label="Effacer la recherche"
-                onClick={() => setQuery("")}
+                onClick={() => setSearchInput("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" />
@@ -238,6 +285,21 @@ function Catalog() {
               <option value="rating">Mieux notés</option>
               <option value="popular">Plus populaires</option>
             </select>
+            {zones.length > 0 && (
+              <select
+                value={zone}
+                onChange={(e) => patchSearch({ zone: e.target.value })}
+                className={`rounded-full border px-4 py-2 text-sm font-medium min-h-[40px] ${
+                  zone !== "all" ? "border-primary bg-primary/10 text-primary" : "border-border bg-card"
+                }`}
+                aria-label="Filtrer par quartier"
+              >
+                <option value="all">📍 Tous les quartiers</option>
+                {zones.map((z) => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
+            )}
             {activeFiltersCount > 0 && (
               <button
                 type="button"
@@ -318,7 +380,20 @@ function Catalog() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
-            {t("catalog.empty")}
+            {zoneName ? (
+              <div className="space-y-2">
+                <p>Aucun produit livré à <b className="text-foreground">{zoneName}</b> pour ces critères.</p>
+                <button
+                  type="button"
+                  onClick={() => patchSearch({ zone: "all" })}
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/50"
+                >
+                  <X className="h-3.5 w-3.5" /> Voir tous les quartiers
+                </button>
+              </div>
+            ) : (
+              t("catalog.empty")
+            )}
           </div>
         ) : (
           <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
