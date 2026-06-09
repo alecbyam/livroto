@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendAfricasTalkingSMS, STATUS_SMS } from "./sms.functions";
+import { getPublicFlag } from "@/lib/integrations/config.server";
+import { getWhatsappConfig, sendWhatsAppText } from "@/lib/integrations/whatsapp.server";
 
 // CallMeBot WhatsApp sender.
 // Each recipient must have activated CallMeBot on his own WhatsApp number
@@ -214,26 +216,46 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
       .eq("id", order.customer_id)
       .maybeSingle();
 
-    // 1) Canal préféré : WhatsApp (CallMeBot) si le client a configuré sa clé.
+    const statusMsg = STATUS_MSG[data.status] ?? `Statut : ${data.status}`;
+    const msg =
+      `Livroto — Commande ${codeLabel}\n` +
+      `${statusMsg}\n` +
+      `Total produits : $${Number(order.total_usd).toFixed(2)} (livraison à négocier)`;
+
     let waOk = false;
-    if (profile?.callmebot_apikey) {
-      const msg =
-        `Livroto — Commande ${codeLabel}\n` +
-        `${STATUS_MSG[data.status] ?? `Statut : ${data.status}`}\n` +
-        `Total produits : $${Number(order.total_usd).toFixed(2)} (livraison à négocier)`;
+
+    // 1) Canal préféré : WhatsApp Cloud API (Meta) si l'intégration est activée + configurée.
+    if (await getPublicFlag("whatsapp_enabled")) {
+      const waCfg = await getWhatsappConfig();
+      if (waCfg) {
+        const r = await sendWhatsAppText(waCfg, order.customer_phone, msg);
+        waOk = r.ok;
+        await logNotification({
+          user_id: order.customer_id,
+          order_id: order.id,
+          to_phone: order.customer_phone,
+          payload: { kind: "customer_status", status: data.status, code: codeLabel, via: "whatsapp_cloud" },
+          ok: r.ok,
+          error: r.ok ? undefined : String(r.error ?? "").slice(0, 200),
+        });
+      }
+    }
+
+    // 2) Sinon : WhatsApp via CallMeBot si le client a configuré sa clé.
+    if (!waOk && profile?.callmebot_apikey) {
       const r = await sendCallMeBot(order.customer_phone, msg, profile.callmebot_apikey);
       waOk = r.ok;
       await logNotification({
         user_id: order.customer_id,
         order_id: order.id,
         to_phone: order.customer_phone,
-        payload: { kind: "customer_status", status: data.status, code: codeLabel },
+        payload: { kind: "customer_status", status: data.status, code: codeLabel, via: "callmebot" },
         ok: r.ok,
         error: r.ok ? undefined : `HTTP ${r.status}: ${r.body.slice(0, 200)}`,
       });
     }
 
-    // 2) Fallback SMS : si pas de WhatsApp configuré ou si l'envoi a échoué,
+    // 3) Fallback SMS : si aucun canal WhatsApp n'a fonctionné,
     //    on bascule sur Africa's Talking (couvre Airtel/Vodacom/Orange à Bunia).
     if (!waOk && STATUS_SMS[data.status]) {
       const smsText = `${STATUS_SMS[data.status]} (Cmd #${codeLabel})`;

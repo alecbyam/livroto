@@ -35,6 +35,7 @@ import {
 import { saveCallmebotApiKey, notifyOrderStatusChanged } from "@/lib/notifications.functions";
 import { useCurrency } from "@/lib/currency";
 import { compressImage } from "@/lib/image";
+import { AdminIntegrationsPanel } from "@/components/livroto/AdminIntegrationsPanel";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -1092,6 +1093,8 @@ function AdminPanel() {
       </div>
 
       <AdminRatePanel />
+
+      <AdminIntegrationsPanel />
 
       <AdminAnalyticsPanel />
 

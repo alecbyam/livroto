@@ -23,6 +23,7 @@ export function Navbar() {
   const links = (
     <>
       <Link to="/catalog" className="text-sm font-medium hover:text-primary">{t("nav.catalog")}</Link>
+      <Link to="/boutiques" className="text-sm font-medium hover:text-primary">Boutiques</Link>
       <a href="/#how" className="text-sm font-medium hover:text-primary">{t("nav.howItWorks")}</a>
       <a href="/#zones" className="text-sm font-medium hover:text-primary">{t("nav.zones")}</a>
       <a href="/#seller" className="text-sm font-medium hover:text-primary">{t("nav.becomeSeller")}</a>

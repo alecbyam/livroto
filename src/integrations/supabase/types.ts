@@ -35,6 +35,30 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_settings: {
+        Row: {
+          is_secret: boolean
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string | null
+        }
+        Insert: {
+          is_secret?: boolean
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Update: {
+          is_secret?: boolean
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           active: boolean
@@ -431,10 +455,15 @@ export type Database = {
           collected_at: string | null
           collected_by: string | null
           created_at: string
+          currency: string | null
           id: string
           method: Database["public"]["Enums"]["payment_method"]
           order_id: string
+          phone: string | null
+          provider: string | null
           provider_ref: string | null
+          provider_status: string | null
+          raw: Json | null
           status: Database["public"]["Enums"]["payment_status"]
           updated_at: string
         }
@@ -443,10 +472,15 @@ export type Database = {
           collected_at?: string | null
           collected_by?: string | null
           created_at?: string
+          currency?: string | null
           id?: string
           method: Database["public"]["Enums"]["payment_method"]
           order_id: string
+          phone?: string | null
+          provider?: string | null
           provider_ref?: string | null
+          provider_status?: string | null
+          raw?: Json | null
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
         }
@@ -455,10 +489,15 @@ export type Database = {
           collected_at?: string | null
           collected_by?: string | null
           created_at?: string
+          currency?: string | null
           id?: string
           method?: Database["public"]["Enums"]["payment_method"]
           order_id?: string
+          phone?: string | null
+          provider?: string | null
           provider_ref?: string | null
+          provider_status?: string | null
+          raw?: Json | null
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
         }

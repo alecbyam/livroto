@@ -28,7 +28,7 @@ export function MobileTabBar() {
         />
         <TabItem
           to="/catalog"
-          active={isActive("/catalog") || isActive("/product") || isActive("/vendor")}
+          active={isActive("/catalog") || isActive("/product") || isActive("/vendor") || isActive("/boutiques")}
           icon={<ShoppingBag className="h-5 w-5" />}
           label={t("nav.catalog")}
         />

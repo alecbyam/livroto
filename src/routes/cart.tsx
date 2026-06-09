@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
 import { LandmarkPicker } from "@/components/livroto/LandmarkPicker";
+import { FlexPayDialog } from "@/components/livroto/FlexPayDialog";
 import { offlineQueue, isOnline } from "@/lib/offline-queue";
 import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
 import { useServerFn } from "@tanstack/react-start";
@@ -57,6 +58,14 @@ function CartPage() {
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discount: number; description: string | null } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  // FlexPay (paiement mobile money en ligne) — activé via l'admin
+  const [flexpayEnabled, setFlexpayEnabled] = useState(false);
+  const [fp, setFp] = useState<{ orderId: string; label: string } | null>(null);
+
+  useEffect(() => {
+    supabase.from("app_settings").select("value").eq("key", "flexpay_enabled").maybeSingle()
+      .then(({ data }) => setFlexpayEnabled(data?.value === "true"));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -271,6 +280,15 @@ function CartPage() {
         recordUse({ data: { code: coupon.code } }).catch(() => {});
       }
 
+      // Paiement FlexPay en ligne : si activé + mobile money choisi + un seul vendeur,
+      // on lance le push USSD et on suit le paiement dans une fenêtre dédiée.
+      // (Le cas multi-vendeurs garde le flux WhatsApp classique.)
+      if (flexpayEnabled && payment !== "cash" && groups.length === 1 && firstOrderId) {
+        clear();
+        setFp({ orderId: firstOrderId, label: `$${payable.toFixed(2)}` });
+        return;
+      }
+
       // One WhatsApp message summarising the whole cart
       const summary = items.map((i) => `• ${i.name} x${i.qty} — $${(i.qty * i.price_usd).toFixed(2)}`).join("\n");
       const text =
@@ -433,6 +451,11 @@ function CartPage() {
 
             <div className="rounded-2xl border border-border bg-card p-4">
               <h2 className="font-display text-lg font-bold mb-3">Mode de paiement</h2>
+              {flexpayEnabled && payment !== "cash" && (
+                <p className="-mt-1 mb-3 rounded-lg bg-[color:var(--brand-light)] px-2.5 py-1.5 text-[11px] font-medium text-[color:var(--brand-dark)]">
+                  🔒 Paiement sécurisé en ligne : tu recevras une demande Mobile Money sur ton téléphone après validation.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 {([
                   { id: "cash", label: "💵 Cash", hint: "À la livraison" },
@@ -543,6 +566,15 @@ function CartPage() {
           </div>
         </div>
       </div>
+
+      <FlexPayDialog
+        open={!!fp}
+        orderId={fp?.orderId ?? null}
+        phone={phone}
+        amountLabel={fp?.label ?? ""}
+        onPaid={() => { setFp(null); toast.success("Paiement confirmé !"); navigate({ to: "/orders" }); }}
+        onClose={() => { setFp(null); navigate({ to: "/orders" }); }}
+      />
     </SiteLayout>
   );
 }
