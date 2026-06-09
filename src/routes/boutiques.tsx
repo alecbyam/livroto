@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Star, MapPin, Store, Package, X } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Input } from "@/components/ui/input";
@@ -33,15 +34,17 @@ type VendorCard = {
 
 type SortKey = "rating" | "products" | "name";
 
+const EMPTY_VENDORS: VendorCard[] = [];
+
 function BoutiquesPage() {
-  const [vendors, setVendors] = useState<VendorCard[]>([]);
-  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("rating");
 
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
+  // Annuaire des boutiques mis en cache (react-query) -> retour instantané, moins de data.
+  const { data: vendors = EMPTY_VENDORS, isLoading: loading } = useQuery({
+    queryKey: ["boutiques-data"],
+    staleTime: 2 * 60_000,
+    queryFn: async (): Promise<VendorCard[]> => {
       const [{ data: vRows }, { data: zoneRows }, { data: vzRows }, { data: prodRows }] = await Promise.all([
         supabase
           .from("vendors")
@@ -51,7 +54,6 @@ function BoutiquesPage() {
         supabase.from("vendor_zones").select("vendor_id,zone_id"),
         supabase.from("products").select("vendor_id").eq("approved", true),
       ]);
-      if (cancel) return;
 
       const zoneName = new Map<string, string>((zoneRows ?? []).map((z: any) => [z.id, z.name]));
       const zonesByVendorRowId = new Map<string, Set<string>>();
@@ -67,7 +69,7 @@ function BoutiquesPage() {
         countByOwner.set(p.vendor_id, (countByOwner.get(p.vendor_id) ?? 0) + 1);
       });
 
-      const cards: VendorCard[] = (vRows ?? []).map((v: any) => {
+      return (vRows ?? []).map((v: any) => {
         const zoneIds = new Set<string>(zonesByVendorRowId.get(v.id) ?? []);
         if (v.base_zone_id) zoneIds.add(v.base_zone_id);
         const zones = Array.from(zoneIds).map((id) => zoneName.get(id)).filter(Boolean) as string[];
@@ -84,11 +86,8 @@ function BoutiquesPage() {
           productCount: countByOwner.get(v.owner_id) ?? 0,
         };
       });
-      setVendors(cards);
-      setLoading(false);
-    })();
-    return () => { cancel = true; };
-  }, []);
+    },
+  });
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();

@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 const STATIC_PATHS: Array<{ path: string; priority: string; changefreq: string }> = [
   { path: "/", priority: "1.0", changefreq: "daily" },
   { path: "/catalog", priority: "0.9", changefreq: "daily" },
+  { path: "/boutiques", priority: "0.8", changefreq: "daily" },
+  { path: "/aide", priority: "0.6", changefreq: "monthly" },
   { path: "/about", priority: "0.6", changefreq: "monthly" },
   { path: "/contact", priority: "0.6", changefreq: "monthly" },
   { path: "/terms", priority: "0.3", changefreq: "yearly" },
