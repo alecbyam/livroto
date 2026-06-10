@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { applyReferralCode } from "@/lib/referrals.functions";
+import { resetAuthState } from "@/lib/auth-recovery";
 import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff, ShieldCheck } from "lucide-react";
 
@@ -473,8 +474,23 @@ function AuthPage() {
           )}
         </div>
 
+        {/* Filet de secours : si la connexion reste bloquée, réinitialiser l'état d'auth
+            local SANS que l'utilisateur ait à vider le cache du navigateur. */}
+        <button
+          type="button"
+          onClick={async () => {
+            setFormMessage(null);
+            await resetAuthState();
+            toast.success("Session réinitialisée. Réessaie de te connecter.");
+            setTimeout(() => window.location.reload(), 600);
+          }}
+          className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+        >
+          Problème pour te connecter ? Réinitialiser la session
+        </button>
+
         {/* Debug info (dev uniquement) */}
-        <p className="mt-4 text-center text-[11px] text-muted-foreground/50">
+        <p className="mt-3 text-center text-[11px] text-muted-foreground/50">
           Projet Supabase : {SUPABASE_PROJECT}
         </p>
       </div>

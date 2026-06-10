@@ -17,6 +17,7 @@ import { CartProvider } from "@/lib/cart";
 import { FavoritesProvider } from "@/lib/favorites";
 import { CurrencyProvider } from "@/lib/currency";
 import { ThemeProvider } from "@/lib/theme";
+import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -161,13 +162,29 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Journalise le cycle de vie de l'auth (diagnostic incidents : expiration, refresh,
+  // déconnexion/invalidation). Visible dans la console navigateur.
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      try {
+        console.info(
+          `[auth] ${event} @ ${new Date().toISOString()}`,
+          session ? { user: session.user?.id, expires_at: session.expires_at } : "no session",
+        );
+      } catch {}
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
     // Auto-mise à jour : recharge la page quand une nouvelle version prend le contrôle.
+    // ⚠️ On NE recharge PAS pendant une connexion (/auth) pour ne jamais interrompre le login.
     let refreshing = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (refreshing) return;
+      if (window.location.pathname.startsWith("/auth")) return;
       refreshing = true;
       window.location.reload();
     });
