@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Menu, User, Package, ShoppingCart, Heart, Store, Bike, ShieldCheck } from "lucide-react";
+import { Menu, User, Package, ShoppingCart, Heart, Store, Bike, ShieldCheck, Gift } from "lucide-react";
 import { Logo } from "./Logo";
 import { NavSearch } from "./NavSearch";
 import { LangSwitcher } from "./LangSwitcher";
@@ -56,6 +56,11 @@ export function Navbar() {
           {signedIn && (
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex" aria-label="Mes favoris">
               <Link to="/favorites"><Heart className="h-5 w-5" /></Link>
+            </Button>
+          )}
+          {signedIn && (
+            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex text-[color:var(--brand-dark)]" aria-label="Inviter et gagner">
+              <Link to="/parrainage"><Gift className="h-5 w-5" /></Link>
             </Button>
           )}
           {signedIn && (

@@ -27,6 +27,7 @@ import { Route as VendorSlugRouteImport } from './routes/vendor.$slug'
 import { Route as ProductProductIdRouteImport } from './routes/product.$productId'
 import { Route as OrderProductIdRouteImport } from './routes/order.$productId'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedOrdersOrderIdRouteImport } from './routes/_authenticated/orders.$orderId'
@@ -120,6 +121,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedParrainageRoute = AuthenticatedParrainageRouteImport.update({
+  id: '/parrainage',
+  path: '/parrainage',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/orders': typeof AuthenticatedOrdersRouteWithChildren
+  '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/orders': typeof AuthenticatedOrdersRouteWithChildren
+  '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRouteWithChildren
+  '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
@@ -223,6 +232,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/dashboard'
     | '/orders'
+    | '/parrainage'
     | '/profile'
     | '/order/$productId'
     | '/product/$productId'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/dashboard'
     | '/orders'
+    | '/parrainage'
     | '/profile'
     | '/order/$productId'
     | '/product/$productId'
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/_authenticated/dashboard'
     | '/_authenticated/orders'
+    | '/_authenticated/parrainage'
     | '/_authenticated/profile'
     | '/order/$productId'
     | '/product/$productId'
@@ -423,6 +435,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/parrainage': {
+      id: '/_authenticated/parrainage'
+      path: '/parrainage'
+      fullPath: '/parrainage'
+      preLoaderRoute: typeof AuthenticatedParrainageRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/orders': {
       id: '/_authenticated/orders'
       path: '/orders'
@@ -461,12 +480,14 @@ const AuthenticatedOrdersRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRouteWithChildren
+  AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedOrdersRoute: AuthenticatedOrdersRouteWithChildren,
+  AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
 }
 

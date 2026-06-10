@@ -24,6 +24,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { notifyOrderCreated } from "@/lib/notifications.functions";
 import { notifyOrderCreatedSMS } from "@/lib/sms.functions";
 import { validateCoupon, recordCouponUse } from "@/lib/coupons.functions";
+import { getMyReferral, redeemCreditForOrder } from "@/lib/referrals.functions";
 
 type Zone = { id: string; name: string; delivery_fee_usd: number };
 type Payment = "cash" | "mpesa" | "airtel_money" | "orange_money";
@@ -45,6 +46,8 @@ function CartPage() {
   const notifySMS = useServerFn(notifyOrderCreatedSMS);
   const validate = useServerFn(validateCoupon);
   const recordUse = useServerFn(recordCouponUse);
+  const getReferral = useServerFn(getMyReferral);
+  const redeem = useServerFn(redeemCreditForOrder);
 
   const [zones, setZones] = useState<Zone[]>([]);
   const [zoneId, setZoneId] = useState<string>("");
@@ -56,6 +59,7 @@ function CartPage() {
   const [payment, setPayment] = useState<Payment>("cash");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [credit, setCredit] = useState(0);
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discount: number; description: string | null } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -67,6 +71,15 @@ function CartPage() {
     supabase.from("app_settings").select("value").eq("key", "flexpay_enabled").maybeSingle()
       .then(({ data }) => setFlexpayEnabled(data?.value === "true"));
   }, []);
+
+  // Crédit Livroto (parrainage) — auto-appliqué au panier
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      try { const r = await getReferral(); setCredit(Number(r.credit_usd ?? 0)); } catch {}
+    })();
+  }, [getReferral]);
 
   useEffect(() => {
     (async () => {
@@ -110,6 +123,11 @@ function CartPage() {
   const grandTotal = subtotal;
   const discount = coupon ? Math.min(coupon.discount, subtotal) : 0;
   const payable = Math.max(0, subtotal - discount);
+  // Crédit appliqué : plafonné au montant payable de la 1ʳᵉ commande (où il est imputé)
+  const firstGroupSubtotal = groups[0]?.subtotal ?? 0;
+  const firstGroupPayable = Math.max(0, firstGroupSubtotal - Math.min(discount, firstGroupSubtotal));
+  const creditApplied = Math.min(credit, firstGroupPayable);
+  const finalPayable = Math.max(0, payable - creditApplied);
 
   const applyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
@@ -281,12 +299,19 @@ function CartPage() {
         recordUse({ data: { code: coupon.code } }).catch(() => {});
       }
 
+      // Crédit Livroto (parrainage) : imputé côté serveur sur la 1ʳᵉ commande (autorité serveur)
+      let creditUsed = 0;
+      if (firstOrderId && credit > 0) {
+        try { const rc = await redeem({ data: { order_id: firstOrderId } }); creditUsed = Number(rc.used ?? 0); } catch {}
+      }
+      const finalTotal = Math.max(0, payable - creditUsed);
+
       // Paiement FlexPay en ligne : si activé + mobile money choisi + un seul vendeur,
       // on lance le push USSD et on suit le paiement dans une fenêtre dédiée.
       // (Le cas multi-vendeurs garde le flux WhatsApp classique.)
       if (flexpayEnabled && payment !== "cash" && groups.length === 1 && firstOrderId) {
         clear();
-        setFp({ orderId: firstOrderId, label: `$${payable.toFixed(2)}` });
+        setFp({ orderId: firstOrderId, label: `$${finalTotal.toFixed(2)}` });
         return;
       }
 
@@ -295,8 +320,9 @@ function CartPage() {
       const text =
         `Bonjour Livroto ! Nouvelle commande (${createdCodes.join(", ")}) :\n${summary}\n` +
         (coupon && discount > 0 ? `Code promo ${coupon.code} : -$${discount.toFixed(2)}\n` : "") +
+        (creditUsed > 0 ? `Crédit Livroto : -$${creditUsed.toFixed(2)}\n` : "") +
         (coords ? `📍 Position GPS : https://maps.google.com/?q=${coords.lat},${coords.lng}\n` : "") +
-        `Total produits : $${payable.toFixed(2)} — Livraison à négocier avec le livreur. Adresse : ${address}, ${zoneName}. Paiement : ${payment}. Nom : ${name}.`;
+        `Total produits : $${finalTotal.toFixed(2)} — Livraison à négocier avec le livreur. Adresse : ${address}, ${zoneName}. Paiement : ${payment}. Nom : ${name}.`;
       const waUrl = `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(text)}`;
       clear();
       toast.success("Commande envoyée !");
@@ -530,13 +556,19 @@ function CartPage() {
                     : "à confirmer"}
                 </span>
               </div>
+              {creditApplied > 0 && (
+                <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
+                  <span className="flex items-center gap-1.5">🎁 Crédit Livroto</span>
+                  <span>-${creditApplied.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-display text-base font-bold pt-2 border-t border-border">
                 <span>Total produits</span>
-                <span>${payable.toFixed(2)}</span>
+                <span>${finalPayable.toFixed(2)}</span>
               </div>
-              {coupon && discount > 0 && (
+              {(discount > 0 || creditApplied > 0) && (
                 <div className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  💰 Tu économises ${discount.toFixed(2)} !
+                  💰 Tu économises ${(discount + creditApplied).toFixed(2)} !
                 </div>
               )}
               <p className="text-[11px] text-muted-foreground">

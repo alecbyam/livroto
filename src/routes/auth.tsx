@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
+import { applyReferralCode } from "@/lib/referrals.functions";
 import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff, ShieldCheck } from "lucide-react";
 
@@ -83,9 +84,29 @@ async function authWithRetry<T extends { error: unknown }>(fn: () => Promise<T>)
   throw lastErr ?? new Error("connexion trop lente");
 }
 
+/** Rattache un code parrain en attente (déposé dans localStorage via ?ref=CODE). */
+async function tryApplyPendingReferral() {
+  if (typeof window === "undefined") return;
+  const code = localStorage.getItem("livroto.ref");
+  if (!code) return;
+  try {
+    const res = await applyReferralCode({ data: { code } });
+    if (res.ok) {
+      toast.success("🎁 Code parrain appliqué — crédit Livroto ajouté !");
+      localStorage.removeItem("livroto.ref");
+    } else if (res.reason !== "invalid_code") {
+      // déjà parrainé / soi-même / compte non neuf → inutile de réessayer
+      localStorage.removeItem("livroto.ref");
+    }
+  } catch {
+    /* réseau : on réessaiera à la prochaine connexion */
+  }
+}
+
 async function postLoginRedirect(navigate: ReturnType<typeof useNavigate>) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) { navigate({ to: "/" }); return; }
+  await tryApplyPendingReferral();
   const { data: roleRows } = await supabase
     .from("user_roles").select("role").eq("user_id", u.user.id);
   const roles = (roleRows ?? []).map((r: any) => r.role as string);
@@ -122,6 +143,12 @@ function AuthPage() {
   const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
+    // Capture le code de parrainage du lien (?ref=CODE) pour l'appliquer à l'inscription
+    try {
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref) localStorage.setItem("livroto.ref", ref.trim().toUpperCase());
+    } catch {}
+
     // Nettoie les sessions d'anciens projets Supabase
     cleanStaleSupabaseSessions();
 

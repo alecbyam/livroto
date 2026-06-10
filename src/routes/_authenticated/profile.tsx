@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Loader2, Upload, User, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, User, Save, Gift, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Button } from "@/components/ui/button";
@@ -167,6 +167,21 @@ function ProfilePage() {
             Enregistrer
           </Button>
         </form>
+
+        {/* Parrainage : invite & gagne du crédit */}
+        <Link
+          to="/parrainage"
+          className="mt-8 flex items-center gap-3 rounded-2xl border-2 border-[color:var(--brand-dark)]/20 bg-[color:var(--brand-light)]/50 p-4 transition-colors hover:border-[color:var(--brand-dark)]/50"
+        >
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--brand-dark)] text-white">
+            <Gift className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-bold">Invite & gagne</p>
+            <p className="text-sm text-muted-foreground">Invite un ami : vous gagnez chacun 1&nbsp;$ de crédit.</p>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </Link>
 
         {/* Sécurité : 2FA + gestion des appareils connectés */}
         <h2 className="mt-10 font-display text-2xl font-bold">Sécurité</h2>
