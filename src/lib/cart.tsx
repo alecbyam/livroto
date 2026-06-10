@@ -3,7 +3,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 export type CartItem = {
   id: string;            // product id
   name: string;
-  price_usd: number;
+  price_usd: number;            // prix effectif (promo si active)
+  original_price_usd?: number | null; // prix original si promo, pour le prix barré
   emoji?: string | null;
   image_url?: string | null;
   vendor_id: string | null;

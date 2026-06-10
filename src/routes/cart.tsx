@@ -387,7 +387,12 @@ function CartPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{it.name}</p>
-                        <p className="text-sm text-muted-foreground">${it.price_usd.toFixed(2)} / unité</p>
+                        <p className="text-sm text-muted-foreground">
+                          ${it.price_usd.toFixed(2)} / unité
+                          {it.original_price_usd != null && it.original_price_usd > it.price_usd && (
+                            <span className="ml-1.5 text-xs text-muted-foreground line-through">${it.original_price_usd.toFixed(2)}</span>
+                          )}
+                        </p>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button type="button" size="icon" variant="outline" className="h-8 w-8"

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n";
 import { type ProductCategory, CATEGORY_LIST } from "@/components/livroto/products";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
+import { getPromo } from "@/lib/promo";
 import { supabase } from "@/integrations/supabase/client";
 
 const CATEGORY_IDS = CATEGORY_LIST.map((c) => c.id) as [ProductCategory, ...ProductCategory[]];
@@ -24,6 +25,7 @@ const catalogSearchSchema = z.object({
   max:  fallback(z.coerce.number().min(0), 0).default(0),
   rate: fallback(z.coerce.number().min(0).max(5), 0).default(0),
   stk:  fallback(z.coerce.boolean(), false).default(false),
+  promo: fallback(z.coerce.boolean(), false).default(false),
 });
 
 export const Route = createFileRoute("/catalog")({
@@ -56,7 +58,7 @@ const EMPTY_META: VendorMeta = new Map();
 
 function Catalog() {
   const { t } = useI18n();
-  const { cat, sub: subId, zone, q: query, sort, min, max, rate, stk } = Route.useSearch();
+  const { cat, sub: subId, zone, q: query, sort, min, max, rate, stk, promo } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
   const setCat = (next: "all" | ProductCategory) =>
     navigate({ search: (p: any) => ({ ...p, cat: next, sub: "all" }) });
@@ -170,6 +172,7 @@ function Catalog() {
       const meta = p.vendor_id ? vendorMeta.get(p.vendor_id) : undefined;
       if (zone !== "all" && !(meta?.zoneIds.has(zone))) return false;
       if (stk && p.stock <= 0) return false;
+      if (promo && !getPromo(p).active) return false;
       if (min > 0 && p.price_usd < min) return false;
       if (max > 0 && p.price_usd > max) return false;
       if (rate > 0 && Number(p.rating_avg ?? 0) < rate) return false;
@@ -188,10 +191,10 @@ function Catalog() {
       default: break;
     }
     return sorted;
-  }, [query, cat, subId, zone, products, vendorMeta, sort, min, max, rate, stk]);
+  }, [query, cat, subId, zone, products, vendorMeta, sort, min, max, rate, stk, promo]);
 
-  const activeFiltersCount = (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) + (rate > 0 ? 1 : 0) + (stk ? 1 : 0) + (zone !== "all" ? 1 : 0);
-  const resetFilters = () => patchSearch({ min: 0, max: 0, rate: 0, stk: false, sort: "new", zone: "all" });
+  const activeFiltersCount = (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) + (rate > 0 ? 1 : 0) + (stk ? 1 : 0) + (zone !== "all" ? 1 : 0) + (promo ? 1 : 0);
+  const resetFilters = () => patchSearch({ min: 0, max: 0, rate: 0, stk: false, sort: "new", zone: "all", promo: false });
   const zoneName = zone === "all" ? null : (zones.find((z) => z.id === zone)?.name ?? null);
 
   return (
@@ -295,6 +298,16 @@ function Catalog() {
               <option value="rating">Mieux notés</option>
               <option value="popular">Plus populaires</option>
             </select>
+            <button
+              type="button"
+              onClick={() => patchSearch({ promo: !promo })}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium min-h-[40px] transition-colors ${
+                promo ? "border-red-500 bg-red-500/10 text-red-600" : "border-border bg-card hover:border-red-400/50"
+              }`}
+              aria-pressed={promo}
+            >
+              🔖 En promo
+            </button>
             {zones.length > 0 && (
               <select
                 value={zone}

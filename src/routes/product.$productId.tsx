@@ -220,7 +220,7 @@ function ProductPage() {
 
           <div ref={ctaRef} className="mt-6 flex flex-wrap gap-2">
             <Button size="lg" disabled={out} onClick={() => {
-              add({ id: product.id, name: product.name, price_usd: promo.price, emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
+              add({ id: product.id, name: product.name, price_usd: promo.price, original_price_usd: promo.active ? promo.original : null, emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
               toast.success(`${product.name} ajouté au panier`);
             }}>
               <ShoppingCart className="h-5 w-5" /> Ajouter au panier
@@ -320,7 +320,7 @@ function ProductPage() {
               size="sm"
               variant="outline"
               onClick={() => {
-                add({ id: product.id, name: product.name, price_usd: promo.price, emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
+                add({ id: product.id, name: product.name, price_usd: promo.price, original_price_usd: promo.active ? promo.original : null, emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
                 toast.success(`${product.name} ajouté !`);
               }}
               className="shrink-0 min-h-[44px]"

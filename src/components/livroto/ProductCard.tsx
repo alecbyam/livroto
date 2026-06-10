@@ -74,6 +74,7 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
       id: product.id,
       name: product.name,
       price_usd: promo.price,
+      original_price_usd: promo.active ? promo.original : null,
       emoji: product.emoji,
       image_url: product.image_url ?? null,
       vendor_id: product.vendor_id ?? null,
