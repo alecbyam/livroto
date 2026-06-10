@@ -31,7 +31,7 @@ import {
   getMyOverview, applyAsVendor, applyAsRider, getZones,
   getVendorDashboard, createProduct, updateOrderStatusVendor,
   getRiderDashboard, toggleRiderAvailability,
-  getAdminDashboard, adminUpdateVendorStatus, adminUpdateRiderStatus, adminApproveProduct,
+  getAdminDashboard, adminUpdateVendorStatus, adminUpdateRiderStatus, adminApproveProduct, adminSetPromoApproved,
   vendorUpdateProduct, vendorDeleteProduct, vendorUpdateShop,
   getAvailableDeliveries, riderClaimOrder, riderUpdateOrderStatus, riderConfirmCash, riderUpdateLocation,
   adminUpsertZone, adminResolveReport,
@@ -788,11 +788,23 @@ function Stat({ label, value }: { label: string; value: any }) {
   );
 }
 
+// ISO -> valeur d'<input type="datetime-local"> (heure locale)
+function toLocalInput(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function VendorProductRow({
   product, onUpdate, onDelete,
 }: {
   product: any;
-  onUpdate: (patch: { price_usd?: number; stock?: number; name?: string; images?: string[] }) => Promise<void>;
+  onUpdate: (patch: {
+    price_usd?: number; stock?: number; name?: string; images?: string[];
+    promo_price_usd?: number | null; promo_starts_at?: string | null; promo_ends_at?: string | null; promo_active?: boolean;
+  }) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [edit, setEdit] = useState(false);
@@ -800,6 +812,10 @@ function VendorProductRow({
   const [stock, setStock] = useState(String(product.stock));
   const [images, setImages] = useState<string[]>(product.images ?? (product.image_url ? [product.image_url] : []));
   const [uploading, setUploading] = useState(false);
+  const [promoPrice, setPromoPrice] = useState(product.promo_price_usd != null ? String(product.promo_price_usd) : "");
+  const [promoStart, setPromoStart] = useState(toLocalInput(product.promo_starts_at));
+  const [promoEnd, setPromoEnd] = useState(toLocalInput(product.promo_ends_at));
+  const [promoActive, setPromoActive] = useState(!!product.promo_active);
 
   const uploadImage = async (file: File) => {
     setUploading(true);
@@ -841,6 +857,11 @@ function VendorProductRow({
         <Badge variant="outline" className={product.approved ? "border-primary/30 text-primary" : ""}>
           {product.approved ? "Approuvé" : "En attente"}
         </Badge>
+        {product.promo_price_usd != null && (
+          <Badge variant="outline" className={product.promo_active && product.promo_approved ? "border-red-500/40 text-red-600" : "border-amber-500/40 text-amber-600"}>
+            {product.promo_active && product.promo_approved ? "🔖 Promo active" : "🔖 Promo en attente"}
+          </Badge>
+        )}
         <div className="flex gap-1">
           <Button size="sm" variant="outline" onClick={() => setEdit((v) => !v)}><Pencil className="h-4 w-4" /></Button>
           <Button size="sm" variant="outline" onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -852,10 +873,47 @@ function VendorProductRow({
           <div className="flex flex-wrap items-center gap-2">
             <Input className="w-28" type="number" step="0.5" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Prix $" />
             <Input className="w-24" type="number" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Stock" />
-            <Button size="sm" onClick={async () => { await onUpdate({ price_usd: Number(price), stock: Number(stock), images }); setEdit(false); }}>
+            <Button size="sm" onClick={async () => {
+              await onUpdate({
+                price_usd: Number(price),
+                stock: Number(stock),
+                images,
+                promo_price_usd: promoPrice.trim() ? Number(promoPrice) : null,
+                promo_starts_at: promoStart ? new Date(promoStart).toISOString() : null,
+                promo_ends_at: promoEnd ? new Date(promoEnd).toISOString() : null,
+                promo_active: promoActive,
+              });
+              setEdit(false);
+            }}>
               Enregistrer
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEdit(false)}>Annuler</Button>
+          </div>
+
+          {/* Promotion (prix barré) — validée par l'admin avant affichage */}
+          <div className="rounded-lg border border-dashed border-red-300/60 bg-red-50/40 dark:bg-red-500/5 p-3 space-y-2">
+            <p className="text-xs font-semibold text-red-700 dark:text-red-400">🔖 Promotion (prix barré)</p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-[11px] text-muted-foreground">Prix promo ($)</label>
+                <Input className="w-32 mt-0.5" type="number" step="0.5" min={0} value={promoPrice} onChange={(e) => setPromoPrice(e.target.value)} placeholder={`< ${Number(product.price_usd).toFixed(2)}`} />
+              </div>
+              <div>
+                <label className="block text-[11px] text-muted-foreground">Début</label>
+                <Input className="mt-0.5 h-10" type="datetime-local" value={promoStart} onChange={(e) => setPromoStart(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-[11px] text-muted-foreground">Fin</label>
+                <Input className="mt-0.5 h-10" type="datetime-local" value={promoEnd} onChange={(e) => setPromoEnd(e.target.value)} />
+              </div>
+              <label className="flex items-center gap-1.5 text-sm pb-2">
+                <input type="checkbox" checked={promoActive} onChange={(e) => setPromoActive(e.target.checked)} className="h-4 w-4 rounded border-border" />
+                Activer
+              </label>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Le prix promo doit être inférieur au prix original (${Number(product.price_usd).toFixed(2)}). La promo n'apparaît qu'une fois <b>validée par l'admin</b> — toute modification annule la validation. Laisse le prix vide pour retirer la promo.
+            </p>
           </div>
           {/* Images */}
           <div>
@@ -1065,6 +1123,7 @@ function AdminPanel() {
   const setVendor = useServerFn(adminUpdateVendorStatus);
   const setRider = useServerFn(adminUpdateRiderStatus);
   const setProd = useServerFn(adminApproveProduct);
+  const setPromo = useServerFn(adminSetPromoApproved);
   const { data, isLoading, error } = useQuery({ queryKey: ["admin-dash"], queryFn: () => fetchAdmin() });
 
   if (isLoading) return <div className="h-32 animate-pulse rounded-2xl bg-muted" />;
@@ -1085,6 +1144,10 @@ function AdminPanel() {
     try { await setProd({ data: { product_id, approved } }); toast.success("Produit mis à jour"); refresh(); }
     catch (e: any) { toast.error(e.message); }
   };
+  const onPromo = async (product_id: string, approved: boolean) => {
+    try { await setPromo({ data: { product_id, approved } }); toast.success(approved ? "Promo validée" : "Promo coupée"); refresh(); }
+    catch (e: any) { toast.error(e.message); }
+  };
 
   return (
     <div className="space-y-6">
@@ -1097,6 +1160,7 @@ function AdminPanel() {
         <Stat label="Vendeurs ⏳" value={data.stats.pendingVendors} />
         <Stat label="Livreurs ⏳" value={data.stats.pendingRiders} />
         <Stat label="Produits ⏳" value={data.stats.pendingProducts} />
+        <Stat label="Promos ⏳" value={data.products.filter((p: any) => p.promo_price_usd != null && !p.promo_approved).length} />
       </div>
 
       <AdminRatePanel />
@@ -1148,6 +1212,35 @@ function AdminPanel() {
           <Button size="sm" variant="outline" onClick={() => onProd(p.id, true)}><CheckCircle2 className="h-4 w-4" /> Approuver</Button>
         </>
       )} />
+
+      <AdminList title="Promotions (prix barrés)" rows={data.products.filter((p: any) => p.promo_price_usd != null)} render={(p: any) => {
+        const orig = Number(p.price_usd);
+        const pp = Number(p.promo_price_usd);
+        const pct = orig > 0 && pp < orig ? Math.round((1 - pp / orig) * 100) : 0;
+        const live = p.promo_active && p.promo_approved;
+        return (
+          <>
+            <div className="text-xl">{p.emoji || "📦"}</div>
+            <div className="flex-1 min-w-[160px]">
+              <p className="font-medium">{p.name}</p>
+              <p className="text-xs text-muted-foreground">
+                <span className="line-through">${orig.toFixed(2)}</span> → <b className="text-foreground">${pp.toFixed(2)}</b>
+                {pct > 0 && <span className="ml-1 text-red-600 font-semibold">−{pct}%</span>}
+                {!p.promo_active && <span className="ml-2 italic">(désactivée vendeur)</span>}
+                {pp >= orig && <span className="ml-2 text-destructive">⚠️ prix promo ≥ original</span>}
+              </p>
+            </div>
+            <Badge variant="outline" className={live ? "border-red-500/40 text-red-600" : p.promo_approved ? "border-emerald-500/40 text-emerald-600" : "border-amber-500/40 text-amber-600"}>
+              {live ? "Active" : p.promo_approved ? "Validée" : "À valider"}
+            </Badge>
+            {p.promo_approved ? (
+              <Button size="sm" variant="outline" className="text-destructive" onClick={() => onPromo(p.id, false)}><XCircle className="h-4 w-4" /> Couper</Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={() => onPromo(p.id, true)}><CheckCircle2 className="h-4 w-4" /> Valider</Button>
+            )}
+          </>
+        );
+      }} />
 
       <AdminList title="Commandes récentes" rows={data.orders.slice(0, 15)} render={(o: any) => (
         <>

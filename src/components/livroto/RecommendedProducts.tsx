@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getViewedIds } from "@/lib/recently-viewed";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 
-const SELECT = "id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count";
+const SELECT = "id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at";
 
 function normalize(rows: any[] | null): DisplayProduct[] {
   return (rows ?? []).map((p) => ({

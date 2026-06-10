@@ -59,7 +59,7 @@ function FeaturedProducts() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count")
+        .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
         .eq("approved", true)
         .gt("stock", 0)
         .order("rating_count", { ascending: false })

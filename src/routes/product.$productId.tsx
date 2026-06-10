@@ -12,6 +12,7 @@ import { recordView } from "@/lib/recently-viewed";
 import { toast } from "sonner";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
 import { ShareButton } from "@/components/livroto/ShareButton";
+import { getPromo } from "@/lib/promo";
 
 export const Route = createFileRoute("/product/$productId")({
   component: ProductPage,
@@ -27,6 +28,8 @@ type Product = {
   id: string; name: string; description: string | null; price_usd: number;
   emoji: string | null; image_url: string | null; images: string[] | null; vendor_id: string | null; stock: number;
   category: string; subcategory_id: string | null; rating_avg: number | null; rating_count: number | null;
+  promo_price_usd: number | null; promo_active: boolean | null; promo_approved: boolean | null;
+  promo_starts_at: string | null; promo_ends_at: string | null;
 };
 type Vendor = { id: string; shop_name: string; slug: string; whatsapp: string | null; logo_url: string | null; rating_avg: number | null; rating_count: number | null };
 type Review = { id: string; rating: number; comment: string | null; created_at: string; author_id: string };
@@ -50,7 +53,7 @@ function ProductPage() {
     (async () => {
       const { data: p } = await supabase
         .from("products")
-        .select("id,name,description,price_usd,emoji,image_url,images,vendor_id,stock,category,subcategory_id,rating_avg,rating_count")
+        .select("id,name,description,price_usd,emoji,image_url,images,vendor_id,stock,category,subcategory_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
         .eq("id", productId).eq("approved", true).maybeSingle();
       if (cancel) return;
       setProduct(p as any);
@@ -67,7 +70,7 @@ function ProductPage() {
       if (p?.category) {
         const { data: rel } = await supabase
           .from("products")
-          .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count")
+          .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
           .eq("approved", true).eq("category", p.category).neq("id", productId).limit(8);
         if (!cancel) setRelated((rel ?? []).map((r: any) => ({
           ...r, price_usd: Number(r.price_usd),
@@ -105,6 +108,7 @@ function ProductPage() {
   }
 
   const out = product.stock === 0;
+  const promo = getPromo(product);
   const rating = Number(product.rating_avg ?? 0);
   const reviewCount = Number(product.rating_count ?? 0);
   const gallery = (product.images && product.images.length > 0)
@@ -128,7 +132,7 @@ function ProductPage() {
     offers: {
       "@type": "Offer",
       priceCurrency: "USD",
-      price: Number(product.price_usd).toFixed(2),
+      price: promo.price.toFixed(2),
       availability: out ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
       areaServed: "Bunia, Ituri, RDC",
     },
@@ -183,7 +187,20 @@ function ProductPage() {
               <span className="text-muted-foreground">· {reviewCount} avis</span>
             </div>
           )}
-          <div className="mt-4 font-display text-4xl font-bold text-[color:var(--brand-dark)]">${Number(product.price_usd).toFixed(2)}</div>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <span className="font-display text-4xl font-bold text-[color:var(--brand-dark)]">${promo.price.toFixed(2)}</span>
+            {promo.active && (
+              <>
+                <span className="text-xl text-muted-foreground line-through">${promo.original.toFixed(2)}</span>
+                <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-sm font-bold text-white">−{promo.percent}%</span>
+              </>
+            )}
+          </div>
+          {promo.active && (
+            <div className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700">
+              💰 Vous économisez ${promo.saving.toFixed(2)}
+            </div>
+          )}
 
           {/* Stock urgency */}
           {!out && product.stock > 0 && product.stock <= 3 && (
@@ -203,7 +220,7 @@ function ProductPage() {
 
           <div ref={ctaRef} className="mt-6 flex flex-wrap gap-2">
             <Button size="lg" disabled={out} onClick={() => {
-              add({ id: product.id, name: product.name, price_usd: Number(product.price_usd), emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
+              add({ id: product.id, name: product.name, price_usd: promo.price, emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
               toast.success(`${product.name} ajouté au panier`);
             }}>
               <ShoppingCart className="h-5 w-5" /> Ajouter au panier
@@ -294,13 +311,16 @@ function ProductPage() {
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="font-display font-bold text-sm truncate">{product.name}</p>
-              <p className="text-[color:var(--brand-dark)] font-bold">${Number(product.price_usd).toFixed(2)}</p>
+              <p className="text-[color:var(--brand-dark)] font-bold">
+                ${promo.price.toFixed(2)}
+                {promo.active && <span className="ml-1.5 text-xs font-normal text-muted-foreground line-through">${promo.original.toFixed(2)}</span>}
+              </p>
             </div>
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                add({ id: product.id, name: product.name, price_usd: Number(product.price_usd), emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
+                add({ id: product.id, name: product.name, price_usd: promo.price, emoji: product.emoji, image_url: product.image_url, vendor_id: product.vendor_id, stock: product.stock });
                 toast.success(`${product.name} ajouté !`);
               }}
               className="shrink-0 min-h-[44px]"

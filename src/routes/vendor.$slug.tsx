@@ -71,7 +71,7 @@ function VendorPublicPage() {
       const [{ data: prods }, { data: zs }] = await Promise.all([
         supabase
           .from("products")
-          .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count")
+          .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
           .eq("vendor_id", v.id)
           .eq("approved", true)
           .order("created_at", { ascending: false }),

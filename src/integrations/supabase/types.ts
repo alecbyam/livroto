@@ -556,6 +556,11 @@ export type Database = {
           images: string[]
           name: string
           price_usd: number
+          promo_active: boolean
+          promo_approved: boolean
+          promo_ends_at: string | null
+          promo_price_usd: number | null
+          promo_starts_at: string | null
           rating_avg: number
           rating_count: number
           slug: string | null
@@ -576,6 +581,11 @@ export type Database = {
           images?: string[]
           name: string
           price_usd: number
+          promo_active?: boolean
+          promo_approved?: boolean
+          promo_ends_at?: string | null
+          promo_price_usd?: number | null
+          promo_starts_at?: string | null
           rating_avg?: number
           rating_count?: number
           slug?: string | null
@@ -596,6 +606,11 @@ export type Database = {
           images?: string[]
           name?: string
           price_usd?: number
+          promo_active?: boolean
+          promo_approved?: boolean
+          promo_ends_at?: string | null
+          promo_price_usd?: number | null
+          promo_starts_at?: string | null
           rating_avg?: number
           rating_count?: number
           slug?: string | null

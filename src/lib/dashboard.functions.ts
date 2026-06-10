@@ -565,6 +565,12 @@ export const vendorUpdateProduct = createServerFn({ method: "POST" })
     description: z.string().max(800).optional(),
     name: z.string().min(2).max(120).optional(),
     images: z.array(z.string().url().max(1000)).max(5).optional(),
+    // Promo : le vendeur propose ; la validation (promo_approved) reste à l'admin
+    // (un trigger DB remet promo_approved=false à toute modif des termes par le vendeur).
+    promo_price_usd: z.number().min(0).max(10000).nullable().optional(),
+    promo_starts_at: z.string().datetime().nullable().optional(),
+    promo_ends_at: z.string().datetime().nullable().optional(),
+    promo_active: z.boolean().optional(),
   }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -574,6 +580,23 @@ export const vendorUpdateProduct = createServerFn({ method: "POST" })
       finalPatch.image_url = patch.images[0] ?? null;
     }
     const { error } = await supabase.from("products").update(finalPatch).eq("id", product_id).eq("vendor_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- ADMIN: valider / activer / couper une promo ----------
+export const adminSetPromoApproved = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ product_id: z.string().uuid(), approved: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    if (!(roles ?? []).some((r) => r.role === "admin")) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("products")
+      .update({ promo_approved: data.approved } as never).eq("id", data.product_id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

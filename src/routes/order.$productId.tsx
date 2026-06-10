@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
+import { getPromo } from "@/lib/promo";
 import { buildOrderWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -30,6 +31,11 @@ type Product = {
   image_url: string | null;
   vendor_id: string | null;
   stock: number;
+  promo_price_usd: number | null;
+  promo_active: boolean | null;
+  promo_approved: boolean | null;
+  promo_starts_at: string | null;
+  promo_ends_at: string | null;
 };
 
 export const Route = createFileRoute("/order/$productId")({
@@ -68,7 +74,7 @@ function OrderPage() {
       const [{ data: p }, { data: z }] = await Promise.all([
         supabase
           .from("products")
-          .select("id,name,description,price_usd,emoji,image_url,vendor_id,stock")
+          .select("id,name,description,price_usd,emoji,image_url,vendor_id,stock,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
           .eq("id", productId)
           .maybeSingle(),
         supabase.from("zones").select("id,name,delivery_fee_usd").eq("active", true).order("name"),
@@ -125,7 +131,8 @@ function OrderPage() {
 
   const selectedZone = zones.find((z) => z.id === zoneId);
   const zoneName = selectedZone?.name ?? "";
-  const subtotal = product.price_usd * qty;
+  const promo = getPromo(product);
+  const subtotal = promo.price * qty;
   const total = subtotal;
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -166,7 +173,7 @@ function OrderPage() {
         product_id: product.id,
         vendor_id: product.vendor_id,
         product_name: product.name,
-        unit_price_usd: product.price_usd,
+        unit_price_usd: promo.price,
         quantity: qty,
         line_total_usd: subtotal,
       });
@@ -207,9 +214,18 @@ function OrderPage() {
             </div>
             <h2 className="mt-4 font-display text-xl font-bold">{product.name}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{product.description}</p>
-            <p className="mt-3 font-display text-2xl font-bold text-[color:var(--brand-dark)]">
-              ${product.price_usd.toFixed(2)}
+            <p className="mt-3 flex flex-wrap items-baseline gap-2">
+              <span className="font-display text-2xl font-bold text-[color:var(--brand-dark)]">${promo.price.toFixed(2)}</span>
+              {promo.active && (
+                <>
+                  <span className="text-base text-muted-foreground line-through">${promo.original.toFixed(2)}</span>
+                  <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">−{promo.percent}%</span>
+                </>
+              )}
             </p>
+            {promo.active && (
+              <p className="mt-1 text-sm font-bold text-emerald-700">💰 Vous économisez ${promo.saving.toFixed(2)}</p>
+            )}
           </div>
 
           {/* Form */}

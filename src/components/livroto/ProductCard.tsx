@@ -6,6 +6,7 @@ import { useCurrency } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { useFavorite } from "@/lib/favorites";
+import { getPromo } from "@/lib/promo";
 import { toast } from "sonner";
 
 export type DisplayProduct = {
@@ -19,6 +20,11 @@ export type DisplayProduct = {
   vendor_id?: string | null;
   rating_avg?: number | null;
   rating_count?: number | null;
+  promo_price_usd?: number | null;
+  promo_active?: boolean | null;
+  promo_approved?: boolean | null;
+  promo_starts_at?: string | null;
+  promo_ends_at?: string | null;
 };
 
 function ProductBadge({ product }: { product: DisplayProduct }) {
@@ -61,12 +67,13 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
   const out = product.stock === 0;
   const rating = Number(product.rating_avg ?? 0);
   const reviews = Number(product.rating_count ?? 0);
+  const promo = getPromo(product);
 
   const handleAddToCart = () => {
     add({
       id: product.id,
       name: product.name,
-      price_usd: Number(product.price_usd),
+      price_usd: promo.price,
       emoji: product.emoji,
       image_url: product.image_url ?? null,
       vendor_id: product.vendor_id ?? null,
@@ -92,8 +99,14 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
         <Heart className={`h-4 w-4 transition-transform ${isFav ? "fill-current scale-110" : "group-hover:scale-110"}`} />
       </button>
 
-      {/* Psychology badge */}
-      <ProductBadge product={product} />
+      {/* Promo % (prioritaire) sinon badge psychologique */}
+      {promo.active ? (
+        <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+          −{promo.percent}%
+        </span>
+      ) : (
+        <ProductBadge product={product} />
+      )}
 
       {/* Image */}
       <div className="relative overflow-hidden rounded-t-2xl aspect-square bg-[color:var(--brand-light)]">
@@ -129,12 +142,22 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
 
         <div className="mt-auto pt-2.5 space-y-2">
           <div className="flex flex-col gap-0.5">
-            <span className="font-display text-xl font-bold text-[color:var(--brand-dark)]">
-              {fmt(Number(product.price_usd))}
-            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-xl font-bold text-[color:var(--brand-dark)]">
+                {fmt(promo.price)}
+              </span>
+              {promo.active && (
+                <span className="text-xs text-muted-foreground line-through">{fmt(promo.original)}</span>
+              )}
+            </div>
             {currency === "USD" && (
               <span className="text-[10px] text-muted-foreground">
-                ≈ {Math.round(Number(product.price_usd) * rate).toLocaleString("fr-CD")} FC
+                ≈ {Math.round(promo.price * rate).toLocaleString("fr-CD")} FC
+              </span>
+            )}
+            {promo.active && (
+              <span className="text-[10px] font-bold text-emerald-600">
+                Tu économises {fmt(promo.saving)}
               </span>
             )}
           </div>

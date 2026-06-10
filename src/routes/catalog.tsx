@@ -86,7 +86,7 @@ function Catalog() {
       const [{ data, error }, { data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
         supabase
           .from("products")
-          .select("id,name,description,price_usd,stock,emoji,image_url,category,subcategory_id,vendor_id,rating_avg,rating_count")
+          .select("id,name,description,price_usd,stock,emoji,image_url,category,subcategory_id,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
           .eq("approved", true)
           .order("created_at", { ascending: false }),
         supabase
@@ -136,6 +136,11 @@ function Catalog() {
         vendor_id: p.vendor_id,
         rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
         rating_count: p.rating_count ?? 0,
+        promo_price_usd: p.promo_price_usd != null ? Number(p.promo_price_usd) : null,
+        promo_active: p.promo_active ?? null,
+        promo_approved: p.promo_approved ?? null,
+        promo_starts_at: p.promo_starts_at ?? null,
+        promo_ends_at: p.promo_ends_at ?? null,
       }));
 
       return {
