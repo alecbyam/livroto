@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, MapPin, MessageCircle, Star, Store } from "lucide-react";
+import { Loader2, MapPin, MessageCircle, Star, Store, ShieldCheck } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 import { Button } from "@/components/ui/button";
@@ -146,8 +146,14 @@ function VendorPublicPage() {
               : <Store className="h-8 w-8" />}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="font-display text-2xl sm:text-3xl font-bold truncate">{vendor.shop_name}</h1>
+            <h1 className="flex items-center gap-2 font-display text-2xl sm:text-3xl font-bold">
+              <span className="truncate">{vendor.shop_name}</span>
+              <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" aria-label="Vendeur vérifié" />
+            </h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1 font-medium text-emerald-600">
+                <ShieldCheck className="h-3.5 w-3.5" /> Vendeur vérifié
+              </span>
               {reviewCount > 0 ? (
                 <span className="inline-flex items-center gap-1">
                   <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
