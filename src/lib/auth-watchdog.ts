@@ -2,16 +2,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { resetAuthState } from "@/lib/auth-recovery";
 import { authLog } from "@/lib/auth-log";
 
-const HEAL_FLAG = "livroto.authHealed";
-const GETSESSION_TIMEOUT_MS = 6000;
+const ATTEMPTS_FLAG = "livroto.authHealAttempts";
+// 12 s : le verrou anti-deadlock (client.ts) plafonne son attente à 5 s avant de
+// continuer SANS verrou. Le watchdog doit laisser un large coussin au-dessus de ça,
+// sinon une simple contention de verrou (~5 s) est prise à tort pour un gel et on
+// purge une session pourtant VALIDE => fausse déconnexion. 12 s ne se déclenche donc
+// que sur un VRAI blocage (getSession qui ne répond jamais).
+const GETSESSION_TIMEOUT_MS = 12000;
 
 /**
- * Filet de sécurité au démarrage : si l'auth est FIGÉE (getSession ne répond pas en 6 s —
- * signature d'un verrou Web Lock bloqué), on répare automatiquement (purge + reload),
- * UNE seule fois par session (anti-boucle). L'utilisateur n'a jamais à vider le cache.
+ * Filet de sécurité au démarrage : si l'auth est réellement FIGÉE (getSession ne répond
+ * pas en 12 s — signature d'un verrou Web Lock bloqué), on répare automatiquement.
  *
- * getSession() est une lecture localStorage quasi instantanée en temps normal : ce timeout
- * ne se déclenche donc PAS sur réseau lent, seulement quand l'auth est réellement bloquée.
+ * Escalade DOUCE (on ne détruit jamais une session valide au premier hoquet) :
+ *   1er gel  -> simple reload. Recharger libère les Web Locks tenus par CET onglet et
+ *              relance getSession ; via le repli anti-deadlock (5 s) la 2ᵉ tentative
+ *              aboutit le plus souvent SANS rien effacer.
+ *   2ᵉ gel   -> resetAuthState (purge) + reload, en dernier recours.
+ *   3ᵉ gel   -> on abandonne (anti-boucle) pour ne pas recharger en boucle.
+ *
+ * On n'agit QUE sur un vrai TIMEOUT (gel) : une erreur "normale" de getSession (ex. hors
+ * ligne) est déjà gérée ailleurs (garde de route -> /auth) et ne doit pas purger l'auth.
  */
 export async function runAuthWatchdog(): Promise<void> {
   if (typeof window === "undefined") return;
@@ -33,25 +44,35 @@ export async function runAuthWatchdog(): Promise<void> {
     authLog("watchdog:exception", String(e));
   }
 
-  if (outcome === "ok") {
-    authLog("watchdog:ok");
-    // Auth saine : on autorise une future auto-réparation si un blocage survient plus tard.
-    try { sessionStorage.removeItem(HEAL_FLAG); } catch {}
+  if (outcome !== "timeout") {
+    authLog(outcome === "ok" ? "watchdog:ok" : "watchdog:error — pas d'action (géré ailleurs)");
+    // Auth qui répond : on réarme le compteur pour une future auto-réparation.
+    try { sessionStorage.removeItem(ATTEMPTS_FLAG); } catch {}
     return;
   }
 
-  authLog(outcome === "timeout" ? "watchdog:TIMEOUT — auth figée" : "watchdog:error — auth en échec");
+  authLog("watchdog:TIMEOUT — auth figée");
 
-  // Anti-boucle : on ne répare qu'une fois par session de navigation.
-  try {
-    if (sessionStorage.getItem(HEAL_FLAG) === "1") {
-      authLog("watchdog:deja_repare — pas de nouvelle action (anti-boucle)");
-      return;
-    }
-    sessionStorage.setItem(HEAL_FLAG, "1");
-  } catch {}
+  // Escalade selon le nombre de gels déjà rencontrés dans cette session de navigation.
+  let attempts = 0;
+  try { attempts = Number(sessionStorage.getItem(ATTEMPTS_FLAG)) || 0; } catch {}
 
-  authLog("watchdog:auto-reparation -> resetAuthState + reload");
+  if (attempts >= 2) {
+    authLog("watchdog:abandon — 2 réparations déjà tentées (anti-boucle)");
+    return;
+  }
+
+  try { sessionStorage.setItem(ATTEMPTS_FLAG, String(attempts + 1)); } catch {}
+
+  if (attempts === 0) {
+    // 1er gel : reload simple, SANS purge -> ne déconnecte pas une session valide.
+    authLog("watchdog:1er gel -> reload simple (sans purge)");
+    setTimeout(() => window.location.reload(), 300);
+    return;
+  }
+
+  // 2ᵉ gel : le reload n'a pas suffi -> purge + reload en dernier recours.
+  authLog("watchdog:2e gel -> resetAuthState + reload");
   await resetAuthState();
   setTimeout(() => window.location.reload(), 300);
 }
