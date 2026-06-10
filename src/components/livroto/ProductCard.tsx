@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Star, Heart, Zap } from "lucide-react";
+import { ShoppingCart, Star, Heart, Zap, ShieldCheck } from "lucide-react";
 import { useCurrency } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
@@ -59,7 +59,7 @@ function ProductBadge({ product }: { product: DisplayProduct }) {
   return null;
 }
 
-export function ProductCard({ product }: { product: DisplayProduct }) {
+export function ProductCard({ product, verified = false }: { product: DisplayProduct; verified?: boolean }) {
   const { t } = useI18n();
   const { add } = useCart();
   const { isFav, toggle } = useFavorite(product.id);
@@ -132,6 +132,12 @@ export function ProductCard({ product }: { product: DisplayProduct }) {
             {product.name}
           </h3>
         </Link>
+
+        {verified && (
+          <span className="mt-1 inline-flex w-fit items-center gap-1 text-[11px] font-medium text-emerald-600">
+            <ShieldCheck className="h-3 w-3" /> Vendeur vérifié
+          </span>
+        )}
 
         {reviews > 0 && (
           <div className="mt-1 flex items-center gap-1 text-xs">

@@ -422,7 +422,7 @@ function Catalog() {
           <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {filtered.map((p, i) => (
               <div key={p.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
-                <ProductCard product={p} />
+                <ProductCard product={p} verified={!!(p.vendor_id && vendorMeta.has(p.vendor_id))} />
               </div>
             ))}
           </div>
