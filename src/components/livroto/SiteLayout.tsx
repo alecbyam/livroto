@@ -6,6 +6,7 @@ import { MobileTabBar } from "./MobileTabBar";
 import { WelcomeBanner } from "./WelcomeBanner";
 import { InstallPWA } from "./InstallPWA";
 import { OfflineBanner } from "./OfflineBanner";
+import { AbandonedCartReminder } from "./AbandonedCartReminder";
 
 export function SiteLayout({ children }: { children: ReactNode }) {
   return (
@@ -17,6 +18,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       <Footer />
       <WhatsAppFab />
       <InstallPWA />
+      <AbandonedCartReminder />
       <MobileTabBar />
     </div>
   );
