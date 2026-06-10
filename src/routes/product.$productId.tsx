@@ -11,6 +11,7 @@ import { useFavorite } from "@/lib/favorites";
 import { recordView } from "@/lib/recently-viewed";
 import { toast } from "sonner";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
+import { ShareButton } from "@/components/livroto/ShareButton";
 
 export const Route = createFileRoute("/product/$productId")({
   component: ProductPage,
@@ -214,6 +215,11 @@ function ProductPage() {
               <Heart className={`h-5 w-5 ${isFav ? "fill-rose-500 text-rose-500" : ""}`} />
               {isFav ? "Favori" : "Ajouter aux favoris"}
             </Button>
+            <ShareButton
+              productId={product.id}
+              name={product.name}
+              price={`$${Number(product.price_usd).toFixed(2)}`}
+            />
             <ReportDialog targetType="product" targetId={product.id} variant="ghost" />
           </div>
 
