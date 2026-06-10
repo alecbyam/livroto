@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { applyReferralCode } from "@/lib/referrals.functions";
 import { resetAuthState } from "@/lib/auth-recovery";
+import { getAuthLog, authDiagnosticSnapshot } from "@/lib/auth-log";
 import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff, ShieldCheck } from "lucide-react";
 
@@ -487,6 +488,23 @@ function AuthPage() {
           className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
         >
           Problème pour te connecter ? Réinitialiser la session
+        </button>
+
+        <button
+          type="button"
+          onClick={async () => {
+            const text = `=== LIVROTO DIAGNOSTIC AUTH ===\n${authDiagnosticSnapshot()}\n\n--- journal ---\n${getAuthLog().join("\n") || "(vide)"}`;
+            try {
+              await navigator.clipboard.writeText(text);
+              toast.success("Diagnostic copié — colle-le à Claude.");
+            } catch {
+              setFormMessage({ type: "error", text });
+              toast.message("Copie impossible — diagnostic affiché ci-dessus.");
+            }
+          }}
+          className="mt-2 w-full text-center text-[11px] text-muted-foreground/70 hover:text-foreground"
+        >
+          Copier le diagnostic (en cas de souci)
         </button>
 
         {/* Debug info (dev uniquement) */}
