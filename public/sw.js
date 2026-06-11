@@ -1,5 +1,5 @@
 // Livroto Service Worker — PWA offline support
-const CACHE = 'livroto-v19';
+const CACHE = 'livroto-v20';
 const ASSETS = [
   '/',
   '/catalog',

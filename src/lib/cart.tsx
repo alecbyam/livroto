@@ -1,4 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
+import { getMyCart, saveMyCart } from "@/lib/cart.functions";
 
 export type CartItem = {
   id: string;            // product id
@@ -25,10 +28,35 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = "livroto.cart.v1";
 
+// Fusion panier serveur + panier local : union par produit, on garde la quantité la
+// plus élevée (forgiving — on ne perd jamais d'article au changement d'appareil).
+function mergeCarts(server: CartItem[], local: CartItem[]): CartItem[] {
+  const map = new Map<string, CartItem>();
+  for (const it of server) map.set(it.id, it);
+  for (const it of local) {
+    const existing = map.get(it.id);
+    if (existing) map.set(it.id, { ...existing, qty: Math.max(existing.qty, it.qty) });
+    else map.set(it.id, it);
+  }
+  return Array.from(map.values());
+}
+
+function readLocalCart(): CartItem[] {
+  try { return JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]"); }
+  catch { return []; }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
+  const fetchCart = useServerFn(getMyCart);
+  const pushCart = useServerFn(saveMyCart);
+  const userIdRef = useRef<string | null>(null);   // user connecté (null = invité)
+  const syncedRef = useRef(false);                  // déjà fusionné avec le serveur ?
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 1) Hydratation rapide depuis localStorage (instantané, hors-ligne).
   useEffect(() => {
     try {
       const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
@@ -37,9 +65,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
   }, []);
 
+  // 2) Miroir localStorage à chaque changement.
   useEffect(() => {
     if (!hydrated) return;
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+  }, [items, hydrated]);
+
+  // 3) Sync serveur : fusion au login (une fois), puis suivi de l'état de session.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mergeWithServer = async (uid: string) => {
+      userIdRef.current = uid;
+      if (syncedRef.current) return;
+      syncedRef.current = true;
+      try {
+        const { items: serverItems } = await fetchCart();
+        const merged = mergeCarts((serverItems ?? []) as CartItem[], readLocalCart());
+        setItems(merged);
+        // Garantit que le serveur a bien la version fusionnée (le local pouvait être + riche).
+        pushCart({ data: { items: merged } }).catch(() => {});
+      } catch { /* table absente / hors-ligne → on garde le panier local */ }
+    };
+
+    supabase.auth.getSession()
+      .then(({ data }) => { if (data.session) mergeWithServer(data.session.user.id); })
+      .catch(() => {});
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") mergeWithServer(session.user.id);
+        else userIdRef.current = session.user.id;
+      } else {
+        // Déconnexion : on redevient invité (le panier local reste), refusion au prochain login.
+        userIdRef.current = null;
+        syncedRef.current = false;
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // 4) Sauvegarde debouncée vers le serveur quand le panier change (si connecté & fusionné).
+  useEffect(() => {
+    if (!hydrated || !userIdRef.current || !syncedRef.current) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      pushCart({ data: { items } }).catch(() => {});
+    }, 1500);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [items, hydrated]);
 
   const value = useMemo<CartContextValue>(() => {
