@@ -20,6 +20,7 @@ import { buildOrderWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyOrderCreated } from "@/lib/notifications.functions";
+import { getMyAddresses, saveAddress, type SavedAddress } from "@/lib/addresses.functions";
 
 type Zone = { id: string; name: string; delivery_fee_usd: number };
 type Product = {
@@ -56,6 +57,8 @@ function OrderPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const notify = useServerFn(notifyOrderCreated);
+  const fetchAddresses = useServerFn(getMyAddresses);
+  const persistAddress = useServerFn(saveAddress);
   const [product, setProduct] = useState<Product | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +70,10 @@ function OrderPage() {
   const [qty, setQty] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mpesa" | "airtel_money" | "orange_money">("cash");
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [saveThis, setSaveThis] = useState(false);
+  const [saveLabel, setSaveLabel] = useState("");
 
   useEffect(() => {
     let cancel = false;
@@ -100,6 +107,18 @@ function OrderPage() {
           if (prof.name) setName(prof.name);
           if (prof.phone) setPhone(prof.phone);
         }
+        try {
+          const { addresses } = await fetchAddresses();
+          if (cancel) return;
+          setSavedAddresses(addresses);
+          // Pré-remplit avec l'adresse par défaut (ou la plus récente) → moins de saisie.
+          const def = addresses.find((a) => a.is_default) ?? addresses[0];
+          if (def) {
+            setAddress((cur) => cur || def.address);
+            if (def.zone_id) setZoneId(def.zone_id);
+            if (def.lat != null && def.lng != null) setCoords({ lat: def.lat, lng: def.lng });
+          }
+        } catch { /* table absente / non connecté → on ignore */ }
       }
       setLoading(false);
     })();
@@ -144,7 +163,7 @@ function OrderPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error("Connectez-vous pour passer commande");
+        toast.error(t("cart.toast.signin"));
         navigate({ to: "/auth" });
         return;
       }
@@ -164,6 +183,8 @@ function OrderPage() {
           total_usd: total,
           delivery_fee: deliveryFee,
           payment_method: paymentMethod,
+          customer_lat: coords?.lat ?? null,
+          customer_lng: coords?.lng ?? null,
           status: "pending",
         })
         .select("id,code")
@@ -180,6 +201,19 @@ function OrderPage() {
         line_total_usd: subtotal,
       });
       notify({ data: { order_id: orderRow.id } }).catch(() => {});
+      // Enregistre l'adresse pour les prochaines commandes (non bloquant).
+      if (saveThis && address.trim()) {
+        try {
+          await persistAddress({ data: {
+            label: saveLabel.trim() || zoneName || "Mon adresse",
+            address: address.trim(),
+            zone_id: selectedZone?.id ?? null,
+            lat: coords?.lat ?? null,
+            lng: coords?.lng ?? null,
+            is_default: savedAddresses.length === 0,
+          }});
+        } catch { /* non bloquant : ne casse pas la commande */ }
+      }
       toast.success(t("order.success"));
       const url = buildOrderWhatsAppUrl({
         productName: `${product.name} (#${orderRow.code ?? ""})`,
@@ -236,6 +270,34 @@ function OrderPage() {
           <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-5 space-y-4">
             <h1 className="font-display text-2xl font-bold">{t("order.title")}</h1>
 
+            {savedAddresses.length > 0 && (
+              <div>
+                <Label>{t("cart.myAddresses")}</Label>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {savedAddresses.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => {
+                        setAddress(a.address);
+                        if (a.zone_id) setZoneId(a.zone_id);
+                        if (a.lat != null && a.lng != null) setCoords({ lat: a.lat, lng: a.lng });
+                        setSaveThis(false);
+                      }}
+                      className={`rounded-xl border px-3 py-2 text-left transition max-w-[220px] ${
+                        address === a.address
+                          ? "border-[color:var(--brand-dark)] bg-[color:var(--brand-light)]"
+                          : "border-border hover:border-[color:var(--brand-dark)]/40"
+                      }`}
+                    >
+                      <span className="block text-sm font-medium">{a.is_default ? "⭐ " : "📍 "}{a.label}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">{a.address}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <Label htmlFor="o-name">{t("order.name")}</Label>
               <Input id="o-name" required value={name} onChange={(e) => setName(e.target.value)}
@@ -251,6 +313,29 @@ function OrderPage() {
               <Textarea id="o-addr" required value={address} onChange={(e) => setAddress(e.target.value)}
                         className="mt-1.5 min-h-[80px]" placeholder="Ex. Avenue Bunia, en face de la pharmacie..." />
             </div>
+
+            {address.trim() && !savedAddresses.some((a) => a.address === address.trim()) && (
+              <div className="rounded-xl border border-dashed border-border p-3 space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    checked={saveThis}
+                    onChange={(e) => setSaveThis(e.target.checked)}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  {t("cart.saveAddress")}
+                </label>
+                {saveThis && (
+                  <Input
+                    value={saveLabel}
+                    onChange={(e) => setSaveLabel(e.target.value)}
+                    placeholder={t("cart.saveAddressPlaceholder")}
+                    className="min-h-[40px]"
+                    maxLength={40}
+                  />
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="o-zone">{t("order.zone")}</Label>
