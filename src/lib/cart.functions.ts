@@ -16,6 +16,10 @@ const cartItem = z.object({
   qty: z.number().int().min(1),
 });
 
+// Type concret (sérialisable) pour le retour de getMyCart — évite `unknown[]`
+// que la sérialisation des server functions TanStack Start refuse.
+export type CartItemPayload = z.infer<typeof cartItem>;
+
 export const getMyCart = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -26,7 +30,7 @@ export const getMyCart = createServerFn({ method: "GET" })
       .eq("user_id", userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return { items: (data?.items ?? []) as unknown[] };
+    return { items: (data?.items ?? []) as CartItemPayload[] };
   });
 
 export const saveMyCart = createServerFn({ method: "POST" })
