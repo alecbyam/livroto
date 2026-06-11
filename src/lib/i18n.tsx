@@ -244,8 +244,17 @@ const I18nContext = createContext<Ctx>({ lang: "fr", setLang: () => {}, t: (k) =
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("fr");
   useEffect(() => {
+    // 1) Préférence enregistrée par l'utilisateur → prioritaire.
     const saved = typeof window !== "undefined" ? (localStorage.getItem("livroto.lang") as Lang | null) : null;
-    if (saved && ["fr", "sw", "ln"].includes(saved)) setLangState(saved);
+    if (saved && ["fr", "sw", "ln"].includes(saved)) { setLangState(saved); return; }
+    // 2) Sinon, auto-détection depuis la langue de l'appareil (1ʳᵉ visite) :
+    //    un téléphone réglé en Swahili/Lingala voit l'app dans sa langue tout de suite.
+    if (typeof navigator !== "undefined") {
+      const navLang = (navigator.language || "").toLowerCase();
+      if (navLang.startsWith("sw")) setLangState("sw");
+      else if (navLang.startsWith("ln")) setLangState("ln");
+      // sinon on reste en français (défaut)
+    }
   }, []);
   const setLang = (l: Lang) => {
     setLangState(l);
