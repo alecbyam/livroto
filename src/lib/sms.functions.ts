@@ -74,7 +74,7 @@ export const notifyOrderCreatedSMS = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id,code,customer_phone,customer_name,total_usd,zone,payment_method")
+      .select("id,code,customer_phone,customer_name,total_usd,delivery_fee,zone,payment_method")
       .eq("id", data.order_id)
       .maybeSingle();
 
@@ -88,9 +88,10 @@ export const notifyOrderCreatedSMS = createServerFn({ method: "POST" })
       orange_money: "Orange Money",
     }[order.payment_method as string] ?? order.payment_method;
 
+    const grandTotal = Number(order.total_usd) + Number(order.delivery_fee ?? 0);
     const msg =
       `Livroto: Cmd #${codeLabel} recue! ` +
-      `Total: $${Number(order.total_usd).toFixed(2)} - ${paymentFR}. ` +
+      `Total a payer: $${grandTotal.toFixed(2)} (livraison incluse) - ${paymentFR}. ` +
       `Zone: ${order.zone}. Merci ${order.customer_name}!`;
 
     return await sendAfricasTalkingSMS(order.customer_phone, msg);

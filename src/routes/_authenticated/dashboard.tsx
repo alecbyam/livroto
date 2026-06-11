@@ -1071,8 +1071,8 @@ function RiderPanel() {
                 <>
                   <Button size="sm" onClick={() => onStatus(o.id, "delivered")}>Livré</Button>
                   {o.payment_status !== "paid" && (
-                    <Button size="sm" variant="outline" onClick={() => onCash(o.id, Number(o.total_usd))}>
-                      <DollarSign className="h-4 w-4" /> Cash ${Number(o.total_usd).toFixed(2)}
+                    <Button size="sm" variant="outline" onClick={() => onCash(o.id, Number(o.total_usd) + Number(o.delivery_fee ?? 0))}>
+                      <DollarSign className="h-4 w-4" /> Cash ${(Number(o.total_usd) + Number(o.delivery_fee ?? 0)).toFixed(2)}
                     </Button>
                   )}
                 </>
@@ -1098,7 +1098,7 @@ function RiderPanel() {
               <div className="flex-1 min-w-[180px]">
                 <p className="font-medium">{o.code || o.id.slice(0, 8)} · {o.customer_name}</p>
                 <p className="text-xs text-muted-foreground"><MapPin className="inline h-3 w-3" /> {o.zone} · {o.customer_address}</p>
-                <p className="text-xs text-muted-foreground">${Number(o.total_usd).toFixed(2)} · livraison à négocier</p>
+                <p className="text-xs text-muted-foreground">${Number(o.total_usd).toFixed(2)} produits · livraison ${Number(o.delivery_fee ?? 0).toFixed(2)}</p>
                 {o.customer_lat != null && o.customer_lng != null && (
                   <a href={`https://maps.google.com/?q=${o.customer_lat},${o.customer_lng}`} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-[color:var(--brand-dark)] hover:underline">
                     📍 Position GPS partagée

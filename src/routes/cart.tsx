@@ -145,6 +145,9 @@ function CartPage() {
   const firstGroupPayable = Math.max(0, firstGroupSubtotal - Math.min(discount, firstGroupSubtotal));
   const creditApplied = Math.min(credit, firstGroupPayable);
   const finalPayable = Math.max(0, payable - creditApplied);
+  // Frais de livraison FIXE par zone (transparent) — un frais par livraison (par groupe vendeur).
+  const deliveryFee = selectedZone?.delivery_fee_usd ?? 0;
+  const deliveryTotal = deliveryFee * Math.max(1, groups.length);
 
   const applyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
@@ -224,7 +227,7 @@ function CartPage() {
               quantity: g.items.reduce((s, i) => s + i.qty, 0),
               subtotal_usd: g.subtotal,
               total_usd: Math.max(0, g.subtotal - groupDiscount),
-              delivery_fee: 0,
+              delivery_fee: deliveryFee,
               payment_method: payment,
               customer_notes: notes || null,
               coupon_code: coupon?.code ?? null,
@@ -292,7 +295,7 @@ function CartPage() {
           quantity: totalQty,
           subtotal_usd: g.subtotal,
           total_usd: groupTotal,
-          delivery_fee: 0,
+          delivery_fee: deliveryFee,
           payment_method: payment,
           customer_notes: notes || null,
           coupon_code: coupon && groupDiscount > 0 ? coupon.code : null,
@@ -355,7 +358,10 @@ function CartPage() {
         (coupon && discount > 0 ? `Code promo ${coupon.code} : -$${discount.toFixed(2)}\n` : "") +
         (creditUsed > 0 ? `Crédit Livroto : -$${creditUsed.toFixed(2)}\n` : "") +
         (coords ? `📍 Position GPS : https://maps.google.com/?q=${coords.lat},${coords.lng}\n` : "") +
-        `Total produits : $${finalTotal.toFixed(2)} — Livraison à négocier avec le livreur. Adresse : ${address}, ${zoneName}. Paiement : ${payment}. Nom : ${name}.`;
+        `Total produits : $${finalTotal.toFixed(2)}\n` +
+        `Livraison (${zoneName}) : $${deliveryTotal.toFixed(2)}\n` +
+        `*TOTAL À PAYER : $${(finalTotal + deliveryTotal).toFixed(2)}*\n` +
+        `Adresse : ${address}, ${zoneName}. Paiement : ${payment}. Nom : ${name}.`;
       const waUrl = `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(text)}`;
       clear();
       toast.success("Commande envoyée !");
@@ -406,7 +412,9 @@ function CartPage() {
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
                     Vendeur {idx + 1} {g.vendor_id ? "" : "(non lié)"}
                   </p>
-                  <p className="text-xs text-muted-foreground">Livraison à négocier</p>
+                  <p className="text-xs text-muted-foreground">
+                    {deliveryFee > 0 ? `Livraison $${deliveryFee.toFixed(2)}` : "Livraison à confirmer"}
+                  </p>
                 </div>
                 <ul className="divide-y">
                   {g.items.map((it) => (
@@ -637,11 +645,9 @@ function CartPage() {
                 )}
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Livraison{zoneName ? ` · ${zoneName}` : ""}</span>
+                <span>Livraison{zoneName ? ` · ${zoneName}` : ""}{groups.length > 1 ? ` (×${groups.length})` : ""}</span>
                 <span className="font-medium text-foreground">
-                  {selectedZone && selectedZone.delivery_fee_usd > 0
-                    ? `≈ $${selectedZone.delivery_fee_usd.toFixed(2)}`
-                    : "à confirmer"}
+                  {deliveryFee > 0 ? `$${deliveryTotal.toFixed(2)}` : "à confirmer"}
                 </span>
               </div>
               {creditApplied > 0 && (
@@ -651,8 +657,8 @@ function CartPage() {
                 </div>
               )}
               <div className="flex justify-between font-display text-base font-bold pt-2 border-t border-border">
-                <span>Total produits</span>
-                <span>${finalPayable.toFixed(2)}</span>
+                <span>Total à payer</span>
+                <span>${(finalPayable + deliveryTotal).toFixed(2)}</span>
               </div>
               {(discount > 0 || creditApplied > 0) && (
                 <div className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">
@@ -660,7 +666,7 @@ function CartPage() {
                 </div>
               )}
               <p className="text-[11px] text-muted-foreground">
-                Le tarif de la course se discute directement avec le livreur selon la distance et la charge.
+                Prix final, livraison incluse — tu paies à la livraison. Aucun frais caché.
               </p>
               <div className="flex items-center justify-center gap-1.5 pt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
                 <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />

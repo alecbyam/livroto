@@ -32,7 +32,7 @@ function TermsPage() {
 
         <Section title="3. Commandes & paiement">
           Les prix sont affichés en dollars américains (USD). Le paiement se fait <strong>en cash à la livraison</strong>,
-          sauf indication contraire. Les frais de livraison sont à négocier avec le livreur selon la zone.
+          sauf indication contraire. Les frais de livraison sont <strong>fixes selon le quartier</strong> et affichés clairement avant la validation de la commande — aucun frais caché.
         </Section>
 
         <Section title="4. Rôle de Livroto">

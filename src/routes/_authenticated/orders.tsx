@@ -144,10 +144,10 @@ function MyOrdersPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-display text-lg font-bold text-[color:var(--brand-dark)]">
-                    ${Number(o.total_usd).toFixed(2)}
+                    ${(Number(o.total_usd) + Number(o.delivery_fee ?? 0)).toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    qty {o.quantity} · livraison à négocier
+                    qty {o.quantity} · livraison incluse
                   </p>
                   {o.status !== "cancelled" && (
                     <Button

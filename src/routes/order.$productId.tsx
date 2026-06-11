@@ -134,6 +134,8 @@ function OrderPage() {
   const promo = getPromo(product);
   const subtotal = promo.price * qty;
   const total = subtotal;
+  // Frais de livraison FIXE par zone (transparent).
+  const deliveryFee = selectedZone?.delivery_fee_usd ?? 0;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +162,7 @@ function OrderPage() {
           quantity: qty,
           subtotal_usd: subtotal,
           total_usd: total,
-          delivery_fee: 0,
+          delivery_fee: deliveryFee,
           payment_method: paymentMethod,
           status: "pending",
         })
@@ -185,6 +187,8 @@ function OrderPage() {
         address,
         zone: zoneName,
         name,
+        productTotal: total,
+        deliveryFee,
       });
       window.open(url, "_blank");
       setTimeout(() => navigate({ to: "/orders" }), 800);
@@ -274,13 +278,14 @@ function OrderPage() {
             <div className="rounded-xl bg-[color:var(--brand-light)] p-4 text-sm space-y-1.5">
               <div className="flex justify-between"><span>{t("order.subtotal")}</span><span>${subtotal.toFixed(2)}</span></div>
               <div className="flex justify-between text-muted-foreground">
-                <span>{t("order.delivery")}</span><span className="italic">à négocier</span>
+                <span>{t("order.delivery")}{zoneName ? ` · ${zoneName}` : ""}</span>
+                <span className="font-medium text-foreground">{deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : "à confirmer"}</span>
               </div>
               <div className="flex justify-between font-display font-bold text-base pt-1 border-t border-[color:var(--brand-dark)]/15">
-                <span>{t("order.total")}</span><span>${total.toFixed(2)}</span>
+                <span>Total à payer</span><span>${(total + deliveryFee).toFixed(2)}</span>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Le frais de livraison se discute directement avec le livreur.
+                Prix final, livraison incluse — tu paies à la livraison. Aucun frais caché.
               </p>
             </div>
 

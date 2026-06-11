@@ -180,8 +180,8 @@ function OrderDetailPage() {
                 <span>-${Number(order.discount_usd).toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-muted-foreground"><span>Livraison</span><span className="italic">à négocier</span></div>
-            <div className="flex justify-between font-display text-base font-bold"><span>Total produits</span><span>${Number(order.total_usd).toFixed(2)}</span></div>
+            <div className="flex justify-between text-muted-foreground"><span>Livraison</span><span>${Number(order.delivery_fee ?? 0).toFixed(2)}</span></div>
+            <div className="flex justify-between font-display text-base font-bold"><span>Total à payer</span><span>${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)}</span></div>
           </div>
         </div>
 
@@ -297,7 +297,9 @@ function OrderDetailPage() {
                 `${new Date(order.created_at).toLocaleString("fr-FR")}\n\n` +
                 `${lignes}\n` +
                 (Number(order.discount_usd) > 0 ? `Réduction${order.coupon_code ? ` (${order.coupon_code})` : ""} : -$${Number(order.discount_usd).toFixed(2)}\n` : "") +
-                `*Total produits : $${Number(order.total_usd).toFixed(2)}* — livraison à négocier\n` +
+                `Total produits : $${Number(order.total_usd).toFixed(2)}\n` +
+                `Livraison : $${Number(order.delivery_fee ?? 0).toFixed(2)}\n` +
+                `*TOTAL À PAYER : $${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)}*\n` +
                 `Paiement : ${order.payment_method ?? "cash"}\n` +
                 `Statut : ${STATUS_LABEL[order.status] ?? order.status}\n` +
                 `Livraison : ${order.customer_name}, ${order.zone} — ${order.customer_address}\n\n` +

@@ -54,7 +54,7 @@ export const notifyOrderCreated = createServerFn({ method: "POST" })
 
     const { data: order, error: oErr } = await supabaseAdmin
       .from("orders")
-      .select("id,code,customer_name,customer_phone,customer_address,zone,total_usd,vendor_id,quantity,payment_method,customer_notes")
+      .select("id,code,customer_name,customer_phone,customer_address,zone,total_usd,delivery_fee,vendor_id,quantity,payment_method,customer_notes")
       .eq("id", data.order_id)
       .maybeSingle();
     if (oErr || !order) throw new Error(oErr?.message ?? "Commande introuvable");
@@ -79,7 +79,9 @@ export const notifyOrderCreated = createServerFn({ method: "POST" })
       `Quartier: ${order.zone}\n` +
       `Adresse: ${order.customer_address}\n` +
       `${summary}\n` +
-      `Total produits: $${Number(order.total_usd).toFixed(2)} — livraison à négocier\n` +
+      `Total produits: $${Number(order.total_usd).toFixed(2)}\n` +
+      `Livraison (${order.zone}): $${Number(order.delivery_fee ?? 0).toFixed(2)}\n` +
+      `TOTAL À PAYER: $${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)}\n` +
       `Paiement: ${order.payment_method}` +
       (order.customer_notes ? `\nNote: ${order.customer_notes}` : "");
 
@@ -188,7 +190,7 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id,code,customer_id,customer_name,customer_phone,total_usd")
+      .select("id,code,customer_id,customer_name,customer_phone,total_usd,delivery_fee")
       .eq("id", data.order_id)
       .maybeSingle();
     if (!order || !order.customer_id) return { ok: false, reason: "no_order" };
@@ -220,7 +222,7 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
     const msg =
       `Livroto — Commande ${codeLabel}\n` +
       `${statusMsg}\n` +
-      `Total produits : $${Number(order.total_usd).toFixed(2)} (livraison à négocier)`;
+      `Total à payer : $${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)} (livraison incluse)`;
 
     let waOk = false;
 
