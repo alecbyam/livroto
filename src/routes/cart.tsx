@@ -15,6 +15,7 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
+import { useI18n } from "@/lib/i18n";
 import { LandmarkPicker } from "@/components/livroto/LandmarkPicker";
 import { RecommendedProducts } from "@/components/livroto/RecommendedProducts";
 import { FlexPayDialog } from "@/components/livroto/FlexPayDialog";
@@ -42,6 +43,7 @@ export const Route = createFileRoute("/cart")({
 
 function CartPage() {
   const { items, count, subtotal, setQty, remove, clear } = useCart();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const notify = useServerFn(notifyOrderCreated);
   const notifySMS = useServerFn(notifyOrderCreatedSMS);
@@ -178,22 +180,22 @@ function CartPage() {
   const removeCoupon = () => { setCoupon(null); setCouponInput(""); };
 
   const captureLocation = () => {
-    if (!navigator.geolocation) { toast.error("Géolocalisation indisponible sur cet appareil"); return; }
+    if (!navigator.geolocation) { toast.error(t("cart.toast.gpsOff")); return; }
     setGeoBusy(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6) });
         setGeoBusy(false);
-        toast.success("📍 Position partagée — le livreur te trouvera plus facilement !");
+        toast.success(t("cart.toast.gpsOk"));
       },
-      () => { setGeoBusy(false); toast.error("Impossible d'obtenir ta position. Active le GPS."); },
+      () => { setGeoBusy(false); toast.error(t("cart.toast.gpsFail")); },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
   };
 
   const checkout = async () => {
     if (!name || !phone || !address) {
-      toast.error("Remplis ton nom, téléphone et adresse");
+      toast.error(t("cart.toast.fill"));
       return;
     }
     if (items.length === 0) return;
@@ -201,7 +203,7 @@ function CartPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error("Connecte-toi pour passer commande");
+        toast.error(t("cart.toast.signin"));
         navigate({ to: "/auth" });
         return;
       }
@@ -247,8 +249,8 @@ function CartPage() {
           });
         }
         clear();
-        toast.success("📥 Commande sauvegardée hors-ligne !", {
-          description: "Elle sera envoyée automatiquement à la reconnexion.",
+        toast.success(t("cart.toast.offline"), {
+          description: t("cart.toast.offlineDesc"),
         });
         setTimeout(() => navigate({ to: "/" }), 1000);
         return;
@@ -364,11 +366,11 @@ function CartPage() {
         `Adresse : ${address}, ${zoneName}. Paiement : ${payment}. Nom : ${name}.`;
       const waUrl = `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(text)}`;
       clear();
-      toast.success("Commande envoyée !");
+      toast.success(t("cart.toast.sent"));
       window.open(waUrl, "_blank");
       setTimeout(() => navigate({ to: "/orders" }), 800);
     } catch (e: any) {
-      toast.error(e.message ?? "Erreur lors de la commande");
+      toast.error(e.message ?? t("cart.toast.error"));
     } finally {
       setSubmitting(false);
     }
@@ -384,9 +386,9 @@ function CartPage() {
                 <ShoppingCart className="h-10 w-10 text-[color:var(--brand-dark)]" />
               </div>
             </div>
-            <h1 className="mt-6 font-display text-2xl font-bold">Ton panier est vide</h1>
-            <p className="mt-2 text-muted-foreground">Ajoute des produits depuis le catalogue.</p>
-            <Button asChild className="mt-6"><Link to="/catalog">Voir le catalogue</Link></Button>
+            <h1 className="mt-6 font-display text-2xl font-bold">{t("cart.empty.title")}</h1>
+            <p className="mt-2 text-muted-foreground">{t("cart.empty.desc")}</p>
+            <Button asChild className="mt-6"><Link to="/catalog">{t("cart.empty.cta")}</Link></Button>
           </div>
           <RecommendedProducts />
         </div>
@@ -398,10 +400,10 @@ function CartPage() {
     <SiteLayout>
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Link to="/catalog" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Continuer mes achats
+          <ArrowLeft className="h-4 w-4" /> {t("cart.continue")}
         </Link>
 
-        <h1 className="mt-3 font-display text-3xl font-bold">Mon panier <Badge variant="outline" className="ml-2">{count} article{count > 1 ? "s" : ""}</Badge></h1>
+        <h1 className="mt-3 font-display text-3xl font-bold">{t("cart.title")} <Badge variant="outline" className="ml-2">{count} {count > 1 ? t("cart.articles") : t("cart.article")}</Badge></h1>
 
         <div className="mt-6 grid gap-6 md:grid-cols-[1.4fr,1fr]">
           {/* Items grouped by vendor */}
@@ -410,10 +412,10 @@ function CartPage() {
               <div key={g.vendor_id ?? `g-${idx}`} className="rounded-2xl border border-border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Vendeur {idx + 1} {g.vendor_id ? "" : "(non lié)"}
+                    {t("cart.vendor")} {idx + 1} {g.vendor_id ? "" : t("cart.notLinked")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {deliveryFee > 0 ? `Livraison $${deliveryFee.toFixed(2)}` : "Livraison à confirmer"}
+                    {deliveryFee > 0 ? `${t("cart.delivery")} $${deliveryFee.toFixed(2)}` : t("cart.deliveryTBD")}
                   </p>
                 </div>
                 <ul className="divide-y">
@@ -429,7 +431,7 @@ function CartPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{it.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          ${it.price_usd.toFixed(2)} / unité
+                          ${it.price_usd.toFixed(2)} {t("cart.perUnit")}
                           {it.original_price_usd != null && it.original_price_usd > it.price_usd && (
                             <span className="ml-1.5 text-xs text-muted-foreground line-through">${it.original_price_usd.toFixed(2)}</span>
                           )}
@@ -460,7 +462,7 @@ function CartPage() {
 
             {groups.length > 1 && (
               <p className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-700 dark:text-amber-400">
-                Ton panier contient des produits de {groups.length} vendeurs différents. Le livreur s'arrange directement avec toi pour le tarif.
+                {t("cart.multiVendor").replace("{n}", String(groups.length))}
               </p>
             )}
           </div>
@@ -468,10 +470,10 @@ function CartPage() {
           {/* Checkout panel */}
           <div className="space-y-4">
             <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-              <h2 className="font-display text-lg font-bold">Informations de livraison</h2>
+              <h2 className="font-display text-lg font-bold">{t("cart.deliveryInfo")}</h2>
               {savedAddresses.length > 0 && (
                 <div>
-                  <Label>Mes adresses</Label>
+                  <Label>{t("cart.myAddresses")}</Label>
                   <div className="mt-1.5 flex flex-wrap gap-2">
                     {savedAddresses.map((a) => (
                       <button
@@ -497,7 +499,7 @@ function CartPage() {
                 </div>
               )}
               <div>
-                <Label htmlFor="c-name">Ton nom</Label>
+                <Label htmlFor="c-name">{t("cart.yourName")}</Label>
                 <Input id="c-name" required value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 min-h-[44px]" />
               </div>
               <div>
@@ -519,13 +521,13 @@ function CartPage() {
                       onChange={(e) => setSaveThis(e.target.checked)}
                       className="h-4 w-4 rounded border-border"
                     />
-                    💾 Enregistrer cette adresse pour la prochaine fois
+                    {t("cart.saveAddress")}
                   </label>
                   {saveThis && (
                     <Input
                       value={saveLabel}
                       onChange={(e) => setSaveLabel(e.target.value)}
-                      placeholder="Nom : Maison, Boutique, Chez maman…"
+                      placeholder={t("cart.saveAddressPlaceholder")}
                       className="min-h-[40px]"
                       maxLength={40}
                     />
@@ -538,10 +540,10 @@ function CartPage() {
                 {coords ? (
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium text-[color:var(--brand-dark)]">
-                      📍 Position partagée ✓
+                      {t("cart.gpsShared")}
                       <span className="block text-[11px] font-normal text-muted-foreground">{coords.lat}, {coords.lng}</span>
                     </p>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setCoords(null)}>Retirer</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setCoords(null)}>{t("cart.remove")}</Button>
                   </div>
                 ) : (
                   <button
@@ -550,16 +552,16 @@ function CartPage() {
                     disabled={geoBusy}
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--brand-dark)] px-3 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-60 min-h-[44px]"
                   >
-                    {geoBusy ? "Localisation…" : "📍 Partager ma position GPS"}
+                    {geoBusy ? t("cart.locating") : t("cart.shareGps")}
                   </button>
                 )}
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Recommandé : le livreur te trouve précisément, même sans adresse exacte.
+                  {t("cart.gpsHint")}
                 </p>
               </div>
 
               <div>
-                <Label htmlFor="c-zone">Quartier</Label>
+                <Label htmlFor="c-zone">{t("order.zone")}</Label>
                 <Select value={zoneId} onValueChange={setZoneId}>
                   <SelectTrigger id="c-zone" className="mt-1.5 min-h-[44px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -570,21 +572,21 @@ function CartPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="c-notes">Note pour le livreur (optionnel)</Label>
-                <Textarea id="c-notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1.5 min-h-[56px]" placeholder="Repère, étage, autres détails…" />
+                <Label htmlFor="c-notes">{t("cart.note")}</Label>
+                <Textarea id="c-notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1.5 min-h-[56px]" placeholder={t("cart.notePlaceholder")} />
               </div>
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-4">
-              <h2 className="font-display text-lg font-bold mb-3">Mode de paiement</h2>
+              <h2 className="font-display text-lg font-bold mb-3">{t("cart.payment")}</h2>
               {flexpayEnabled && payment !== "cash" && (
                 <p className="-mt-1 mb-3 rounded-lg bg-[color:var(--brand-light)] px-2.5 py-1.5 text-[11px] font-medium text-[color:var(--brand-dark)]">
-                  🔒 Paiement sécurisé en ligne : tu recevras une demande Mobile Money sur ton téléphone après validation.
+                  {t("cart.flexpayHint")}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { id: "cash", label: "💵 Cash", hint: "À la livraison" },
+                  { id: "cash", label: "💵 Cash", hint: t("cart.atDelivery") },
                   { id: "mpesa", label: "📱 M-Pesa", hint: "Vodacom" },
                   { id: "airtel_money", label: "📱 Airtel Money", hint: "Airtel" },
                   { id: "orange_money", label: "📱 Orange", hint: "Orange Money" },
@@ -609,10 +611,10 @@ function CartPage() {
             <div className="rounded-2xl border border-border bg-card p-4 space-y-2 text-sm">
               {items.some((i) => (i.stock ?? 99) <= 5) && (
                 <div className="-mt-1 mb-1 flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                  ⏰ Stock limité sur certains articles — finalise vite ta commande !
+                  {t("cart.stockLimited")}
                 </div>
               )}
-              <div className="flex justify-between"><span>Sous-total produits</span><span>${subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>{t("cart.subtotal")}</span><span>${subtotal.toFixed(2)}</span></div>
               {/* Coupon code */}
               <div className="pt-2 border-t border-border">
                 {coupon ? (
@@ -634,20 +636,20 @@ function CartPage() {
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyCoupon(); } }}
-                      placeholder="Code promo"
+                      placeholder={t("cart.couponPlaceholder")}
                       className="h-10 uppercase"
                       maxLength={40}
                     />
                     <Button type="button" variant="outline" size="sm" disabled={validatingCoupon || !couponInput.trim()} onClick={applyCoupon}>
-                      {validatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : "Appliquer"}
+                      {validatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : t("cart.apply")}
                     </Button>
                   </div>
                 )}
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Livraison{zoneName ? ` · ${zoneName}` : ""}{groups.length > 1 ? ` (×${groups.length})` : ""}</span>
+                <span>{t("cart.delivery")}{zoneName ? ` · ${zoneName}` : ""}{groups.length > 1 ? ` (×${groups.length})` : ""}</span>
                 <span className="font-medium text-foreground">
-                  {deliveryFee > 0 ? `$${deliveryTotal.toFixed(2)}` : "à confirmer"}
+                  {deliveryFee > 0 ? `$${deliveryTotal.toFixed(2)}` : t("cart.deliveryTBD")}
                 </span>
               </div>
               {creditApplied > 0 && (
@@ -657,20 +659,20 @@ function CartPage() {
                 </div>
               )}
               <div className="flex justify-between font-display text-base font-bold pt-2 border-t border-border">
-                <span>Total à payer</span>
+                <span>{t("cart.totalToPay")}</span>
                 <span>${(finalPayable + deliveryTotal).toFixed(2)}</span>
               </div>
               {(discount > 0 || creditApplied > 0) && (
                 <div className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  💰 Tu économises ${(discount + creditApplied).toFixed(2)} !
+                  {t("cart.youSave")} ${(discount + creditApplied).toFixed(2)} !
                 </div>
               )}
               <p className="text-[11px] text-muted-foreground">
-                Prix final, livraison incluse — tu paies à la livraison. Aucun frais caché.
+                {t("cart.finalNote")}
               </p>
               <div className="flex items-center justify-center gap-1.5 pt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
                 <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-                Livreurs disponibles maintenant à Bunia
+                {t("cart.live")}
               </div>
               <Button
                 onClick={checkout}
@@ -679,16 +681,16 @@ function CartPage() {
                 className="mt-3 w-full min-h-[52px] bg-[color:var(--whatsapp)] hover:brightness-105 text-base font-bold"
               >
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageCircle className="h-5 w-5" />}
-                Valider et envoyer sur WhatsApp
+                {t("cart.submit")}
               </Button>
 
               {/* Trust signals — psychologie : réduire l'anxiété d'achat */}
               <div className="mt-4 space-y-2 border-t border-border pt-4">
                 {[
-                  { emoji: "💵", text: "Paiement cash à la livraison" },
-                  { emoji: "🚫", text: "Aucun frais caché" },
-                  { emoji: "✅", text: "Annulation gratuite avant confirmation" },
-                  { emoji: "🛵", text: "Livreur local de confiance, Bunia" },
+                  { emoji: "💵", text: t("cart.trust.cash") },
+                  { emoji: "🚫", text: t("cart.trust.noHidden") },
+                  { emoji: "✅", text: t("cart.trust.cancel") },
+                  { emoji: "🛵", text: t("cart.trust.local") },
                 ].map(({ emoji, text }) => (
                   <div key={text} className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="text-sm">{emoji}</span>
