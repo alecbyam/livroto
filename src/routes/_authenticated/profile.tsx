@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { updateMyProfile } from "@/lib/profile.functions";
 import { compressImage } from "@/lib/image";
 import { SecuritySettings } from "@/components/livroto/SecuritySettings";
+import { AddressBook } from "@/components/livroto/AddressBook";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -182,6 +183,9 @@ function ProfilePage() {
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
         </Link>
+
+        {/* Carnet d'adresses : adresses de livraison réutilisables */}
+        <AddressBook />
 
         {/* Sécurité : 2FA + gestion des appareils connectés */}
         <h2 className="mt-10 font-display text-2xl font-bold">Sécurité</h2>

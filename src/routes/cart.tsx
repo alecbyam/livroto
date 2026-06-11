@@ -25,6 +25,7 @@ import { notifyOrderCreated } from "@/lib/notifications.functions";
 import { notifyOrderCreatedSMS } from "@/lib/sms.functions";
 import { validateCoupon, recordCouponUse } from "@/lib/coupons.functions";
 import { getMyReferral, redeemCreditForOrder } from "@/lib/referrals.functions";
+import { getMyAddresses, saveAddress, type SavedAddress } from "@/lib/addresses.functions";
 
 type Zone = { id: string; name: string; delivery_fee_usd: number };
 type Payment = "cash" | "mpesa" | "airtel_money" | "orange_money";
@@ -48,6 +49,8 @@ function CartPage() {
   const recordUse = useServerFn(recordCouponUse);
   const getReferral = useServerFn(getMyReferral);
   const redeem = useServerFn(redeemCreditForOrder);
+  const fetchAddresses = useServerFn(getMyAddresses);
+  const persistAddress = useServerFn(saveAddress);
 
   const [zones, setZones] = useState<Zone[]>([]);
   const [zoneId, setZoneId] = useState<string>("");
@@ -55,6 +58,9 @@ function CartPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [saveThis, setSaveThis] = useState(false);
+  const [saveLabel, setSaveLabel] = useState("");
   const [geoBusy, setGeoBusy] = useState(false);
   const [payment, setPayment] = useState<Payment>("cash");
   const [notes, setNotes] = useState("");
@@ -97,6 +103,17 @@ function CartPage() {
           .from("profiles").select("name,phone").eq("id", s.session.user.id).maybeSingle();
         if (prof?.name) setName(prof.name);
         if (prof?.phone) setPhone(prof.phone);
+        try {
+          const { addresses } = await fetchAddresses();
+          setSavedAddresses(addresses);
+          // Pré-remplit avec l'adresse par défaut (ou la plus récente) → moins de saisie.
+          const def = addresses.find((a) => a.is_default) ?? addresses[0];
+          if (def) {
+            setAddress((cur) => cur || def.address);
+            if (def.zone_id) setZoneId(def.zone_id);
+            if (def.lat != null && def.lng != null) setCoords({ lat: def.lat, lng: def.lng });
+          }
+        } catch { /* table absente / non connecté → on ignore */ }
       }
     })();
   }, []);
@@ -232,6 +249,22 @@ function CartPage() {
         });
         setTimeout(() => navigate({ to: "/" }), 1000);
         return;
+      }
+
+      // Enregistre l'adresse pour les prochaines commandes (non bloquant).
+      if (saveThis && address.trim()) {
+        try {
+          await persistAddress({
+            data: {
+              label: saveLabel.trim() || zoneName || "Mon adresse",
+              address: address.trim(),
+              zone_id: selectedZone?.id ?? null,
+              lat: coords?.lat ?? null,
+              lng: coords?.lng ?? null,
+              is_default: savedAddresses.length === 0,
+            },
+          });
+        } catch { /* non bloquant : ne casse pas la commande */ }
       }
 
       const createdCodes: string[] = [];
@@ -428,6 +461,33 @@ function CartPage() {
           <div className="space-y-4">
             <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
               <h2 className="font-display text-lg font-bold">Informations de livraison</h2>
+              {savedAddresses.length > 0 && (
+                <div>
+                  <Label>Mes adresses</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {savedAddresses.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => {
+                          setAddress(a.address);
+                          if (a.zone_id) setZoneId(a.zone_id);
+                          if (a.lat != null && a.lng != null) setCoords({ lat: a.lat, lng: a.lng });
+                          setSaveThis(false);
+                        }}
+                        className={`rounded-xl border px-3 py-2 text-left transition max-w-[220px] ${
+                          address === a.address
+                            ? "border-[color:var(--brand-dark)] bg-[color:var(--brand-light)]"
+                            : "border-border hover:border-[color:var(--brand-dark)]/40"
+                        }`}
+                      >
+                        <span className="block text-sm font-medium">{a.is_default ? "⭐ " : "📍 "}{a.label}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{a.address}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <Label htmlFor="c-name">Ton nom</Label>
                 <Input id="c-name" required value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 min-h-[44px]" />
@@ -441,6 +501,29 @@ function CartPage() {
                 onChange={setAddress}
                 required
               />
+
+              {address.trim() && !savedAddresses.some((a) => a.address === address.trim()) && (
+                <div className="rounded-xl border border-dashed border-border p-3 space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={saveThis}
+                      onChange={(e) => setSaveThis(e.target.checked)}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    💾 Enregistrer cette adresse pour la prochaine fois
+                  </label>
+                  {saveThis && (
+                    <Input
+                      value={saveLabel}
+                      onChange={(e) => setSaveLabel(e.target.value)}
+                      placeholder="Nom : Maison, Boutique, Chez maman…"
+                      className="min-h-[40px]"
+                      maxLength={40}
+                    />
+                  )}
+                </div>
+              )}
 
               {/* Partage de position GPS — aide le livreur à localiser (adresses informelles) */}
               <div className="rounded-xl border border-dashed border-[color:var(--brand-dark)]/40 bg-[color:var(--brand-light)]/40 p-3">
