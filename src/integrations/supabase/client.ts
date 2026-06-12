@@ -15,6 +15,17 @@ import type { Database } from './types';
  *
  * Ce verrou conserve l'exclusion mutuelle inter-onglets dans le cas normal, mais plafonne
  * l'attente (anti-deadlock) : s'il n'obtient pas le verrou à temps, il exécute quand même.
+ *
+ * INCIDENT (juin 2026, suite) : la 1ʳᵉ version de ce filet ré-exécutait `fn()` sur
+ * N'IMPORTE QUELLE rejection — y compris quand le verrou AVAIT été obtenu et que c'est
+ * l'opération elle-même qui avait échoué (refresh dont la réponse se perd en 2G, mauvais
+ * mot de passe…). Conséquence : chaque échec d'auth était rejoué une 2ᵉ fois. Un refresh
+ * rejoué réutilise un refresh token déjà consommé côté serveur → Supabase révoque TOUTE
+ * la famille de tokens → déconnexion sur tous les onglets/appareils, sessions
+ * incohérentes, et localStorage empoisonné jusqu'au vidage manuel. Un login raté rejoué
+ * double aussi les tentatives → rate limit → « compte bloqué ».
+ * D'où `lockGranted` : le filet « exécuter sans verrou » ne s'applique QUE si le verrou
+ * n'a jamais été accordé ; si `fn()` a tourné et a échoué, on propage l'erreur telle quelle.
  */
 const LOCK_ACQUIRE_MAX_MS = 5000;
 
@@ -33,19 +44,26 @@ async function deadlockSafeLock<R>(
     acquireTimeout > 0 ? Math.min(acquireTimeout, LOCK_ACQUIRE_MAX_MS) : LOCK_ACQUIRE_MAX_MS;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  let lockGranted = false;
   try {
     return await navigator.locks.request(
       name,
       { mode: 'exclusive', signal: controller.signal },
       async () => {
+        lockGranted = true;
         clearTimeout(timer);
         return await fn();
       },
     );
   } catch (err) {
+    clearTimeout(timer);
+    if (lockGranted) {
+      // Le verrou a été obtenu : l'erreur vient de fn() (échec d'auth réel).
+      // SURTOUT ne pas ré-exécuter — voir l'incident documenté ci-dessus.
+      throw err;
+    }
     // Verrou non obtenu à temps (probable deadlock d'un contexte figé) ou abandon :
     // filet de sécurité → on exécute sans verrou pour garantir la vivacité de l'auth.
-    clearTimeout(timer);
     try {
       console.warn('[Supabase Auth] verrou non obtenu, exécution sans verrou (anti-deadlock):', name, (err as Error)?.name);
     } catch {}
