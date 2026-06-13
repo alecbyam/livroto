@@ -3,44 +3,28 @@
 import { createMiddleware } from '@tanstack/react-start'
 import { supabase } from './client'
 
-// Marge avant expiration : si le token expire dans MOINS que ça, on le rafraîchit
-// AVANT de l'attacher. Volontairement large :
-//  - couvre la course « PWA réveillée de l'arrière-plan » où le refresh auto en tâche
-//    de fond n'a pas encore tourné (l'onglet/PWA était gelé par le système) ;
-//  - tolère une horloge appareil légèrement décalée ;
-//  - absorbe la latence 2G entre l'attache du token et sa validation côté serveur.
-const REFRESH_MARGIN_MS = 120_000
-
 // Must be registered as a global `functionMiddleware` in `src/start.ts`; otherwise
 // the browser never attaches the bearer token to serverFn RPCs.
+//
+// Design : on se contente de lire la session via getSession() — qui rafraîchit déjà
+// automatiquement les tokens EXPIRÉS — et on laisse autoRefreshToken (intégré à
+// supabase-js, seuil <90 s) gérer le renouvellement proactif.
+//
+// Un ancien bloc ici appelait refreshSession() de façon proactive quand le token
+// avait <120 s restantes. Sur réseau 2G (Bunia), cela provoquait des refreshes
+// redondants concurrents : si deux appels RPC simultanés dépassaient chacun le
+// timeout du verrou (5 s / 15 s), ils tombaient sur un refreshingDeferred déjà résolu
+// et relançaient un DEUXIÈME appel réseau avec un refresh token identique →
+// Supabase détectait une réutilisation → révocation de TOUTE la famille de tokens
+// → déconnexion sur tous les appareils. Supprimé le 13/06/2026.
 export const attachSupabaseAuth = createMiddleware({ type: 'function' }).client(
   async ({ next }) => {
     let token: string | undefined
     try {
+      // getSession() rafraîchit automatiquement le token s'il est EXPIRÉ.
+      // autoRefreshToken (ticker toutes les 30 s, seuil <90 s) gère le reste.
       const { data } = await supabase.auth.getSession()
-      const session = data.session
-      // Token courant en repli, même si le refresh échoue (réseau coupé).
-      token = session?.access_token
-
-      // Token expiré / proche de l'expiration → on FORCE un refresh réseau pour
-      // garantir un JWT frais. Sinon le serveur (requireSupabaseAuth → getUser) le
-      // rejette en « Invalid or expired token » => fausse « déconnexion » /
-      // « Erreur de chargement », alors que la session locale est encore valide.
-      if (session) {
-        const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0
-        const isStale = !expiresAtMs || expiresAtMs - Date.now() < REFRESH_MARGIN_MS
-        if (isStale) {
-          try {
-            const { data: refreshed } = await supabase.auth.refreshSession()
-            if (refreshed.session?.access_token) {
-              token = refreshed.session.access_token
-            }
-          } catch {
-            // Refresh impossible (2G/hors-ligne) → on garde le token courant.
-            // L'utilisateur pourra « Réessayer » quand le réseau revient.
-          }
-        }
-      }
+      token = data.session?.access_token
     } catch {
       // getSession a échoué → pas de token ; le serveur renverra une 401 explicite.
     }

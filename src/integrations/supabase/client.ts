@@ -26,8 +26,17 @@ import type { Database } from './types';
  * double aussi les tentatives → rate limit → « compte bloqué ».
  * D'où `lockGranted` : le filet « exécuter sans verrou » ne s'applique QUE si le verrou
  * n'a jamais été accordé ; si `fn()` a tourné et a échoué, on propage l'erreur telle quelle.
+ *
+ * INCIDENT (juin 2026, suite 2) : 5 s était trop court sur 2G (Bunia). Un refresh légitime
+ * prend couramment 6-12 s sur ce réseau. D'autres appels qui attendaient le verrou
+ * expiraient, contournaient le verrou via le filet et tombaient sur `refreshingDeferred`
+ * (déduplication de supabase-js) — ce qui était sûr. MAIS si le lock holder finissait
+ * JUSTE avant l'expiration du timeout des autres, ces derniers ne trouvaient plus de
+ * `refreshingDeferred` actif et démarraient un DEUXIÈME refresh réseau avec le même
+ * token → révocation de la famille. Portée à 15 s : couvre les refreshes légitimes sur 2G
+ * tout en restant bien en-deçà de « indéfini » (le deadlock zombie qu'on veut éviter).
  */
-const LOCK_ACQUIRE_MAX_MS = 5000;
+const LOCK_ACQUIRE_MAX_MS = 15000;
 
 async function deadlockSafeLock<R>(
   name: string,

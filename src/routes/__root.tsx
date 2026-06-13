@@ -166,13 +166,24 @@ function RootComponent() {
 
   // Journalise le cycle de vie de l'auth (diagnostic : expiration, refresh, déconnexion)
   // + filet d'auto-réparation au démarrage si l'auth est figée (verrou bloqué).
+  // + redirect immédiat vers /auth dès qu'un SIGNED_OUT est émis (ex. refresh token
+  //   révoqué côté serveur) — évite que l'utilisateur reste sur une page cassée.
+  const router = useRouter();
   useEffect(() => {
     runAuthWatchdog();
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       authLog(event, session ? `user=${session.user?.id} exp=${session.expires_at}` : "no session");
+      if (event === "SIGNED_OUT") {
+        const onAuth = window.location.pathname.startsWith("/auth");
+        if (!onAuth) {
+          router.navigate({ to: "/auth", replace: true }).catch(() => {
+            window.location.replace("/auth");
+          });
+        }
+      }
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
