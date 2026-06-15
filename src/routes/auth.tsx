@@ -161,10 +161,37 @@ function AuthPage() {
     window.addEventListener("online",  onOnline);
     window.addEventListener("offline", onOffline);
 
-    // Redirige si déjà connecté
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) postLoginRedirect(navigate);
-    });
+    // Vérification SANS verrou, SANS réseau : lecture directe du localStorage.
+    // Objectif : éviter que getUser() (qui acquiert le verrou + fait un appel réseau)
+    // entre en concurrence avec signInWithPassword quand la session est déjà morte.
+    // C'est exactement ce que « vider le cache » résolvait manuellement : on le fait
+    // ici automatiquement dès l'arrivée sur /auth.
+    (() => {
+      try {
+        const raw = localStorage.getItem(`sb-${SUPABASE_PROJECT}-auth-token`);
+        if (!raw) return; // Pas de session stockée → formulaire propre, rien à faire.
+
+        const session = JSON.parse(raw);
+        const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+        const stillValid = session?.access_token && expiresAt > Date.now() + 30_000;
+
+        if (stillValid) {
+          // Session locale valide → l'utilisateur est déjà connecté → redirection.
+          // On utilise getSession() (lecture locale) plutôt que getUser() (appel réseau).
+          supabase.auth.getSession().then(({ data }) => {
+            if (data.session) postLoginRedirect(navigate);
+          });
+        } else {
+          // Session expirée, incomplète ou corrompue → purge immédiate.
+          // Cela libère le verrou de toute tentative de refresh en arrière-plan
+          // et garantit que signInWithPassword repart d'un état propre.
+          resetAuthState().catch(() => {});
+        }
+      } catch {
+        // localStorage illisible ou JSON corrompu → purge par précaution.
+        resetAuthState().catch(() => {});
+      }
+    })();
 
     return () => {
       window.removeEventListener("online",  onOnline);
@@ -477,18 +504,23 @@ function AuthPage() {
 
         {/* Filet de secours : si la connexion reste bloquée, réinitialiser l'état d'auth
             local SANS que l'utilisateur ait à vider le cache du navigateur. */}
-        <button
-          type="button"
-          onClick={async () => {
-            setFormMessage(null);
-            await resetAuthState();
-            toast.success("Session réinitialisée. Réessaie de te connecter.");
-            setTimeout(() => window.location.reload(), 600);
-          }}
-          className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
-        >
-          Problème pour te connecter ? Réinitialiser la session
-        </button>
+        <div className="mt-4 rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <p className="text-center text-xs text-muted-foreground">
+            Connexion bloquée ou session expirée ?
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              setFormMessage(null);
+              await resetAuthState();
+              toast.success("Session réinitialisée. Réessaie de te connecter.");
+              setTimeout(() => window.location.reload(), 600);
+            }}
+            className="mt-2 w-full rounded-lg border border-border bg-background py-2 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            Réinitialiser la session
+          </button>
+        </div>
 
         <button
           type="button"
