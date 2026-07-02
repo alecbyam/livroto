@@ -1093,6 +1093,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_coupon_uses: {
+        Args: {
+          p_code: string
+        }
+        Returns: undefined
+      }
+      increment_wallet_credit: {
+        Args: {
+          p_amount: number
+          p_user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "customer" | "vendor" | "rider" | "admin"
