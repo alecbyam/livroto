@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { toast } from "sonner";
 import {
@@ -20,6 +20,8 @@ import {
   adminListUsers, adminGrantRole, adminRevokeRole,
   adminListCoupons, adminUpsertCoupon,
   adminUpdateCdfRate, getAdminOverview,
+  adminListVendorsPage, adminListRidersPage, adminListPendingProductsPage,
+  adminListPromoProductsPage, adminListOrdersPage, adminListReportsPage,
 } from "@/lib/admin.functions";
 import { AdminIntegrationsPanel } from "@/components/livroto/AdminIntegrationsPanel";
 import { statusColor, Stat } from "./shared";
@@ -29,6 +31,38 @@ const AdminAnalyticsPanel = lazy(() =>
   import("@/components/livroto/charts/AnalyticsPanels").then((m) => ({ default: m.AdminAnalyticsPanel })));
 const ChartFallback = () => <div className="h-52 animate-pulse rounded-2xl bg-muted" />;
 
+// Pagination "charger plus" partagée par les listes admin (vendeurs, livreurs,
+// produits, commandes, signalements) — chacune appelle sa propre fonction serveur
+// paginée (offset/limit) au lieu de recevoir une liste plafonnée depuis getAdminDashboard.
+function useAdminPagedList<T>(
+  key: string,
+  fetchPage: (args: { data: Record<string, any> }) => Promise<{ rows: T[]; total: number }>,
+  extraParams: Record<string, any> = {},
+) {
+  const qc = useQueryClient();
+  const queryKey = [key, extraParams];
+  const query = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam }) => fetchPage({ data: { offset: pageParam, ...extraParams } }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((s, p) => s + p.rows.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
+  });
+  const rows = query.data ? query.data.pages.flatMap((p) => p.rows) : [];
+  const total = query.data?.pages[0]?.total ?? 0;
+  return {
+    rows,
+    total,
+    isLoading: query.isLoading,
+    hasMore: !!query.hasNextPage,
+    loadingMore: query.isFetchingNextPage,
+    loadMore: () => query.fetchNextPage(),
+    refresh: () => qc.invalidateQueries({ queryKey: [key] }),
+  };
+}
+
 /* ---------------- ADMIN ---------------- */
 export function AdminPanel() {
   const qc = useQueryClient();
@@ -37,7 +71,19 @@ export function AdminPanel() {
   const setRider = useServerFn(adminUpdateRiderStatus);
   const setProd = useServerFn(adminApproveProduct);
   const setPromo = useServerFn(adminSetPromoApproved);
+  const fetchVendorsPage = useServerFn(adminListVendorsPage);
+  const fetchRidersPage = useServerFn(adminListRidersPage);
+  const fetchPendingProductsPage = useServerFn(adminListPendingProductsPage);
+  const fetchPromoProductsPage = useServerFn(adminListPromoProductsPage);
+  const fetchOrdersPage = useServerFn(adminListOrdersPage);
+
   const { data, isLoading, error } = useQuery({ queryKey: ["admin-dash"], queryFn: () => fetchAdmin() });
+
+  const vendorsQ = useAdminPagedList("admin-vendors", fetchVendorsPage);
+  const ridersQ = useAdminPagedList("admin-riders", fetchRidersPage);
+  const pendingProductsQ = useAdminPagedList("admin-pending-products", fetchPendingProductsPage);
+  const promoProductsQ = useAdminPagedList("admin-promo-products", fetchPromoProductsPage);
+  const ordersQ = useAdminPagedList("admin-orders", fetchOrdersPage);
 
   if (isLoading) return <div className="h-32 animate-pulse rounded-2xl bg-muted" />;
   if (error) return <p className="text-destructive">{(error as Error).message}</p>;
@@ -46,19 +92,19 @@ export function AdminPanel() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin-dash"] });
 
   const onVendor = async (vendor_id: string, status: any) => {
-    try { await setVendor({ data: { vendor_id, status } }); toast.success("Vendeur mis à jour"); refresh(); }
+    try { await setVendor({ data: { vendor_id, status } }); toast.success("Vendeur mis à jour"); vendorsQ.refresh(); refresh(); }
     catch (e: any) { toast.error(e.message); }
   };
   const onRider = async (rider_id: string, status: any) => {
-    try { await setRider({ data: { rider_id, status } }); toast.success("Livreur mis à jour"); refresh(); }
+    try { await setRider({ data: { rider_id, status } }); toast.success("Livreur mis à jour"); ridersQ.refresh(); refresh(); }
     catch (e: any) { toast.error(e.message); }
   };
   const onProd = async (product_id: string, approved: boolean) => {
-    try { await setProd({ data: { product_id, approved } }); toast.success("Produit mis à jour"); refresh(); }
+    try { await setProd({ data: { product_id, approved } }); toast.success("Produit mis à jour"); pendingProductsQ.refresh(); refresh(); }
     catch (e: any) { toast.error(e.message); }
   };
   const onPromo = async (product_id: string, approved: boolean) => {
-    try { await setPromo({ data: { product_id, approved } }); toast.success(approved ? "Promo validée" : "Promo coupée"); refresh(); }
+    try { await setPromo({ data: { product_id, approved } }); toast.success(approved ? "Promo validée" : "Promo coupée"); promoProductsQ.refresh(); refresh(); }
     catch (e: any) { toast.error(e.message); }
   };
 
@@ -73,7 +119,7 @@ export function AdminPanel() {
         <Stat label="Vendeurs ⏳" value={data.stats.pendingVendors} />
         <Stat label="Livreurs ⏳" value={data.stats.pendingRiders} />
         <Stat label="Produits ⏳" value={data.stats.pendingProducts} />
-        <Stat label="Promos ⏳" value={data.products.filter((p: any) => p.promo_price_usd != null && !p.promo_approved).length} />
+        <Stat label="Promos ⏳" value={data.stats.pendingPromos} />
       </div>
 
       <AdminRatePanel />
@@ -82,88 +128,108 @@ export function AdminPanel() {
 
       <Suspense fallback={<ChartFallback />}><AdminAnalyticsPanel /></Suspense>
 
-      <AdminReportsPanel reports={data.reports ?? []} onRefresh={refresh} />
+      <AdminReportsPanel />
 
       <AdminUsersPanel />
 
-      <AdminList title="Vendeurs" rows={data.vendors} render={(v: any) => (
-        <>
-          <div className="flex-1">
-            <p className="font-medium">{v.shop_name}</p>
-            <p className="text-xs text-muted-foreground">{v.whatsapp}</p>
-          </div>
-          <Badge className={statusColor(v.status)} variant="outline">{v.status}</Badge>
-          <div className="flex gap-1">
-            <Button size="sm" variant="outline" onClick={() => onVendor(v.id, "approved")}><CheckCircle2 className="h-4 w-4" /></Button>
-            <Button size="sm" variant="outline" onClick={() => onVendor(v.id, "rejected")}><XCircle className="h-4 w-4" /></Button>
-            <Button size="sm" variant="outline" onClick={() => onVendor(v.id, "suspended")}><Clock className="h-4 w-4" /></Button>
-          </div>
-        </>
-      )} />
+      <AdminList
+        title="Vendeurs" rows={vendorsQ.rows} total={vendorsQ.total}
+        hasMore={vendorsQ.hasMore} loadingMore={vendorsQ.loadingMore} onLoadMore={vendorsQ.loadMore}
+        render={(v: any) => (
+          <>
+            <div className="flex-1">
+              <p className="font-medium">{v.shop_name}</p>
+              <p className="text-xs text-muted-foreground">{v.whatsapp}</p>
+            </div>
+            <Badge className={statusColor(v.status)} variant="outline">{v.status}</Badge>
+            <div className="flex gap-1">
+              <Button size="sm" variant="outline" onClick={() => onVendor(v.id, "approved")}><CheckCircle2 className="h-4 w-4" /></Button>
+              <Button size="sm" variant="outline" onClick={() => onVendor(v.id, "rejected")}><XCircle className="h-4 w-4" /></Button>
+              <Button size="sm" variant="outline" onClick={() => onVendor(v.id, "suspended")}><Clock className="h-4 w-4" /></Button>
+            </div>
+          </>
+        )}
+      />
 
-      <AdminList title="Livreurs" rows={data.riders} render={(r: any) => (
-        <>
-          <div className="flex-1">
-            <p className="font-medium">{r.full_name}</p>
-            <p className="text-xs text-muted-foreground">{r.whatsapp} · {r.vehicle}</p>
-          </div>
-          <Badge className={statusColor(r.status)} variant="outline">{r.status}</Badge>
-          <div className="flex gap-1">
-            <Button size="sm" variant="outline" onClick={() => onRider(r.id, "active")}><CheckCircle2 className="h-4 w-4" /></Button>
-            <Button size="sm" variant="outline" onClick={() => onRider(r.id, "suspended")}><XCircle className="h-4 w-4" /></Button>
-          </div>
-        </>
-      )} />
+      <AdminList
+        title="Livreurs" rows={ridersQ.rows} total={ridersQ.total}
+        hasMore={ridersQ.hasMore} loadingMore={ridersQ.loadingMore} onLoadMore={ridersQ.loadMore}
+        render={(r: any) => (
+          <>
+            <div className="flex-1">
+              <p className="font-medium">{r.full_name}</p>
+              <p className="text-xs text-muted-foreground">{r.whatsapp} · {r.vehicle}</p>
+            </div>
+            <Badge className={statusColor(r.status)} variant="outline">{r.status}</Badge>
+            <div className="flex gap-1">
+              <Button size="sm" variant="outline" onClick={() => onRider(r.id, "active")}><CheckCircle2 className="h-4 w-4" /></Button>
+              <Button size="sm" variant="outline" onClick={() => onRider(r.id, "suspended")}><XCircle className="h-4 w-4" /></Button>
+            </div>
+          </>
+        )}
+      />
 
-      <AdminList title="Produits à valider" rows={data.products.filter((p: any) => !p.approved)} render={(p: any) => (
-        <>
-          <div className="text-xl">{p.emoji || "📦"}</div>
-          <div className="flex-1">
-            <p className="font-medium">{p.name}</p>
-            <p className="text-xs text-muted-foreground">${Number(p.price_usd).toFixed(2)} · {p.category}</p>
-          </div>
-          <Button size="sm" variant="outline" onClick={() => onProd(p.id, true)}><CheckCircle2 className="h-4 w-4" /> Approuver</Button>
-        </>
-      )} />
-
-      <AdminList title="Promotions (prix barrés)" rows={data.products.filter((p: any) => p.promo_price_usd != null)} render={(p: any) => {
-        const orig = Number(p.price_usd);
-        const pp = Number(p.promo_price_usd);
-        const pct = orig > 0 && pp < orig ? Math.round((1 - pp / orig) * 100) : 0;
-        const live = p.promo_active && p.promo_approved;
-        return (
+      <AdminList
+        title="Produits à valider" rows={pendingProductsQ.rows} total={pendingProductsQ.total}
+        hasMore={pendingProductsQ.hasMore} loadingMore={pendingProductsQ.loadingMore} onLoadMore={pendingProductsQ.loadMore}
+        render={(p: any) => (
           <>
             <div className="text-xl">{p.emoji || "📦"}</div>
-            <div className="flex-1 min-w-[160px]">
+            <div className="flex-1">
               <p className="font-medium">{p.name}</p>
-              <p className="text-xs text-muted-foreground">
-                <span className="line-through">${orig.toFixed(2)}</span> → <b className="text-foreground">${pp.toFixed(2)}</b>
-                {pct > 0 && <span className="ml-1 text-red-600 font-semibold">−{pct}%</span>}
-                {!p.promo_active && <span className="ml-2 italic">(désactivée vendeur)</span>}
-                {pp >= orig && <span className="ml-2 text-destructive">⚠️ prix promo ≥ original</span>}
-              </p>
+              <p className="text-xs text-muted-foreground">${Number(p.price_usd).toFixed(2)} · {p.category}</p>
             </div>
-            <Badge variant="outline" className={live ? "border-red-500/40 text-red-600" : p.promo_approved ? "border-emerald-500/40 text-emerald-600" : "border-amber-500/40 text-amber-600"}>
-              {live ? "Active" : p.promo_approved ? "Validée" : "À valider"}
-            </Badge>
-            {p.promo_approved ? (
-              <Button size="sm" variant="outline" className="text-destructive" onClick={() => onPromo(p.id, false)}><XCircle className="h-4 w-4" /> Couper</Button>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => onPromo(p.id, true)}><CheckCircle2 className="h-4 w-4" /> Valider</Button>
-            )}
+            <Button size="sm" variant="outline" onClick={() => onProd(p.id, true)}><CheckCircle2 className="h-4 w-4" /> Approuver</Button>
           </>
-        );
-      }} />
+        )}
+      />
 
-      <AdminList title="Commandes récentes" rows={data.orders.slice(0, 15)} render={(o: any) => (
-        <>
-          <div className="flex-1">
-            <p className="font-medium">{o.code || o.id.slice(0, 8)} · {o.customer_name}</p>
-            <p className="text-xs text-muted-foreground">{o.zone} · ${Number(o.total_usd).toFixed(2)}</p>
-          </div>
-          <Badge className={statusColor(o.status)} variant="outline">{o.status}</Badge>
-        </>
-      )} />
+      <AdminList
+        title="Promotions (prix barrés)" rows={promoProductsQ.rows} total={promoProductsQ.total}
+        hasMore={promoProductsQ.hasMore} loadingMore={promoProductsQ.loadingMore} onLoadMore={promoProductsQ.loadMore}
+        render={(p: any) => {
+          const orig = Number(p.price_usd);
+          const pp = Number(p.promo_price_usd);
+          const pct = orig > 0 && pp < orig ? Math.round((1 - pp / orig) * 100) : 0;
+          const live = p.promo_active && p.promo_approved;
+          return (
+            <>
+              <div className="text-xl">{p.emoji || "📦"}</div>
+              <div className="flex-1 min-w-[160px]">
+                <p className="font-medium">{p.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  <span className="line-through">${orig.toFixed(2)}</span> → <b className="text-foreground">${pp.toFixed(2)}</b>
+                  {pct > 0 && <span className="ml-1 text-red-600 font-semibold">−{pct}%</span>}
+                  {!p.promo_active && <span className="ml-2 italic">(désactivée vendeur)</span>}
+                  {pp >= orig && <span className="ml-2 text-destructive">⚠️ prix promo ≥ original</span>}
+                </p>
+              </div>
+              <Badge variant="outline" className={live ? "border-red-500/40 text-red-600" : p.promo_approved ? "border-emerald-500/40 text-emerald-600" : "border-amber-500/40 text-amber-600"}>
+                {live ? "Active" : p.promo_approved ? "Validée" : "À valider"}
+              </Badge>
+              {p.promo_approved ? (
+                <Button size="sm" variant="outline" className="text-destructive" onClick={() => onPromo(p.id, false)}><XCircle className="h-4 w-4" /> Couper</Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => onPromo(p.id, true)}><CheckCircle2 className="h-4 w-4" /> Valider</Button>
+              )}
+            </>
+          );
+        }}
+      />
+
+      <AdminList
+        title="Commandes récentes" rows={ordersQ.rows} total={ordersQ.total}
+        hasMore={ordersQ.hasMore} loadingMore={ordersQ.loadingMore} onLoadMore={ordersQ.loadMore}
+        render={(o: any) => (
+          <>
+            <div className="flex-1">
+              <p className="font-medium">{o.code || o.id.slice(0, 8)} · {o.customer_name}</p>
+              <p className="text-xs text-muted-foreground">{o.zone} · ${Number(o.total_usd).toFixed(2)}</p>
+            </div>
+            <Badge className={statusColor(o.status)} variant="outline">{o.status}</Badge>
+          </>
+        )}
+      />
 
       <AdminCouponsPanel />
 
@@ -666,12 +732,22 @@ function AdminZonesPanel({ zones, onRefresh }: { zones: any[]; onRefresh: () => 
   );
 }
 
-function AdminList({ title, rows, render }: { title: string; rows: any[]; render: (r: any) => React.ReactNode }) {
+function AdminList({
+  title, rows, total, render, hasMore, loadingMore, onLoadMore,
+}: {
+  title: string;
+  rows: any[];
+  total?: number;
+  render: (r: any) => React.ReactNode;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
+}) {
   return (
     <div className="rounded-2xl border bg-card">
       <div className="border-b p-4 flex items-center justify-between">
         <h3 className="font-display text-lg font-bold">{title}</h3>
-        <Badge variant="outline">{rows.length}</Badge>
+        <Badge variant="outline">{total ?? rows.length}</Badge>
       </div>
       <div className="divide-y">
         {rows.length === 0 && <p className="p-6 text-sm text-muted-foreground">Vide.</p>}
@@ -679,20 +755,28 @@ function AdminList({ title, rows, render }: { title: string; rows: any[]; render
           <div key={r.id} className="flex flex-wrap items-center gap-3 p-4">{render(r)}</div>
         ))}
       </div>
+      {hasMore && (
+        <div className="border-t p-3 text-center">
+          <Button size="sm" variant="outline" onClick={onLoadMore} disabled={loadingMore}>
+            {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : "Charger plus"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
-function AdminReportsPanel({ reports, onRefresh }: { reports: any[]; onRefresh: () => void }) {
+function AdminReportsPanel() {
   const resolve = useServerFn(adminResolveReport);
+  const fetchReportsPage = useServerFn(adminListReportsPage);
   const [filter, setFilter] = useState<"open" | "all">("open");
-  const rows = filter === "open" ? reports.filter((r) => r.status === "open" || r.status === "reviewing") : reports;
+  const { rows, total, hasMore, loadingMore, loadMore, refresh } = useAdminPagedList("admin-reports", fetchReportsPage, { filter });
 
   const act = async (report_id: string, status: "resolved" | "dismissed" | "reviewing") => {
     try {
       await resolve({ data: { report_id, status } });
       toast.success(status === "resolved" ? "Signalement résolu" : status === "dismissed" ? "Signalement rejeté" : "Marqué en revue");
-      onRefresh();
+      refresh();
     } catch (e: any) { toast.error(e.message); }
   };
 
@@ -715,7 +799,7 @@ function AdminReportsPanel({ reports, onRefresh }: { reports: any[]; onRefresh: 
       <div className="border-b p-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="font-display text-lg font-bold">🚩 Signalements</h3>
-          <Badge variant="outline">{rows.length}</Badge>
+          <Badge variant="outline">{total}</Badge>
         </div>
         <div className="flex gap-1">
           <Button size="sm" variant={filter === "open" ? "default" : "outline"} onClick={() => setFilter("open")}>À traiter</Button>
@@ -766,6 +850,13 @@ function AdminReportsPanel({ reports, onRefresh }: { reports: any[]; onRefresh: 
           );
         })}
       </div>
+      {hasMore && (
+        <div className="border-t p-3 text-center">
+          <Button size="sm" variant="outline" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : "Charger plus"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

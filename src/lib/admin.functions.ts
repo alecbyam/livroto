@@ -12,61 +12,50 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
 }
 
 // ---------- ADMIN ----------
+const ADMIN_PAGE_SIZE = 20;
+
+// Ajoute les labels de cible (produit/vendeur/livreur) + le profil du signaleur
+// sur une page de signalements. Extrait pour être partagé par getAdminDashboard-era
+// code et la version paginée ci-dessous.
+async function enrichReports(reports: any[]) {
+  const productIds = reports.filter((r: any) => r.target_type === "product").map((r: any) => r.target_id);
+  const vendorIds = reports.filter((r: any) => r.target_type === "vendor").map((r: any) => r.target_id);
+  const riderIds = reports.filter((r: any) => r.target_type === "rider").map((r: any) => r.target_id);
+  const reporterIds = Array.from(new Set(reports.map((r: any) => r.reporter_id).filter(Boolean)));
+
+  const [tProducts, tVendors, tRiders, tReporters] = await Promise.all([
+    productIds.length ? supabaseAdmin.from("products").select("id,name,emoji").in("id", productIds) : Promise.resolve({ data: [] as any[] }),
+    vendorIds.length ? supabaseAdmin.from("vendors").select("id,shop_name,slug").in("id", vendorIds) : Promise.resolve({ data: [] as any[] }),
+    riderIds.length ? supabaseAdmin.from("riders").select("id,full_name").in("id", riderIds) : Promise.resolve({ data: [] as any[] }),
+    reporterIds.length ? supabaseAdmin.from("profiles").select("id,name,phone").in("id", reporterIds) : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const pMap = new Map((tProducts.data ?? []).map((x: any) => [x.id, x]));
+  const vMap = new Map((tVendors.data ?? []).map((x: any) => [x.id, x]));
+  const rMap = new Map((tRiders.data ?? []).map((x: any) => [x.id, x]));
+  const repMap = new Map((tReporters.data ?? []).map((x: any) => [x.id, x]));
+  return reports.map((r: any) => ({
+    ...r,
+    target:
+      r.target_type === "product" ? pMap.get(r.target_id) ?? null :
+      r.target_type === "vendor" ? vMap.get(r.target_id) ?? null :
+      r.target_type === "rider" ? rMap.get(r.target_id) ?? null : null,
+    reporter: repMap.get(r.reporter_id) ?? null,
+  }));
+}
+
+// Zones + compteurs globaux uniquement — les listes (vendeurs, livreurs, produits,
+// commandes, signalements) sont chargées séparément via les fonctions paginées
+// ci-dessous (adminList*Page), affichées avec "Charger plus" côté UI.
 export const getAdminDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
 
-    const [vendorsRes, ridersRes, productsRes, ordersRes, zonesRes] = await Promise.all([
-      supabaseAdmin.from("vendors").select("*").order("created_at", { ascending: false }).limit(200),
-      supabaseAdmin.from("riders").select("*").order("created_at", { ascending: false }).limit(200),
-      supabaseAdmin.from("products").select("*").order("created_at", { ascending: false }).limit(100),
-      supabaseAdmin.from("orders").select("*").order("created_at", { ascending: false }).limit(100),
-      supabaseAdmin.from("zones").select("*").order("name"),
-    ]);
-    const orders = ordersRes.data ?? [];
-
-    // Reports queue (open first)
-    const { data: reportsRaw } = await supabaseAdmin
-      .from("reports")
-      .select("*")
-      .order("status", { ascending: true })
-      .order("created_at", { ascending: false })
-      .limit(100);
-    const reports = reportsRaw ?? [];
-
-    // Enrich: target labels + reporter names
-    const productIds = reports.filter((r: any) => r.target_type === "product").map((r: any) => r.target_id);
-    const vendorIds = reports.filter((r: any) => r.target_type === "vendor").map((r: any) => r.target_id);
-    const riderIds = reports.filter((r: any) => r.target_type === "rider").map((r: any) => r.target_id);
-    const reporterIds = Array.from(new Set(reports.map((r: any) => r.reporter_id).filter(Boolean)));
-
-    const [tProducts, tVendors, tRiders, tReporters] = await Promise.all([
-      productIds.length ? supabaseAdmin.from("products").select("id,name,emoji").in("id", productIds) : Promise.resolve({ data: [] as any[] }),
-      vendorIds.length ? supabaseAdmin.from("vendors").select("id,shop_name,slug").in("id", vendorIds) : Promise.resolve({ data: [] as any[] }),
-      riderIds.length ? supabaseAdmin.from("riders").select("id,full_name").in("id", riderIds) : Promise.resolve({ data: [] as any[] }),
-      reporterIds.length ? supabaseAdmin.from("profiles").select("id,name,phone").in("id", reporterIds) : Promise.resolve({ data: [] as any[] }),
-    ]);
-    const pMap = new Map((tProducts.data ?? []).map((x: any) => [x.id, x]));
-    const vMap = new Map((tVendors.data ?? []).map((x: any) => [x.id, x]));
-    const rMap = new Map((tRiders.data ?? []).map((x: any) => [x.id, x]));
-    const repMap = new Map((tReporters.data ?? []).map((x: any) => [x.id, x]));
-    const reportsEnriched = reports.map((r: any) => ({
-      ...r,
-      target:
-        r.target_type === "product" ? pMap.get(r.target_id) ?? null :
-        r.target_type === "vendor" ? vMap.get(r.target_id) ?? null :
-        r.target_type === "rider" ? rMap.get(r.target_id) ?? null : null,
-      reporter: repMap.get(r.reporter_id) ?? null,
-    }));
-
-    // Stats calculées sur la table entière via COUNT/colonne unique — jamais sur les
-    // listes ci-dessus (plafonnées à 100/200 lignes pour l'affichage), sinon les
-    // compteurs plafonnent silencieusement dès que le volume dépasse ces limites.
-    const [
+    const [zonesRes,
       totalOrdersHead, deliveredHead, deliveredRevenueRes,
-      pendingVendorsHead, pendingRidersHead, pendingProductsHead, openReportsHead,
+      pendingVendorsHead, pendingRidersHead, pendingProductsHead, openReportsHead, pendingPromosHead,
     ] = await Promise.all([
+      supabaseAdmin.from("zones").select("*").order("name"),
       supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("orders").select("id", { count: "exact", head: true }).eq("status", "delivered"),
       supabaseAdmin.from("orders").select("total_usd").eq("status", "delivered"),
@@ -74,15 +63,11 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       supabaseAdmin.from("riders").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabaseAdmin.from("products").select("id", { count: "exact", head: true }).eq("approved", false),
       supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
+      supabaseAdmin.from("products").select("id", { count: "exact", head: true }).not("promo_price_usd", "is", null).eq("promo_approved", false),
     ]);
 
     return {
-      vendors: vendorsRes.data ?? [],
-      riders: ridersRes.data ?? [],
-      products: productsRes.data ?? [],
-      orders,
       zones: zonesRes.data ?? [],
-      reports: reportsEnriched,
       stats: {
         totalOrders: totalOrdersHead.count ?? 0,
         delivered: deliveredHead.count ?? 0,
@@ -91,8 +76,102 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
         pendingRiders: pendingRidersHead.count ?? 0,
         pendingProducts: pendingProductsHead.count ?? 0,
         openReports: openReportsHead.count ?? 0,
+        pendingPromos: pendingPromosHead.count ?? 0,
       },
     };
+  });
+
+export const adminListVendorsPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ offset: z.number().int().min(0).default(0) }).parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("vendors")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], total: count ?? 0 };
+  });
+
+export const adminListRidersPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ offset: z.number().int().min(0).default(0) }).parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("riders")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], total: count ?? 0 };
+  });
+
+// Filtre approved=false directement en base (avant : produits pris dans le top 100
+// récents puis filtrés en JS — un produit non approuvé ancien pouvait disparaître
+// de la file dès que 100 produits plus récents existaient).
+export const adminListPendingProductsPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ offset: z.number().int().min(0).default(0) }).parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("products")
+      .select("*", { count: "exact" })
+      .eq("approved", false)
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], total: count ?? 0 };
+  });
+
+export const adminListPromoProductsPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ offset: z.number().int().min(0).default(0) }).parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("products")
+      .select("*", { count: "exact" })
+      .not("promo_price_usd", "is", null)
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], total: count ?? 0 };
+  });
+
+export const adminListOrdersPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ offset: z.number().int().min(0).default(0) }).parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("orders")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], total: count ?? 0 };
+  });
+
+export const adminListReportsPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    offset: z.number().int().min(0).default(0),
+    filter: z.enum(["open", "all"]).default("open"),
+  }).parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    let q = supabaseAdmin.from("reports").select("*", { count: "exact" });
+    if (data.filter === "open") q = q.in("status", ["open", "reviewing"]);
+    const { data: rows, error, count } = await q
+      .order("status", { ascending: true })
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    return { rows: await enrichReports(rows ?? []), total: count ?? 0 };
   });
 
 export const adminResolveReport = createServerFn({ method: "POST" })
