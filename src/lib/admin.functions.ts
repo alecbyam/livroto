@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { bucketOrdersByDay, isDelivered, sumRevenueUsd } from "@/lib/order-stats";
+import { sumRevenueUsd } from "@/lib/order-stats";
 
 // Garde d'accès admin centralisée — évite de dupliquer la vérification de rôle
 // dans chaque handler admin (une copie oubliée/mal faite = trou de sécurité).
@@ -287,101 +287,53 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
   });
 
 // ---------- ADMIN: analytics ----------
+// Agrégation faite côté Postgres (fonction admin_daily_order_stats, migration 29) :
+// le volume transféré ne dépend plus du nombre de commandes, seulement des 30 lignes/jour.
 export const getAdminAnalytics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: orders } = await supabaseAdmin
-      .from("orders")
-      .select("created_at,total_usd,status")
-      .gte("created_at", since)
-      .order("created_at");
-
-    return { daily: bucketOrdersByDay(orders ?? [], 30) };
+    const { data, error } = await supabaseAdmin.rpc("admin_daily_order_stats", { p_days: 30, p_vendor_id: null });
+    if (error) throw new Error(error.message);
+    return {
+      daily: (data ?? []).map((r: any) => ({
+        date: (r.day as string).slice(5),
+        commandes: Number(r.commandes),
+        revenus: Number(r.revenus),
+      })),
+    };
   });
 
 // ---------- ADMIN: vue d'ensemble (pilotage quotidien) ----------
-// Bunia / Ituri = CAT (UTC+2). On calcule les bornes "aujourd'hui"/"hier" dans ce fuseau
-// pour que les chiffres collent à la journée réelle du gérant, pas à l'UTC.
-const BUNIA_TZ_OFFSET_MS = 2 * 60 * 60 * 1000;
-function startOfLocalDayUtc(ts: number): number {
-  const local = new Date(ts + BUNIA_TZ_OFFSET_MS);
-  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - BUNIA_TZ_OFFSET_MS;
-}
-
+// today/week/hotZones/cashToCollect calculés côté Postgres (fonction admin_overview_stats,
+// migration 29 — reproduit exactement l'ancien calcul de journée locale Bunia UTC+2).
 export const getAdminOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
 
-    const now = Date.now();
-    const DAY = 24 * 60 * 60 * 1000;
-    const startToday = startOfLocalDayUtc(now);
-    const startYesterday = startToday - DAY;
-    const since7 = now - 7 * DAY;
-    const since30 = now - 30 * DAY;
-
-    const [ordersRes, vendorsRes, ridersRes, customersHead, newCustomersHead] = await Promise.all([
-      supabaseAdmin
-        .from("orders")
-        .select("created_at,total_usd,status,zone,payment_status")
-        .gte("created_at", new Date(since30).toISOString()),
+    const since7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const [statsRes, vendorsRes, ridersRes, customersHead, newCustomersHead] = await Promise.all([
+      supabaseAdmin.rpc("admin_overview_stats"),
       supabaseAdmin.from("vendors").select("status"),
       supabaseAdmin.from("riders").select("status,is_available"),
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", new Date(since7).toISOString()),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", since7),
     ]);
-
-    const orders = ordersRes.data ?? [];
-    const vendors = vendorsRes.data ?? [];
-    const riders = ridersRes.data ?? [];
-    const tms = (o: any) => new Date(o.created_at as string).getTime();
-
-    const window = (from: number, to: number) => {
-      const inWin = orders.filter((o) => tms(o) >= from && tms(o) < to);
-      const deliv = inWin.filter(isDelivered);
-      return {
-        orders: inWin.length,
-        revenue: sumRevenueUsd(deliv),
-        delivered: deliv.length,
-      };
+    if (statsRes.error) throw new Error(statsRes.error.message);
+    const stats = statsRes.data as {
+      today: { orders: number; revenue: number; trendOrders: number };
+      week: { orders: number; revenue: number; avgBasket: number };
+      cashToCollect: number;
+      hotZones: { zone: string; orders: number; revenue: number }[];
     };
 
-    const today = window(startToday, now + 1);
-    const yesterday = window(startYesterday, startToday);
-    const week = window(since7, now + 1);
-
-    // Tendance jour vs hier (% commandes)
-    const trendOrders = yesterday.orders === 0
-      ? (today.orders > 0 ? 100 : 0)
-      : Math.round(((today.orders - yesterday.orders) / yesterday.orders) * 100);
-
-    // Zones chaudes : top quartiers par nombre de commandes (7 derniers jours)
-    const zoneMap = new Map<string, { orders: number; revenue: number }>();
-    for (const o of orders) {
-      if (tms(o) < since7) continue;
-      const z = (o.zone as string) || "—";
-      const e = zoneMap.get(z) ?? { orders: 0, revenue: 0 };
-      e.orders++;
-      if (isDelivered(o)) e.revenue += Number(o.total_usd ?? 0);
-      zoneMap.set(z, e);
-    }
-    const hotZones = Array.from(zoneMap.entries())
-      .map(([zone, v]) => ({ zone, ...v }))
-      .sort((a, b) => b.orders - a.orders)
-      .slice(0, 6);
-
-    // Cash à encaisser : commandes livrées mais non payées (30 j)
-    const cashToCollect = sumRevenueUsd(
-      orders.filter((o) => isDelivered(o) && o.payment_status !== "paid"),
-    );
-
-    const avgBasket = week.delivered > 0 ? week.revenue / week.delivered : 0;
+    const vendors = vendorsRes.data ?? [];
+    const riders = ridersRes.data ?? [];
 
     return {
-      today: { orders: today.orders, revenue: today.revenue, trendOrders },
-      week: { orders: week.orders, revenue: week.revenue, avgBasket },
+      today: stats.today,
+      week: stats.week,
       network: {
         vendorsActive: vendors.filter((v: any) => v.status === "approved").length,
         vendorsPending: vendors.filter((v: any) => v.status === "pending").length,
@@ -390,8 +342,8 @@ export const getAdminOverview = createServerFn({ method: "GET" })
         customers: customersHead.count ?? 0,
         newCustomers7d: newCustomersHead.count ?? 0,
       },
-      cashToCollect,
-      hotZones,
+      cashToCollect: stats.cashToCollect,
+      hotZones: stats.hotZones,
     };
   });
 

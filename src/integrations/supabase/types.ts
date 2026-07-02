@@ -1086,6 +1086,21 @@ export type Database = {
       }
     }
     Functions: {
+      admin_daily_order_stats: {
+        Args: {
+          p_days: number
+          p_vendor_id?: string | null
+        }
+        Returns: {
+          day: string
+          commandes: number
+          revenus: number
+        }[]
+      }
+      admin_overview_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
