@@ -18,8 +18,8 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
     await assertAdmin(context);
 
     const [vendorsRes, ridersRes, productsRes, ordersRes, zonesRes] = await Promise.all([
-      supabaseAdmin.from("vendors").select("*").order("created_at", { ascending: false }),
-      supabaseAdmin.from("riders").select("*").order("created_at", { ascending: false }),
+      supabaseAdmin.from("vendors").select("*").order("created_at", { ascending: false }).limit(200),
+      supabaseAdmin.from("riders").select("*").order("created_at", { ascending: false }).limit(200),
       supabaseAdmin.from("products").select("*").order("created_at", { ascending: false }).limit(100),
       supabaseAdmin.from("orders").select("*").order("created_at", { ascending: false }).limit(100),
       supabaseAdmin.from("zones").select("*").order("name"),
@@ -60,6 +60,22 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       reporter: repMap.get(r.reporter_id) ?? null,
     }));
 
+    // Stats calculées sur la table entière via COUNT/colonne unique — jamais sur les
+    // listes ci-dessus (plafonnées à 100/200 lignes pour l'affichage), sinon les
+    // compteurs plafonnent silencieusement dès que le volume dépasse ces limites.
+    const [
+      totalOrdersHead, deliveredHead, deliveredRevenueRes,
+      pendingVendorsHead, pendingRidersHead, pendingProductsHead, openReportsHead,
+    ] = await Promise.all([
+      supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("orders").select("id", { count: "exact", head: true }).eq("status", "delivered"),
+      supabaseAdmin.from("orders").select("total_usd").eq("status", "delivered"),
+      supabaseAdmin.from("vendors").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabaseAdmin.from("riders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabaseAdmin.from("products").select("id", { count: "exact", head: true }).eq("approved", false),
+      supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
+    ]);
+
     return {
       vendors: vendorsRes.data ?? [],
       riders: ridersRes.data ?? [],
@@ -68,13 +84,13 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       zones: zonesRes.data ?? [],
       reports: reportsEnriched,
       stats: {
-        totalOrders: orders.length,
-        delivered: orders.filter(isDelivered).length,
-        revenue: sumRevenueUsd(orders.filter(isDelivered)),
-        pendingVendors: (vendorsRes.data ?? []).filter((v: any) => v.status === "pending").length,
-        pendingRiders: (ridersRes.data ?? []).filter((r: any) => r.status === "pending").length,
-        pendingProducts: (productsRes.data ?? []).filter((p: any) => !p.approved).length,
-        openReports: reports.filter((r: any) => r.status === "open").length,
+        totalOrders: totalOrdersHead.count ?? 0,
+        delivered: deliveredHead.count ?? 0,
+        revenue: sumRevenueUsd(deliveredRevenueRes.data ?? []),
+        pendingVendors: pendingVendorsHead.count ?? 0,
+        pendingRiders: pendingRidersHead.count ?? 0,
+        pendingProducts: pendingProductsHead.count ?? 0,
+        openReports: openReportsHead.count ?? 0,
       },
     };
   });
