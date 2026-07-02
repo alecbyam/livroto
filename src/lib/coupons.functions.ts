@@ -66,8 +66,9 @@ export const validateCoupon = createServerFn({ method: "POST" })
     };
   });
 
-// Increment uses_count after an order with a coupon has been created.
-// Fire-and-forget from the client.
+// Incrément atomique uses_count via RPC Postgres.
+// L'approche read-then-write précédente avait une race condition :
+// deux commandes simultanées pouvaient lire uses_count=5 et toutes deux écrire 6.
 export const recordCouponUse = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -75,12 +76,7 @@ export const recordCouponUse = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const code = data.code.toUpperCase();
-    const { data: c } = await supabaseAdmin
-      .from("coupons").select("uses_count").eq("code", code).maybeSingle();
-    if (!c) return { ok: false };
-    await supabaseAdmin
-      .from("coupons")
-      .update({ uses_count: (c.uses_count ?? 0) + 1 })
-      .eq("code", code);
+    const { error } = await supabaseAdmin.rpc("increment_coupon_uses", { p_code: code });
+    if (error) return { ok: false };
     return { ok: true };
   });

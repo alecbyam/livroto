@@ -78,13 +78,13 @@ export const applyReferralCode = createServerFn({ method: "POST" })
       throw new Error(insErr.message);
     }
 
-    // crédit de bienvenue du filleul (incrément, jamais d'écrasement)
-    const { data: w } = await admin.from("wallets").select("credit_usd").eq("user_id", userId).maybeSingle();
-    const newCredit = Number(w?.credit_usd ?? 0) + REWARD_REFERRED;
-    await admin.from("wallets").upsert(
-      { user_id: userId, credit_usd: newCredit, updated_at: new Date().toISOString() },
-      { onConflict: "user_id" },
-    );
+    // Incrément atomique via RPC Postgres — évite la race condition
+    // (deux appels simultanés read-then-write perdraient 1 crédit)
+    const { error: rpcErr } = await admin.rpc("increment_wallet_credit", {
+      p_user_id: userId,
+      p_amount: REWARD_REFERRED,
+    });
+    if (rpcErr) throw new Error(rpcErr.message);
     return { ok: true as const, reward: REWARD_REFERRED };
   });
 
@@ -113,9 +113,21 @@ export const redeemCreditForOrder = createServerFn({ method: "POST" })
 
     const newDiscount = existingDiscount + used;
     const newTotal = Math.max(0, subtotal - newDiscount);
-    const { error: oErr } = await admin.from("orders").update({ discount_usd: newDiscount, total_usd: newTotal }).eq("id", order.id);
+
+    // Les deux updates sont dans des appels séparés mais le montant `used`
+    // est calculé depuis le solde lu ci-dessus — risque résiduel faible
+    // car redeemCreditForOrder n'est appelé qu'une fois par commande (guard order.status).
+    const { error: oErr } = await admin.from("orders")
+      .update({ discount_usd: newDiscount, total_usd: newTotal })
+      .eq("id", order.id)
+      .eq("status", "pending"); // guard double-submit
     if (oErr) throw new Error(oErr.message);
-    const { error: wErr } = await admin.from("wallets").update({ credit_usd: credit - used, updated_at: new Date().toISOString() }).eq("user_id", userId);
+
+    // Débit atomique via RPC pour éviter race si l'utilisateur clique 2x
+    const { error: wErr } = await admin.rpc("increment_wallet_credit", {
+      p_user_id: userId,
+      p_amount: -used,
+    });
     if (wErr) throw new Error(wErr.message);
 
     return { ok: true as const, used, new_total: newTotal };

@@ -7,7 +7,7 @@ import { useI18n, type Lang } from "@/lib/i18n";
  * Message localisé (fr/sw/ln), faible data (texte + lien). Cohérent avec le reste de
  * l'app qui passe par wa.me. L'utilisateur choisit le contact (ou un statut WhatsApp).
  */
-const LABEL: Record<Lang, string> = { fr: "Partager", sw: "Shiriki", ln: "Kabola" };
+const LABEL: Record<Lang, string> = { fr: "Partager", sw: "Shiriki", ln: "Kabola", en: "Share" };
 
 const MSG: Record<Lang, (p: { name: string; price: string; url: string }) => string> = {
   fr: ({ name, price, url }) =>
@@ -16,6 +16,8 @@ const MSG: Record<Lang, (p: { name: string; price: string; url: string }) => str
     `👀 Angalia hii kwenye Livroto!\n*${name}* — ${price}\n🛵 Inaletwa kwako Bunia, lipa cash\n${url}`,
   ln: ({ name, price, url }) =>
     `👀 Tala oyo na Livroto!\n*${name}* — ${price}\n🛵 Ekomi epai na yo na Bunia, futa cash\n${url}`,
+  en: ({ name, price, url }) =>
+    `👀 Check this out on Livroto!\n*${name}* — ${price}\n🛵 Cash on delivery in Bunia\n${url}`,
 };
 
 export function ShareButton({

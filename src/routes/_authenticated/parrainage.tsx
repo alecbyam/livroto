@@ -20,6 +20,8 @@ const INVITE: Record<Lang, (link: string) => string> = {
     `🎁 Jiunge nami kwenye *Livroto* (usafirishaji Bunia, lipa cash)!\nJisajili na kiungo changu na kila mmoja apate $1 ya krediti 👇\n${link}`,
   ln: (link) =>
     `🎁 Yaka epai na ngai na *Livroto* (livraison na Bunia, futa cash)!\nKomisala na lien na ngai mpe moko na moko azwa $1 ya crédit 👇\n${link}`,
+  en: (link) =>
+    `🎁 Join me on *Livroto* (delivery in Bunia, cash payment)!\nSign up with my link and we each get $1 credit 👇\n${link}`,
 };
 
 function ReferralPage() {

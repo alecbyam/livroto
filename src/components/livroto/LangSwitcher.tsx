@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
-const labels: Record<Lang, string> = { fr: "FR", sw: "SW", ln: "LN" };
+const labels: Record<Lang, string> = { fr: "FR", sw: "SW", ln: "LN", en: "EN" };
 
 export function LangSwitcher() {
   const { lang, setLang, t } = useI18n();
