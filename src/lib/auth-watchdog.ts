@@ -3,12 +3,19 @@ import { resetAuthState } from "@/lib/auth-recovery";
 import { authLog } from "@/lib/auth-log";
 
 const ATTEMPTS_FLAG = "livroto.authHealAttempts";
-// 12 s : le verrou anti-deadlock (client.ts) plafonne son attente à 5 s avant de
-// continuer SANS verrou. Le watchdog doit laisser un large coussin au-dessus de ça,
-// sinon une simple contention de verrou (~5 s) est prise à tort pour un gel et on
-// purge une session pourtant VALIDE => fausse déconnexion. 12 s ne se déclenche donc
-// que sur un VRAI blocage (getSession qui ne répond jamais).
-const GETSESSION_TIMEOUT_MS = 12000;
+// INCIDENT (5 juillet 2026) : ce timeout était resté à 12 s alors que le verrou
+// anti-deadlock (client.ts, LOCK_ACQUIRE_MAX_MS) a été porté à 15 s le 13/06/2026
+// pour couvrir les refreshes lents sur 2G Bunia (6-12 s, parfois plus). Le watchdog
+// se déclenchait donc AVANT que le verrou n'ait fini d'attendre un refresh pourtant
+// légitime : getSession() (qui passe par le même verrou) était pris à tort pour un
+// gel, et au 2ᵉ épisode dans la session de navigation, resetAuthState() purgeait une
+// session VALIDE => déconnexion + reconnexion forcée. Confirmé par les logs Supabase
+// (auth) : le même compte se reconnectait plusieurs fois en quelques minutes, avec un
+// `token_revoked` explicite. Le watchdog doit toujours rester largement AU-DESSUS du
+// timeout du verrou, jamais en dessous — sinon une simple lenteur réseau (pas un vrai
+// gel) déclenche l'auto-réparation à tort. 20 s laisse ~5 s de marge au-delà des 15 s
+// du verrou.
+const GETSESSION_TIMEOUT_MS = 20000;
 
 /**
  * Filet de sécurité au démarrage : si l'auth est réellement FIGÉE (getSession ne répond
