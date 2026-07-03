@@ -34,7 +34,8 @@ export function ShareButton({
   const { lang } = useI18n();
 
   const onShare = () => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://livroto.vercel.app";
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "https://livroto-frontend-production.up.railway.app";
     const url = `${origin}/product/${productId}`;
     const text = MSG[lang]({ name, price, url });
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");

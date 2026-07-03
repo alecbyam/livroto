@@ -35,7 +35,8 @@ function ReferralPage() {
     staleTime: 60_000,
   });
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://livroto.vercel.app";
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "https://livroto-frontend-production.up.railway.app";
   const link = data?.code ? `${origin}/auth?ref=${data.code}` : "";
 
   const invite = () => {

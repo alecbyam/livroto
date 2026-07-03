@@ -109,6 +109,6 @@ jobs:
             | **Linux Ubuntu/Debian** | `livroto_*.deb` | `sudo dpkg -i livroto.deb` |
             | **Android** | Télécharger depuis l'action Build Android | Installer l'APK |
             | **iOS** | App Store (soumission en cours) | |
-            | **Tous les navigateurs** | [livroto.vercel.app](https://livroto.vercel.app) | Installer comme PWA |
+            | **Tous les navigateurs** | [livroto-frontend-production.up.railway.app](https://livroto-frontend-production.up.railway.app) | Installer comme PWA |
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

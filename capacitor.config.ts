@@ -3,12 +3,12 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.livroto.bunia",
   appName: "Livroto",
-  webDir: ".vercel/output/static",
+  webDir: ".output/public",
 
-  // Mode remote : charge directement depuis livroto.vercel.app
-  // Toutes les mises à jour Vercel sont instantanément disponibles dans l'app
+  // Mode remote : charge directement depuis l'instance Railway du frontend.
+  // Toutes les mises à jour déployées sur Railway sont instantanément disponibles dans l'app.
   server: {
-    url: "https://livroto.vercel.app",
+    url: "https://livroto-frontend-production.up.railway.app",
     cleartext: false,
     androidScheme: "https",
   },
@@ -40,7 +40,7 @@ const config: CapacitorConfig = {
       backgroundColor: "#0f3d2e",
     },
     App: {
-      launchUrl: "https://livroto.vercel.app",
+      launchUrl: "https://livroto-frontend-production.up.railway.app",
     },
   },
 };

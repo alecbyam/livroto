@@ -2,7 +2,7 @@ const { app, BrowserWindow, shell, Menu, Tray, nativeImage } = require('electron
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
-const APP_URL = 'https://livroto.vercel.app';
+const APP_URL = 'https://livroto-frontend-production.up.railway.app';
 const APP_NAME = 'Livroto';
 
 let mainWindow = null;
