@@ -2,7 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ShoppingBag, Store, MessageCircle, Check, MapPin, Zap, Quote, TrendingUp, Star } from "lucide-react";
+import {
+  ArrowRight,
+  ShoppingBag,
+  Store,
+  MessageCircle,
+  Check,
+  MapPin,
+  Zap,
+  Quote,
+  TrendingUp,
+  Star,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +31,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Livroto — Bunia livre à ta porte" },
-      { name: "description", content: "Première marketplace locale de Bunia, Ituri. Accessoires, cuisine et livraison — cash à la porte." },
+      {
+        name: "description",
+        content:
+          "Première marketplace locale de Bunia, Ituri. Accessoires, cuisine et livraison — cash à la porte.",
+      },
       { property: "og:title", content: "Livroto — Bunia livre à ta porte" },
       { property: "og:description", content: "Commande. Livroto arrive." },
     ],
@@ -83,12 +98,16 @@ function FeaturedProducts() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp className="h-5 w-5 text-[color:var(--brand-dark)]" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-[color:var(--brand-dark)]">Tendances à Bunia</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[color:var(--brand-dark)]">
+              Tendances à Bunia
+            </span>
           </div>
           <h2 className="font-display text-2xl md:text-3xl font-bold">Les plus commandés</h2>
         </div>
         <Button asChild variant="ghost" size="sm" className="shrink-0">
-          <Link to="/catalog">Tout voir <ArrowRight className="h-4 w-4 ml-1" /></Link>
+          <Link to="/catalog">
+            Tout voir <ArrowRight className="h-4 w-4 ml-1" />
+          </Link>
         </Button>
       </div>
       {loading ? (
@@ -99,7 +118,9 @@ function FeaturedProducts() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map((p) => <ProductCard key={p.id} product={p} />)}
+          {products.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
         </div>
       )}
     </section>
@@ -120,24 +141,36 @@ function Hero() {
             <h1 className="mt-5 font-display text-4xl md:text-6xl lg:text-7xl font-bold leading-[1.05]">
               {t("hero.tagline")}
             </h1>
-            <p className="mt-5 max-w-xl text-base md:text-lg text-white/85">
-              {t("hero.subtitle")}
-            </p>
+            <p className="mt-5 max-w-xl text-base md:text-lg text-white/85">{t("hero.subtitle")}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-[color:var(--amber)] text-[color:var(--amber-foreground)] hover:brightness-105 min-h-[52px] px-6">
+              <Button
+                asChild
+                size="lg"
+                className="bg-[color:var(--amber)] text-[color:var(--amber-foreground)] hover:brightness-105 min-h-[52px] px-6"
+              >
                 <Link to="/catalog">
                   <ShoppingBag className="h-5 w-5" />
                   {t("cta.orderNow")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 min-h-[52px]">
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-white/30 bg-white/10 text-white hover:bg-white/20 min-h-[52px]"
+              >
                 <a href="#seller">
                   <Store className="h-5 w-5" />
                   {t("cta.becomeSeller")}
                 </a>
               </Button>
-              <Button asChild size="lg" variant="ghost" className="text-white hover:bg-white/10 min-h-[52px]">
+              <Button
+                asChild
+                size="lg"
+                variant="ghost"
+                className="text-white hover:bg-white/10 min-h-[52px]"
+              >
                 <a href={genericWhatsAppUrl()} target="_blank" rel="noreferrer">
                   <MessageCircle className="h-5 w-5" />
                   {t("cta.whatsapp")}
@@ -155,12 +188,18 @@ function Categories() {
   const { t } = useI18n();
   return (
     <section className="container mx-auto px-4 py-16 md:py-24">
-      <h2 className="font-display text-3xl md:text-4xl font-bold text-center">{t("categories.title")}</h2>
-      <p className="mt-2 text-center text-muted-foreground">Téléphone, cuisine, maison, beauté, bijoux, ordinateurs, électronique… tout au même endroit.</p>
+      <h2 className="font-display text-3xl md:text-4xl font-bold text-center">
+        {t("categories.title")}
+      </h2>
+      <p className="mt-2 text-center text-muted-foreground">{t("categories.subtitle")}</p>
       <div className="mt-10 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {CATEGORY_LIST.map((c) => (
-          <Link key={c.id} to="/catalog" search={{ cat: c.id, sub: "all", q: "" } as any}
-                className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <Link
+            key={c.id}
+            to="/catalog"
+            search={{ cat: c.id, sub: "all", q: "" } as any}
+            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+          >
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--brand-light)] text-3xl">
               {c.emoji}
             </div>
@@ -186,7 +225,9 @@ function HowItWorks() {
   return (
     <section id="how" className="bg-[color:var(--brand-light)]/60 py-16 md:py-24">
       <div className="container mx-auto px-4">
-        <h2 className="font-display text-3xl md:text-4xl font-bold text-center">{t("how.title")}</h2>
+        <h2 className="font-display text-3xl md:text-4xl font-bold text-center">
+          {t("how.title")}
+        </h2>
         <div className="mt-10 grid gap-6 md:grid-cols-4">
           {steps.map((s) => (
             <div key={s.n} className="relative rounded-2xl bg-card p-6 shadow-sm">
@@ -219,7 +260,10 @@ function Zones() {
       return (data ?? []).map((z) => ({ ...z, delivery_fee_usd: Number(z.delivery_fee_usd) }));
     },
   });
-  const list = dbZones.length > 0 ? dbZones : zones.map((z) => ({ id: z.name, name: z.name, delivery_fee_usd: z.fee }));
+  const list =
+    dbZones.length > 0
+      ? dbZones
+      : zones.map((z) => ({ id: z.name, name: z.name, delivery_fee_usd: z.fee }));
 
   return (
     <section id="zones" className="container mx-auto px-4 py-16 md:py-24">
@@ -229,7 +273,10 @@ function Zones() {
       </div>
       <div className="mt-10 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
         {list.map((z) => (
-          <div key={z.id} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between">
+          <div
+            key={z.id}
+            className="rounded-xl border border-border bg-card p-4 flex items-center justify-between"
+          >
             <div className="flex items-center gap-3">
               <MapPin className="h-5 w-5 text-primary" />
               <span className="font-medium">{z.name}</span>
@@ -241,7 +288,8 @@ function Zones() {
         ))}
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
-        Estimation indicative. Le tarif final se confirme avec le livreur selon la distance, la charge et l'urgence.
+        Estimation indicative. Le tarif final se confirme avec le livreur selon la distance, la
+        charge et l'urgence.
       </p>
     </section>
   );
@@ -274,17 +322,30 @@ function SellerForm() {
           <h2 className="font-display text-3xl md:text-4xl font-bold">{t("seller.title")}</h2>
           <p className="mt-3 text-white/80 max-w-md">{t("seller.subtitle")}</p>
           <ul className="mt-6 space-y-2 text-sm text-white/85">
-            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Catalogue en ligne offert</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Commandes via WhatsApp</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Livraison gérée par Livroto</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-[color:var(--amber)]" /> Paiement cash sécurisé</li>
+            <li className="flex gap-2">
+              <Check className="h-5 w-5 text-[color:var(--amber)]" /> Catalogue en ligne offert
+            </li>
+            <li className="flex gap-2">
+              <Check className="h-5 w-5 text-[color:var(--amber)]" /> Commandes via WhatsApp
+            </li>
+            <li className="flex gap-2">
+              <Check className="h-5 w-5 text-[color:var(--amber)]" /> Livraison gérée par Livroto
+            </li>
+            <li className="flex gap-2">
+              <Check className="h-5 w-5 text-[color:var(--amber)]" /> Paiement cash sécurisé
+            </li>
           </ul>
         </div>
-        <form onSubmit={onSubmit} className="rounded-2xl bg-white text-foreground p-6 shadow-xl space-y-4">
+        <form
+          onSubmit={onSubmit}
+          className="rounded-2xl bg-white text-foreground p-6 shadow-xl space-y-4"
+        >
           <div>
             <Label htmlFor="s-name">{t("seller.name")}</Label>
             <Input
-              id="s-name" required className="mt-1.5 min-h-[48px]"
+              id="s-name"
+              required
+              className="mt-1.5 min-h-[48px]"
               placeholder="Ex. Maman Sarah Foods"
               value={fields.name}
               onChange={(e) => setFields({ ...fields, name: e.target.value })}
@@ -293,7 +354,10 @@ function SellerForm() {
           <div>
             <Label htmlFor="s-phone">{t("seller.phone")}</Label>
             <Input
-              id="s-phone" required type="tel" className="mt-1.5 min-h-[48px]"
+              id="s-phone"
+              required
+              type="tel"
+              className="mt-1.5 min-h-[48px]"
               placeholder="+243 ..."
               value={fields.phone}
               onChange={(e) => setFields({ ...fields, phone: e.target.value })}
@@ -303,7 +367,9 @@ function SellerForm() {
             <div>
               <Label htmlFor="s-cat">{t("seller.category")}</Label>
               <Input
-                id="s-cat" required className="mt-1.5 min-h-[48px]"
+                id="s-cat"
+                required
+                className="mt-1.5 min-h-[48px]"
                 placeholder="Cuisine, accessoires…"
                 value={fields.category}
                 onChange={(e) => setFields({ ...fields, category: e.target.value })}
@@ -312,7 +378,9 @@ function SellerForm() {
             <div>
               <Label htmlFor="s-zone">{t("seller.zone")}</Label>
               <Input
-                id="s-zone" required className="mt-1.5 min-h-[48px]"
+                id="s-zone"
+                required
+                className="mt-1.5 min-h-[48px]"
                 placeholder="Sayo, Centre-ville…"
                 value={fields.zone}
                 onChange={(e) => setFields({ ...fields, zone: e.target.value })}
@@ -355,7 +423,9 @@ function Testimonials() {
       const productIds = [...new Set(clean.map((r) => r.product_id).filter(Boolean) as string[])];
       const [{ data: profs }, { data: prods }] = await Promise.all([
         supabase.from("profiles").select("id,name,zone").in("id", authorIds),
-        productIds.length ? supabase.from("products").select("id,name").in("id", productIds) : Promise.resolve({ data: [] as any[] }),
+        productIds.length
+          ? supabase.from("products").select("id,name").in("id", productIds)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
       const nameById = new Map((profs ?? []).map((p) => [p.id, p]));
       const prodById = new Map((prods ?? []).map((p) => [p.id, p.name]));
@@ -367,7 +437,9 @@ function Testimonials() {
           quote: (r.comment ?? "").trim(),
           rating: r.rating,
           name: prof?.name?.trim() || "Client Livroto",
-          zone: prof?.zone?.trim() || (r.product_id ? prodById.get(r.product_id) ?? "Bunia" : "Bunia"),
+          zone:
+            prof?.zone?.trim() ||
+            (r.product_id ? (prodById.get(r.product_id) ?? "Bunia") : "Bunia"),
         };
       });
     },
@@ -377,14 +449,19 @@ function Testimonials() {
 
   return (
     <section className="container mx-auto px-4 py-16 md:py-24">
-      <h2 className="font-display text-3xl md:text-4xl font-bold text-center">{t("testimonials.title")}</h2>
+      <h2 className="font-display text-3xl md:text-4xl font-bold text-center">
+        {t("testimonials.title")}
+      </h2>
       <div className="mt-10 grid gap-5 md:grid-cols-3">
         {items.map((tt) => (
           <figure key={tt.id} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <Quote className="h-6 w-6 text-[color:var(--amber)]" />
             <div className="mt-2 flex items-center gap-0.5">
               {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className={`h-4 w-4 ${i <= tt.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`} />
+                <Star
+                  key={i}
+                  className={`h-4 w-4 ${i <= tt.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                />
               ))}
             </div>
             <blockquote className="mt-3 text-base">{tt.quote}</blockquote>

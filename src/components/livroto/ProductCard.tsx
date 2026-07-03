@@ -59,7 +59,13 @@ function ProductBadge({ product }: { product: DisplayProduct }) {
   return null;
 }
 
-export function ProductCard({ product, verified = false }: { product: DisplayProduct; verified?: boolean }) {
+export function ProductCard({
+  product,
+  verified = false,
+}: {
+  product: DisplayProduct;
+  verified?: boolean;
+}) {
   const { t } = useI18n();
   const { add } = useCart();
   const { isFav, toggle } = useFavorite(product.id);
@@ -87,17 +93,27 @@ export function ProductCard({ product, verified = false }: { product: DisplayPro
   };
 
   return (
-    <div className={`group relative flex flex-col rounded-2xl border bg-card shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 ${out ? "opacity-70" : ""}`}>
+    <div
+      className={`group relative flex flex-col rounded-2xl border bg-card shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 ${out ? "opacity-70" : ""}`}
+    >
       {/* Favourite button */}
       <button
         type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(); }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggle();
+        }}
         aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
         className={`absolute top-3 right-3 z-10 grid h-9 w-9 place-items-center rounded-full shadow-sm backdrop-blur transition-all ${
-          isFav ? "bg-rose-500 text-white scale-110" : "bg-background/80 text-muted-foreground hover:bg-rose-50 hover:text-rose-500"
+          isFav
+            ? "bg-rose-500 text-white scale-110"
+            : "bg-background/80 text-muted-foreground hover:bg-rose-50 hover:text-rose-500"
         }`}
       >
-        <Heart className={`h-4 w-4 transition-transform ${isFav ? "fill-current scale-110" : "group-hover:scale-110"}`} />
+        <Heart
+          className={`h-4 w-4 transition-transform ${isFav ? "fill-current scale-110" : "group-hover:scale-110"}`}
+        />
       </button>
 
       {/* Promo % (prioritaire) sinon badge psychologique */}
@@ -111,16 +127,27 @@ export function ProductCard({ product, verified = false }: { product: DisplayPro
 
       {/* Image */}
       <div className="relative overflow-hidden rounded-t-2xl aspect-square bg-[color:var(--brand-light)]">
-        <Link to="/product/$productId" params={{ productId: product.id }} className="grid h-full w-full place-items-center text-6xl">
+        <Link
+          to="/product/$productId"
+          params={{ productId: product.id }}
+          className="grid h-full w-full place-items-center text-6xl"
+        >
           {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
           ) : (
             <span className="select-none">{product.emoji ?? "📦"}</span>
           )}
         </Link>
         {out && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
-            <Badge variant="destructive" className="text-sm font-bold px-4 py-1.5">Épuisé</Badge>
+            <Badge variant="destructive" className="text-sm font-bold px-4 py-1.5">
+              Épuisé
+            </Badge>
           </div>
         )}
       </div>
@@ -154,7 +181,9 @@ export function ProductCard({ product, verified = false }: { product: DisplayPro
                 {fmt(promo.price)}
               </span>
               {promo.active && (
-                <span className="text-xs text-muted-foreground line-through">{fmt(promo.original)}</span>
+                <span className="text-xs text-muted-foreground line-through">
+                  {fmt(promo.original)}
+                </span>
               )}
             </div>
             {currency === "USD" && (
@@ -171,22 +200,22 @@ export function ProductCard({ product, verified = false }: { product: DisplayPro
 
           {/* CTAs */}
           {!out ? (
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1">
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold transition-colors hover:bg-[color:var(--brand-light)] hover:border-[color:var(--brand-dark)] active:scale-95 min-h-[40px]"
+                className="flex items-center justify-center gap-1 rounded-xl border border-border bg-card px-1 py-2.5 text-[11px] font-semibold transition-colors hover:bg-[color:var(--brand-light)] hover:border-[color:var(--brand-dark)] active:scale-95 min-h-[40px]"
               >
                 <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
-                Panier
+                <span className="min-w-0 truncate">Panier</span>
               </button>
               <Link
                 to="/order/$productId"
                 params={{ productId: product.id }}
-                className="flex items-center justify-center gap-1 rounded-xl bg-[color:var(--brand-dark)] py-2.5 text-xs font-bold text-white transition-all hover:brightness-110 active:scale-95 min-h-[40px]"
+                className="flex items-center justify-center gap-1 rounded-xl bg-[color:var(--brand-dark)] px-1 py-2.5 text-[11px] font-bold text-white transition-all hover:brightness-110 active:scale-95 min-h-[40px]"
               >
-                <Zap className="h-3.5 w-3.5 shrink-0" />
-                Commander
+                <Zap className="h-3 w-3 shrink-0" />
+                <span className="min-w-0 truncate">Commander</span>
               </Link>
             </div>
           ) : (

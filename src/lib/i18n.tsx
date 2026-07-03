@@ -17,9 +17,11 @@ const dict: Record<Lang, Dict> = {
     "cta.becomeSeller": "Devenir vendeur",
     "cta.whatsapp": "Commander via WhatsApp",
     "hero.tagline": "Bunia livre à ta porte.",
-    "hero.subtitle": "Le premier marché local de Bunia. Commande des accessoires, du fundi, ou une course — paie cash à la livraison. Senda order yako !",
+    "hero.subtitle":
+      "Le premier marché local de Bunia. Commande des accessoires, du fundi, ou une course — paie cash à la livraison. Senda order yako !",
     "hero.badge": "Première marketplace locale de Bunia · Ituri · RDC",
-    "categories.title": "Trois façons d'utiliser Livroto",
+    "categories.title": "Catégories",
+    "categories.subtitle": "Choisis une catégorie pour commencer.",
     "categories.phone.title": "Accessoires téléphone",
     "categories.phone.desc": "Chargeurs, écouteurs, coques, câbles — livrés chez toi.",
     "categories.food.title": "Cuisine locale",
@@ -39,7 +41,8 @@ const dict: Record<Lang, Dict> = {
     "zones.subtitle": "Ce que tu veux, là où tu es.",
     "zones.fee": "Frais de livraison",
     "seller.title": "Tu veux vendre sur Livroto ?",
-    "seller.subtitle": "Rejoins les commerçants de Bunia. Commission douce (10–15%), paiement direct.",
+    "seller.subtitle":
+      "Rejoins les commerçants de Bunia. Commission douce (10–15%), paiement direct.",
     "seller.name": "Nom du commerce",
     "seller.phone": "Numéro WhatsApp",
     "seller.category": "Catégorie principale",
@@ -90,7 +93,8 @@ const dict: Record<Lang, Dict> = {
     "cart.delivery": "Livraison",
     "cart.deliveryTBD": "Livraison à confirmer",
     "cart.perUnit": "/ unité",
-    "cart.multiVendor": "Ton panier contient des produits de {n} vendeurs différents. Chaque boutique a sa propre livraison.",
+    "cart.multiVendor":
+      "Ton panier contient des produits de {n} vendeurs différents. Chaque boutique a sa propre livraison.",
     "cart.deliveryInfo": "Informations de livraison",
     "cart.myAddresses": "Mes adresses",
     "cart.yourName": "Ton nom",
@@ -104,7 +108,8 @@ const dict: Record<Lang, Dict> = {
     "cart.note": "Note pour le livreur (optionnel)",
     "cart.notePlaceholder": "Repère, étage, autres détails…",
     "cart.payment": "Mode de paiement",
-    "cart.flexpayHint": "🔒 Paiement sécurisé en ligne : tu recevras une demande Mobile Money sur ton téléphone après validation.",
+    "cart.flexpayHint":
+      "🔒 Paiement sécurisé en ligne : tu recevras une demande Mobile Money sur ton téléphone après validation.",
     "cart.atDelivery": "À la livraison",
     "cart.stockLimited": "⏰ Stock limité sur certains articles — finalise vite ta commande !",
     "cart.subtotal": "Sous-total produits",
@@ -145,9 +150,11 @@ const dict: Record<Lang, Dict> = {
     "cta.becomeSeller": "Kuwa muuzaji",
     "cta.whatsapp": "Agiza kwa WhatsApp",
     "hero.tagline": "Bunia inakuletea nyumbani.",
-    "hero.subtitle": "Soko la kwanza la Bunia. Agiza vifaa, chakula, au usafirishaji — lipa fedha taslimu. Pata haraka!",
+    "hero.subtitle":
+      "Soko la kwanza la Bunia. Agiza vifaa, chakula, au usafirishaji — lipa fedha taslimu. Pata haraka!",
     "hero.badge": "Soko la kwanza la Bunia · Ituri · DRC",
-    "categories.title": "Njia tatu za kutumia Livroto",
+    "categories.title": "Aina ya bidhaa",
+    "categories.subtitle": "Chagua aina ya bidhaa.",
     "categories.phone.title": "Vifaa vya simu",
     "categories.phone.desc": "Chaja, vipokea sauti, kifuniko — vinakuja nyumbani.",
     "categories.food.title": "Chakula cha mtaani",
@@ -218,7 +225,8 @@ const dict: Record<Lang, Dict> = {
     "cart.delivery": "Usafirishaji",
     "cart.deliveryTBD": "Usafirishaji utathibitishwa",
     "cart.perUnit": "/ kipande",
-    "cart.multiVendor": "Kikapu chako kina bidhaa za wauzaji {n} tofauti. Kila duka lina usafirishaji wake.",
+    "cart.multiVendor":
+      "Kikapu chako kina bidhaa za wauzaji {n} tofauti. Kila duka lina usafirishaji wake.",
     "cart.deliveryInfo": "Taarifa za usafirishaji",
     "cart.myAddresses": "Anwani zangu",
     "cart.yourName": "Jina lako",
@@ -232,7 +240,8 @@ const dict: Record<Lang, Dict> = {
     "cart.note": "Ujumbe kwa mletaji (si lazima)",
     "cart.notePlaceholder": "Alama, ghorofa, maelezo mengine…",
     "cart.payment": "Njia ya malipo",
-    "cart.flexpayHint": "🔒 Malipo salama mtandaoni: utapokea ombi la Mobile Money kwenye simu yako baada ya kuthibitisha.",
+    "cart.flexpayHint":
+      "🔒 Malipo salama mtandaoni: utapokea ombi la Mobile Money kwenye simu yako baada ya kuthibitisha.",
     "cart.atDelivery": "Wakati wa kuwasilisha",
     "cart.stockLimited": "⏰ Bidhaa zingine zinakaribia kuisha — maliza agizo lako haraka!",
     "cart.subtotal": "Jumla ndogo ya bidhaa",
@@ -240,7 +249,8 @@ const dict: Record<Lang, Dict> = {
     "cart.apply": "Tumia",
     "cart.totalToPay": "Jumla ya kulipa",
     "cart.youSave": "💰 Unaokoa",
-    "cart.finalNote": "Bei ya mwisho, usafirishaji umejumuishwa — unalipa wakati wa kuwasilisha. Hakuna gharama za siri.",
+    "cart.finalNote":
+      "Bei ya mwisho, usafirishaji umejumuishwa — unalipa wakati wa kuwasilisha. Hakuna gharama za siri.",
     "cart.live": "Waletaji wanapatikana sasa Bunia",
     "cart.submit": "Thibitisha na tuma kwa WhatsApp",
     "cart.trust.cash": "Malipo ya fedha taslimu wakati wa kuwasilisha",
@@ -273,9 +283,11 @@ const dict: Record<Lang, Dict> = {
     "cta.becomeSeller": "Kokoma motekisi",
     "cta.whatsapp": "Komanda na WhatsApp",
     "hero.tagline": "Bunia ememi yo na ndako.",
-    "hero.subtitle": "Zando ya yambo ya Bunia. Komanda biloko, bilei, to kotinda colis — futa mbongo na kokoma. Pata haraka!",
+    "hero.subtitle":
+      "Zando ya yambo ya Bunia. Komanda biloko, bilei, to kotinda colis — futa mbongo na kokoma. Pata haraka!",
     "hero.badge": "Zando ya yambo ya Bunia · Ituri · RDC",
-    "categories.title": "Banzela misato ya kosalela Livroto",
+    "categories.title": "Lolenge ya biloko",
+    "categories.subtitle": "Pona lolenge ya biloko.",
     "categories.phone.title": "Biloko ya simu",
     "categories.phone.desc": "Chargeurs, ba écouteurs, ba coques — ekomi epai na yo.",
     "categories.food.title": "Bilei ya mboka",
@@ -346,7 +358,8 @@ const dict: Record<Lang, Dict> = {
     "cart.delivery": "Transport",
     "cart.deliveryTBD": "Transport ekoyebana",
     "cart.perUnit": "/ eloko",
-    "cart.multiVendor": "Panier na yo ezali na biloko ya batekisi {n} ekesana. Magazin moko na moko ezali na transport na yango.",
+    "cart.multiVendor":
+      "Panier na yo ezali na biloko ya batekisi {n} ekesana. Magazin moko na moko ezali na transport na yango.",
     "cart.deliveryInfo": "Ba info ya kotinda",
     "cart.myAddresses": "Ba adresse na ngai",
     "cart.yourName": "Nkombo na yo",
@@ -360,7 +373,8 @@ const dict: Record<Lang, Dict> = {
     "cart.note": "Liloba mpo na momemi (soki olingi)",
     "cart.notePlaceholder": "Repère, étage, makambo mosusu…",
     "cart.payment": "Lolenge ya kofuta",
-    "cart.flexpayHint": "🔒 Kofuta na internet na bokengi: okozwa demande ya Mobile Money na telefone na yo sima ya kondima.",
+    "cart.flexpayHint":
+      "🔒 Kofuta na internet na bokengi: okozwa demande ya Mobile Money na telefone na yo sima ya kondima.",
     "cart.atDelivery": "Tango ya kokoma",
     "cart.stockLimited": "⏰ Biloko mosusu ekomi moke — silisa commande na yo nokinoki!",
     "cart.subtotal": "Sous-total ya biloko",
@@ -368,7 +382,8 @@ const dict: Record<Lang, Dict> = {
     "cart.apply": "Salela",
     "cart.totalToPay": "Total ya kofuta",
     "cart.youSave": "💰 Ozali kobomba",
-    "cart.finalNote": "Talo ya suka, transport ekoti — ofutaka tango ekokomi. Mbongo ya kobombama ezali te.",
+    "cart.finalNote":
+      "Talo ya suka, transport ekoti — ofutaka tango ekokomi. Mbongo ya kobombama ezali te.",
     "cart.live": "Bamemi bazali sikoyo na Bunia",
     "cart.submit": "Ndima mpe tinda na WhatsApp",
     "cart.trust.cash": "Kofuta cash tango ekokomi",
@@ -401,9 +416,11 @@ const dict: Record<Lang, Dict> = {
     "cta.becomeSeller": "Become a seller",
     "cta.whatsapp": "Order via WhatsApp",
     "hero.tagline": "Bunia delivered to your door.",
-    "hero.subtitle": "Bunia's first local marketplace. Order accessories, local food, or a delivery run — pay cash on delivery.",
+    "hero.subtitle":
+      "Bunia's first local marketplace. Order accessories, local food, or a delivery run — pay cash on delivery.",
     "hero.badge": "Bunia's first local marketplace · Ituri · DRC",
-    "categories.title": "Three ways to use Livroto",
+    "categories.title": "Categories",
+    "categories.subtitle": "Pick a category to get started.",
     "categories.phone.title": "Phone accessories",
     "categories.phone.desc": "Chargers, earphones, cases, cables — delivered to you.",
     "categories.food.title": "Local food",
@@ -474,7 +491,8 @@ const dict: Record<Lang, Dict> = {
     "cart.delivery": "Delivery",
     "cart.deliveryTBD": "Delivery to be confirmed",
     "cart.perUnit": "/ unit",
-    "cart.multiVendor": "Your cart has products from {n} different sellers. Each shop has its own delivery.",
+    "cart.multiVendor":
+      "Your cart has products from {n} different sellers. Each shop has its own delivery.",
     "cart.deliveryInfo": "Delivery details",
     "cart.myAddresses": "My addresses",
     "cart.yourName": "Your name",
@@ -488,7 +506,8 @@ const dict: Record<Lang, Dict> = {
     "cart.note": "Note for the rider (optional)",
     "cart.notePlaceholder": "Landmark, floor, other details…",
     "cart.payment": "Payment method",
-    "cart.flexpayHint": "🔒 Secure online payment: you'll get a Mobile Money request on your phone after confirming.",
+    "cart.flexpayHint":
+      "🔒 Secure online payment: you'll get a Mobile Money request on your phone after confirming.",
     "cart.atDelivery": "On delivery",
     "cart.stockLimited": "⏰ Limited stock on some items — finish your order quickly!",
     "cart.subtotal": "Products subtotal",
@@ -526,8 +545,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("fr");
   useEffect(() => {
     // 1) Préférence enregistrée par l'utilisateur → prioritaire.
-    const saved = typeof window !== "undefined" ? (localStorage.getItem("livroto.lang") as Lang | null) : null;
-    if (saved && ["fr", "sw", "ln", "en"].includes(saved)) { setLangState(saved); return; }
+    const saved =
+      typeof window !== "undefined" ? (localStorage.getItem("livroto.lang") as Lang | null) : null;
+    if (saved && ["fr", "sw", "ln", "en"].includes(saved)) {
+      setLangState(saved);
+      return;
+    }
     // 2) Sinon, auto-détection depuis la langue de l'appareil (1ʳᵉ visite) :
     //    un téléphone réglé en Swahili/Lingala voit l'app dans sa langue tout de suite.
     if (typeof navigator !== "undefined") {
