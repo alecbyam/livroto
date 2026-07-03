@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">livroto.vercel.app</domain>
+        <domain includeSubdomains="true">livroto-frontend-production.up.railway.app</domain>
         <domain includeSubdomains="true">joaepnfhhewadcklsquk.supabase.co</domain>
     </domain-config>
 </network-security-config>

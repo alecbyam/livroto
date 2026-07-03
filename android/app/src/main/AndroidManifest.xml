@@ -26,12 +26,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep links pour livroto.vercel.app -->
+            <!-- Deep links pour livroto-frontend-production.up.railway.app -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="livroto.vercel.app" />
+                <data android:scheme="https" android:host="livroto-frontend-production.up.railway.app" />
             </intent-filter>
 
         </activity>
