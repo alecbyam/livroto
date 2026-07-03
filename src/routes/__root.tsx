@@ -98,23 +98,43 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Livroto — Bunia livre à ta porte" },
-      { name: "description", content: "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp." },
+      {
+        name: "description",
+        content:
+          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp.",
+      },
       { property: "og:title", content: "Livroto — Bunia livre à ta porte" },
-      { property: "og:description", content: "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp." },
+      {
+        property: "og:description",
+        content:
+          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Livroto — Bunia livre à ta porte" },
-      { name: "twitter:description", content: "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5385c90-0fee-4057-90e8-4eb7a768fef9/id-preview-9018c7d5--eb4aafa8-f026-40f8-b47a-596d04dffa4f.lovable.app-1780419265195.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5385c90-0fee-4057-90e8-4eb7a768fef9/id-preview-9018c7d5--eb4aafa8-f026-40f8-b47a-596d04dffa4f.lovable.app-1780419265195.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5385c90-0fee-4057-90e8-4eb7a768fef9/id-preview-9018c7d5--eb4aafa8-f026-40f8-b47a-596d04dffa4f.lovable.app-1780419265195.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5385c90-0fee-4057-90e8-4eb7a768fef9/id-preview-9018c7d5--eb4aafa8-f026-40f8-b47a-596d04dffa4f.lovable.app-1780419265195.png",
+      },
       { name: "theme-color", content: "#0f3d2e" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Livroto" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "format-detection", content: "telephone=no" },
-      { name: "author", content: "iNova" },
-      { name: "publisher", content: "iNova" },
+      { name: "author", content: "JuntoX" },
+      { name: "publisher", content: "JuntoX" },
       { property: "og:site_name", content: "Livroto" },
     ],
     links: [
@@ -215,7 +235,10 @@ function RootComponent() {
             }
           });
         });
-        return () => { clearInterval(interval); window.removeEventListener("focus", check); };
+        return () => {
+          clearInterval(interval);
+          window.removeEventListener("focus", check);
+        };
       })
       .catch(() => {});
   }, []);

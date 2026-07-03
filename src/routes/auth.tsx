@@ -13,10 +13,10 @@ import { toast } from "sonner";
 import { Loader2, Wifi, WifiOff, ShieldCheck } from "lucide-react";
 
 const SUPABASE_PROJECT = "joaepnfhhewadcklsquk";
-const AUTH_ATTEMPT_MS = 30000;   // délai généreux (connexions lentes Bunia)
-const AUTH_MAX_ATTEMPTS = 1;     // PAS de réessai auto : un login lent réussit souvent côté
-                                 // serveur — réessayer créerait des sessions en double et
-                                 // déclencherait la révocation de token (déconnexion en boucle).
+const AUTH_ATTEMPT_MS = 30000; // délai généreux (connexions lentes Bunia)
+const AUTH_MAX_ATTEMPTS = 1; // PAS de réessai auto : un login lent réussit souvent côté
+// serveur — réessayer créerait des sessions en double et
+// déclencherait la révocation de token (déconnexion en boucle).
 
 /** Nettoie les sessions Supabase d'anciens projets dans localStorage */
 function cleanStaleSupabaseSessions() {
@@ -32,7 +32,11 @@ function cleanStaleSupabaseSessions() {
 function readableAuthError(err: any): string {
   const code = err?.code ?? err?.status;
   const message = String(err?.message ?? "").toLowerCase();
-  if (message.includes("timeout") || message.includes("aborted") || message.includes("connexion trop lente")) {
+  if (
+    message.includes("timeout") ||
+    message.includes("aborted") ||
+    message.includes("connexion trop lente")
+  ) {
     return "Connexion lente. Attends quelques secondes et réessaie (ne clique pas plusieurs fois).";
   }
   if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
@@ -41,7 +45,11 @@ function readableAuthError(err: any): string {
   if (message.includes("email not confirmed")) {
     return "Confirme d'abord ton email avant de te connecter.";
   }
-  if (message.includes("failed to fetch") || message.includes("network") || message.includes("fetch")) {
+  if (
+    message.includes("failed to fetch") ||
+    message.includes("network") ||
+    message.includes("fetch")
+  ) {
     return "Impossible de joindre le serveur. Vérifie ta connexion internet.";
   }
   if (message.includes("too many requests") || message.includes("rate limit")) {
@@ -52,9 +60,7 @@ function readableAuthError(err: any): string {
 
 /** Wrapper avec timeout pour éviter un loading infini */
 async function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(msg)), ms),
-  );
+  const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error(msg)), ms));
   return Promise.race([promise, timeout]);
 }
 
@@ -72,8 +78,13 @@ async function authWithRetry<T extends { error: unknown }>(fn: () => Promise<T>)
       if (!err) return res; // succès
       const m = String(err.message ?? "").toLowerCase();
       const transient =
-        m.includes("fetch") || m.includes("network") || m.includes("timeout") ||
-        err.status === 0 || err.status === 502 || err.status === 503 || err.status === 504;
+        m.includes("fetch") ||
+        m.includes("network") ||
+        m.includes("timeout") ||
+        err.status === 0 ||
+        err.status === 502 ||
+        err.status === 503 ||
+        err.status === 504;
       if (!transient) return res; // erreur terminale (identifiants, email non confirmé…) → ne pas réessayer
       lastErr = err;
     } catch (e) {
@@ -107,14 +118,28 @@ async function tryApplyPendingReferral() {
 
 async function postLoginRedirect(navigate: ReturnType<typeof useNavigate>) {
   const { data: u } = await supabase.auth.getUser();
-  if (!u.user) { navigate({ to: "/" }); return; }
+  if (!u.user) {
+    navigate({ to: "/" });
+    return;
+  }
   await tryApplyPendingReferral();
   const { data: roleRows } = await supabase
-    .from("user_roles").select("role").eq("user_id", u.user.id);
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", u.user.id);
   const roles = (roleRows ?? []).map((r: any) => r.role as string);
-  if (roles.includes("admin"))  { navigate({ to: "/dashboard", search: { tab: "admin" }  as any }); return; }
-  if (roles.includes("rider"))  { navigate({ to: "/dashboard", search: { tab: "rider" }  as any }); return; }
-  if (roles.includes("vendor")) { navigate({ to: "/dashboard", search: { tab: "vendor" } as any }); return; }
+  if (roles.includes("admin")) {
+    navigate({ to: "/dashboard", search: { tab: "admin" } as any });
+    return;
+  }
+  if (roles.includes("rider")) {
+    navigate({ to: "/dashboard", search: { tab: "rider" } as any });
+    return;
+  }
+  if (roles.includes("vendor")) {
+    navigate({ to: "/dashboard", search: { tab: "vendor" } as any });
+    return;
+  }
   navigate({ to: "/catalog" });
 }
 
@@ -139,7 +164,10 @@ function AuthPage() {
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(true);
-  const [formMessage, setFormMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [formMessage, setFormMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   // Étape 2FA : après un mot de passe valide, si le compte a la 2FA activée.
   const [mfaStep, setMfaStep] = useState<{ factorId: string } | null>(null);
   const [mfaCode, setMfaCode] = useState("");
@@ -156,9 +184,9 @@ function AuthPage() {
 
     // Détecte l'état réseau
     setOnline(navigator.onLine);
-    const onOnline  = () => setOnline(true);
+    const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
-    window.addEventListener("online",  onOnline);
+    window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
 
     // Vérification SANS verrou, SANS réseau : lecture directe du localStorage.
@@ -194,7 +222,7 @@ function AuthPage() {
     })();
 
     return () => {
-      window.removeEventListener("online",  onOnline);
+      window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
   }, [navigate]);
@@ -226,7 +254,6 @@ function AuthPage() {
         toast.success(msg);
         setFormMessage({ type: "success", text: msg });
         setMode("signin");
-
       } else if (mode === "signup") {
         const { error } = await authWithRetry(() =>
           supabase.auth.signUp({
@@ -242,7 +269,6 @@ function AuthPage() {
         const msg = "Compte créé ! Vérifie ton email pour confirmer.";
         toast.success(msg);
         setFormMessage({ type: "success", text: msg });
-
       } else {
         let signInError: any = null;
         try {
@@ -291,7 +317,9 @@ function AuthPage() {
     setBusy(true);
     setFormMessage(null);
     try {
-      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({ factorId: mfaStep.factorId });
+      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({
+        factorId: mfaStep.factorId,
+      });
       if (cErr) throw cErr;
       const { error: vErr } = await supabase.auth.mfa.verify({
         factorId: mfaStep.factorId,
@@ -305,7 +333,7 @@ function AuthPage() {
     } catch (err: any) {
       const msg = /invalid|code|expired/i.test(err?.message ?? "")
         ? "Code incorrect ou expiré. Réessaie."
-        : err?.message ?? "Erreur de vérification 2FA";
+        : (err?.message ?? "Erreur de vérification 2FA");
       setFormMessage({ type: "error", text: msg });
       toast.error(msg);
     } finally {
@@ -335,7 +363,10 @@ function AuthPage() {
             </p>
 
             {formMessage && (
-              <div role="alert" className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div
+                role="alert"
+                className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
                 {formMessage.text}
               </div>
             )}
@@ -350,13 +381,25 @@ function AuthPage() {
                 placeholder="000000"
                 className="h-14 text-center text-2xl font-mono tracking-[0.4em]"
               />
-              <Button type="submit" size="lg" disabled={busy || mfaCode.length < 6} className="w-full min-h-[52px] text-base font-bold">
-                {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+              <Button
+                type="submit"
+                size="lg"
+                disabled={busy || mfaCode.length < 6}
+                className="w-full min-h-[52px] text-base font-bold"
+              >
+                {busy ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-5 w-5" />
+                )}
                 Vérifier et se connecter
               </Button>
             </form>
 
-            <button onClick={cancelMfa} className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-primary">
+            <button
+              onClick={cancelMfa}
+              className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-primary"
+            >
               ← Annuler
             </button>
           </div>
@@ -368,7 +411,6 @@ function AuthPage() {
   return (
     <SiteLayout>
       <div className="container mx-auto px-4 py-12 max-w-md">
-
         {/* Indicateur connexion hors-ligne */}
         {!online && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -406,7 +448,9 @@ function AuthPage() {
                 <div>
                   <Label htmlFor="a-name">{t("auth.name")}</Label>
                   <Input
-                    id="a-name" required value={name}
+                    id="a-name"
+                    required
+                    value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="mt-1.5 min-h-[48px]"
                     placeholder="Ton prénom et nom"
@@ -415,7 +459,9 @@ function AuthPage() {
                 <div>
                   <Label htmlFor="a-phone">{t("auth.phone")}</Label>
                   <Input
-                    id="a-phone" type="tel" value={phone}
+                    id="a-phone"
+                    type="tel"
+                    value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="mt-1.5 min-h-[48px]"
                     placeholder="+243 ..."
@@ -427,7 +473,10 @@ function AuthPage() {
             <div>
               <Label htmlFor="a-email">{t("auth.email")}</Label>
               <Input
-                id="a-email" type="email" required value={email}
+                id="a-email"
+                type="email"
+                required
+                value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1.5 min-h-[48px]"
                 placeholder="ton@email.com"
@@ -450,8 +499,12 @@ function AuthPage() {
                   )}
                 </div>
                 <Input
-                  id="a-pwd" type="password" required minLength={6}
-                  value={password} onChange={(e) => setPassword(e.target.value)}
+                  id="a-pwd"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="mt-1.5 min-h-[48px]"
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 />
@@ -467,14 +520,18 @@ function AuthPage() {
               {busy ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  {mode === "signup" ? "Création du compte…" : mode === "forgot" ? "Envoi…" : "Connexion en cours…"}
+                  {mode === "signup"
+                    ? "Création du compte…"
+                    : mode === "forgot"
+                      ? "Envoi…"
+                      : "Connexion en cours…"}
                 </>
+              ) : mode === "signup" ? (
+                t("auth.signUp")
+              ) : mode === "forgot" ? (
+                "Envoyer le lien"
               ) : (
-                mode === "signup"
-                  ? t("auth.signUp")
-                  : mode === "forgot"
-                  ? "Envoyer le lien"
-                  : t("auth.signIn")
+                t("auth.signIn")
               )}
             </Button>
 
@@ -539,10 +596,12 @@ function AuthPage() {
           Copier le diagnostic (en cas de souci)
         </button>
 
-        {/* Debug info (dev uniquement) */}
-        <p className="mt-3 text-center text-[11px] text-muted-foreground/50">
-          Projet Supabase : {SUPABASE_PROJECT}
-        </p>
+        {/* Debug info (dev uniquement) — n'affiche jamais l'ID projet aux visiteurs en prod */}
+        {import.meta.env.DEV && (
+          <p className="mt-3 text-center text-[11px] text-muted-foreground/50">
+            Projet Supabase : {SUPABASE_PROJECT}
+          </p>
+        )}
       </div>
     </SiteLayout>
   );
