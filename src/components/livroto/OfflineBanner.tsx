@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { WifiOff, Wifi, Clock, RefreshCw, Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { offlineQueue } from "@/lib/offline-queue";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import { createCartOrders } from "@/lib/checkout.functions";
 import { toast } from "sonner";
 
-type OrderInsert = Database["public"]["Tables"]["orders"]["Insert"];
-
 export function OfflineBanner() {
+  const createOrders = useServerFn(createCartOrders);
   const [online, setOnline] = useState(true);
   const [queueCount, setQueueCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
@@ -29,21 +29,24 @@ export function OfflineBanner() {
         const { data: userData } = await supabase.auth.getUser();
         if (!userData.user) break;
 
-        // Créer l'ordre dans Supabase
-        const { data: order, error } = await supabase
-          .from("orders")
-          .insert({ ...queued.payload, customer_id: userData.user.id } as OrderInsert)
-          .select("id,code")
-          .single();
-
-        if (error) continue;
-
-        // Insérer les articles
-        if (queued.items.length > 0) {
-          await supabase.from("order_items").insert(
-            queued.items.map((it) => ({ ...it, order_id: order.id }))
-          );
-        }
+        // Recrée la commande via le même chemin serveur que le checkout en
+        // ligne : prix et frais de livraison sont recalculés depuis la base,
+        // jamais repris des montants stockés localement pendant la panne.
+        const payload = queued.payload as Record<string, any>;
+        await createOrders({
+          data: {
+            items: queued.items.map((it) => ({ product_id: it.product_id, quantity: it.quantity })),
+            zone_id: payload.zone_id ?? null,
+            coupon_code: payload.coupon_code ?? null,
+            customer_name: payload.customer_name,
+            customer_phone: payload.customer_phone,
+            customer_address: payload.customer_address,
+            payment_method: payload.payment_method,
+            customer_notes: payload.customer_notes ?? null,
+            customer_lat: payload.customer_lat ?? null,
+            customer_lng: payload.customer_lng ?? null,
+          },
+        });
 
         offlineQueue.remove(queued.id);
         synced++;
@@ -56,7 +59,7 @@ export function OfflineBanner() {
     if (synced > 0) {
       toast.success(
         `✅ ${synced} commande${synced > 1 ? "s" : ""} envoyée${synced > 1 ? "s" : ""} avec succès !`,
-        { description: "Tes commandes hors-ligne ont été synchronisées." }
+        { description: "Tes commandes hors-ligne ont été synchronisées." },
       );
     }
   }, [refreshQueue]);
@@ -122,9 +125,13 @@ export function OfflineBanner() {
           className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold hover:bg-white/30 transition-colors"
         >
           {syncing ? (
-            <><Loader2 className="h-3 w-3 animate-spin" /> Envoi…</>
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" /> Envoi…
+            </>
           ) : (
-            <><RefreshCw className="h-3 w-3" /> Envoyer maintenant</>
+            <>
+              <RefreshCw className="h-3 w-3" /> Envoyer maintenant
+            </>
           )}
         </button>
       </div>

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
 import { ShareButton } from "@/components/livroto/ShareButton";
 import { getPromo } from "@/lib/promo";
+import { PRODUCT_DETAIL_SELECT, PRODUCT_LIST_SELECT } from "@/lib/products";
 
 export const Route = createFileRoute("/product/$productId")({
   component: ProductPage,
@@ -55,7 +56,7 @@ function ProductPage() {
     (async () => {
       const { data: p } = await supabase
         .from("products")
-        .select("id,name,description,price_usd,emoji,image_url,images,vendor_id,stock,category,subcategory_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
+        .select(PRODUCT_DETAIL_SELECT)
         .eq("id", productId).eq("approved", true).maybeSingle();
       if (cancel) return;
       setProduct(p as any);
@@ -72,7 +73,7 @@ function ProductPage() {
       if (p?.category) {
         const { data: rel } = await supabase
           .from("products")
-          .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
+          .select(PRODUCT_LIST_SELECT)
           .eq("approved", true).eq("category", p.category).neq("id", productId).limit(8);
         if (!cancel) setRelated((rel ?? []).map((r: any) => ({
           ...r, price_usd: Number(r.price_usd),

@@ -20,6 +20,7 @@ import { buildOrderWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyOrderCreated } from "@/lib/notifications.functions";
+import { createDirectOrder } from "@/lib/checkout.functions";
 import { getMyAddresses, saveAddress, type SavedAddress } from "@/lib/addresses.functions";
 
 type Zone = { id: string; name: string; delivery_fee_usd: number };
@@ -43,7 +44,11 @@ export const Route = createFileRoute("/order/$productId")({
   head: () => ({
     meta: [
       { title: "Finaliser la commande — Livroto" },
-      { name: "description", content: "Confirme ta commande Livroto à Bunia : adresse, zone de livraison et paiement cash à la porte." },
+      {
+        name: "description",
+        content:
+          "Confirme ta commande Livroto à Bunia : adresse, zone de livraison et paiement cash à la porte.",
+      },
       { property: "og:title", content: "Commande — Livroto" },
       { property: "og:description", content: "Paiement cash à la livraison via WhatsApp." },
       { name: "robots", content: "noindex,follow" },
@@ -57,6 +62,7 @@ function OrderPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const notify = useServerFn(notifyOrderCreated);
+  const createOrder = useServerFn(createDirectOrder);
   const fetchAddresses = useServerFn(getMyAddresses);
   const persistAddress = useServerFn(saveAddress);
   const [product, setProduct] = useState<Product | null>(null);
@@ -69,7 +75,9 @@ function OrderPage() {
   const [zoneId, setZoneId] = useState<string>("");
   const [qty, setQty] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "mpesa" | "airtel_money" | "orange_money">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cash" | "mpesa" | "airtel_money" | "orange_money"
+  >("cash");
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [saveThis, setSaveThis] = useState(false);
@@ -81,7 +89,9 @@ function OrderPage() {
       const [{ data: p }, { data: z }] = await Promise.all([
         supabase
           .from("products")
-          .select("id,name,description,price_usd,emoji,image_url,vendor_id,stock,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
+          .select(
+            "id,name,description,price_usd,emoji,image_url,vendor_id,stock,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at",
+          )
           .eq("id", productId)
           .maybeSingle(),
         supabase.from("zones").select("id,name,delivery_fee_usd").eq("active", true).order("name"),
@@ -96,7 +106,9 @@ function OrderPage() {
         if (zs[0]) setZoneId(zs[0].id);
       }
       // prefill from profile if logged in
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session) {
         const { data: prof } = await supabase
           .from("profiles")
@@ -118,7 +130,9 @@ function OrderPage() {
             if (def.zone_id) setZoneId(def.zone_id);
             if (def.lat != null && def.lng != null) setCoords({ lat: def.lat, lng: def.lng });
           }
-        } catch { /* table absente / non connecté → on ignore */ }
+        } catch {
+          /* table absente / non connecté → on ignore */
+        }
       }
       setLoading(false);
     })();
@@ -142,7 +156,9 @@ function OrderPage() {
       <SiteLayout>
         <div className="container mx-auto px-4 py-20 text-center">
           <h1 className="font-display text-2xl font-bold">{t("order.notFound")}</h1>
-          <Button asChild className="mt-6"><Link to="/catalog">← {t("nav.catalog")}</Link></Button>
+          <Button asChild className="mt-6">
+            <Link to="/catalog">← {t("nav.catalog")}</Link>
+          </Button>
         </div>
       </SiteLayout>
     );
@@ -161,68 +177,56 @@ function OrderPage() {
     if (!name || !phone || !address) return;
     setSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         toast.error(t("cart.toast.signin"));
         navigate({ to: "/auth" });
         return;
       }
-      const { data: orderRow, error } = await supabase
-        .from("orders")
-        .insert({
-          customer_id: session.user.id,
+      // Création de commande côté serveur : prix et frais de livraison sont
+      // recalculés depuis la base — voir src/lib/checkout.functions.ts.
+      const orderRow = await createOrder({
+        data: {
+          product_id: product.id,
+          quantity: qty,
+          zone_id: selectedZone?.id ?? null,
           customer_name: name,
           customer_phone: phone,
           customer_address: address,
-          zone: zoneName,
-          zone_id: selectedZone?.id ?? null,
-          product_id: product.id,
-          vendor_id: product.vendor_id,
-          quantity: qty,
-          subtotal_usd: subtotal,
-          total_usd: total,
-          delivery_fee: deliveryFee,
           payment_method: paymentMethod,
           customer_lat: coords?.lat ?? null,
           customer_lng: coords?.lng ?? null,
-          status: "pending",
-        })
-        .select("id,code")
-        .single();
-      if (error) throw error;
-      // Insert line item (best-effort; not fatal if RLS rejects on edge cases)
-      await supabase.from("order_items").insert({
-        order_id: orderRow.id,
-        product_id: product.id,
-        vendor_id: product.vendor_id,
-        product_name: product.name,
-        unit_price_usd: promo.price,
-        quantity: qty,
-        line_total_usd: subtotal,
+        },
       });
-      notify({ data: { order_id: orderRow.id } }).catch(() => {});
+      notify({ data: { order_id: orderRow.orderId } }).catch(() => {});
       // Enregistre l'adresse pour les prochaines commandes (non bloquant).
       if (saveThis && address.trim()) {
         try {
-          await persistAddress({ data: {
-            label: saveLabel.trim() || zoneName || "Mon adresse",
-            address: address.trim(),
-            zone_id: selectedZone?.id ?? null,
-            lat: coords?.lat ?? null,
-            lng: coords?.lng ?? null,
-            is_default: savedAddresses.length === 0,
-          }});
-        } catch { /* non bloquant : ne casse pas la commande */ }
+          await persistAddress({
+            data: {
+              label: saveLabel.trim() || zoneName || "Mon adresse",
+              address: address.trim(),
+              zone_id: selectedZone?.id ?? null,
+              lat: coords?.lat ?? null,
+              lng: coords?.lng ?? null,
+              is_default: savedAddresses.length === 0,
+            },
+          });
+        } catch {
+          /* non bloquant : ne casse pas la commande */
+        }
       }
       toast.success(t("order.success"));
       const url = buildOrderWhatsAppUrl({
         productName: `${product.name} (#${orderRow.code ?? ""})`,
         quantity: qty,
         address,
-        zone: zoneName,
+        zone: orderRow.zoneName,
         name,
-        productTotal: total,
-        deliveryFee,
+        productTotal: orderRow.subtotal,
+        deliveryFee: orderRow.deliveryFee,
       });
       window.open(url, "_blank");
       setTimeout(() => navigate({ to: "/orders" }), 800);
@@ -236,7 +240,10 @@ function OrderPage() {
   return (
     <SiteLayout>
       <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <Link to="/catalog" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          to="/catalog"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" /> {t("nav.catalog")}
         </Link>
 
@@ -245,7 +252,11 @@ function OrderPage() {
           <div className="rounded-2xl border border-border bg-card p-5">
             <div className="grid aspect-square w-full place-items-center overflow-hidden rounded-xl bg-[color:var(--brand-light)] text-7xl">
               {product.image_url ? (
-                <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span>{product.emoji ?? "📦"}</span>
               )}
@@ -253,21 +264,32 @@ function OrderPage() {
             <h2 className="mt-4 font-display text-xl font-bold">{product.name}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{product.description}</p>
             <p className="mt-3 flex flex-wrap items-baseline gap-2">
-              <span className="font-display text-2xl font-bold text-[color:var(--brand-dark)]">${promo.price.toFixed(2)}</span>
+              <span className="font-display text-2xl font-bold text-[color:var(--brand-dark)]">
+                ${promo.price.toFixed(2)}
+              </span>
               {promo.active && (
                 <>
-                  <span className="text-base text-muted-foreground line-through">${promo.original.toFixed(2)}</span>
-                  <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">−{promo.percent}%</span>
+                  <span className="text-base text-muted-foreground line-through">
+                    ${promo.original.toFixed(2)}
+                  </span>
+                  <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                    −{promo.percent}%
+                  </span>
                 </>
               )}
             </p>
             {promo.active && (
-              <p className="mt-1 text-sm font-bold text-emerald-700">💰 Vous économisez ${promo.saving.toFixed(2)}</p>
+              <p className="mt-1 text-sm font-bold text-emerald-700">
+                💰 Vous économisez ${promo.saving.toFixed(2)}
+              </p>
             )}
           </div>
 
           {/* Form */}
-          <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          <form
+            onSubmit={onSubmit}
+            className="rounded-2xl border border-border bg-card p-5 space-y-4"
+          >
             <h1 className="font-display text-2xl font-bold">{t("order.title")}</h1>
 
             {savedAddresses.length > 0 && (
@@ -290,8 +312,13 @@ function OrderPage() {
                           : "border-border hover:border-[color:var(--brand-dark)]/40"
                       }`}
                     >
-                      <span className="block text-sm font-medium">{a.is_default ? "⭐ " : "📍 "}{a.label}</span>
-                      <span className="block truncate text-[11px] text-muted-foreground">{a.address}</span>
+                      <span className="block text-sm font-medium">
+                        {a.is_default ? "⭐ " : "📍 "}
+                        {a.label}
+                      </span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {a.address}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -300,18 +327,36 @@ function OrderPage() {
 
             <div>
               <Label htmlFor="o-name">{t("order.name")}</Label>
-              <Input id="o-name" required value={name} onChange={(e) => setName(e.target.value)}
-                     className="mt-1.5 min-h-[48px]" />
+              <Input
+                id="o-name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1.5 min-h-[48px]"
+              />
             </div>
             <div>
               <Label htmlFor="o-phone">{t("order.phone")}</Label>
-              <Input id="o-phone" required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                     className="mt-1.5 min-h-[48px]" placeholder="+243 ..." />
+              <Input
+                id="o-phone"
+                required
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1.5 min-h-[48px]"
+                placeholder="+243 ..."
+              />
             </div>
             <div>
               <Label htmlFor="o-addr">{t("order.address")}</Label>
-              <Textarea id="o-addr" required value={address} onChange={(e) => setAddress(e.target.value)}
-                        className="mt-1.5 min-h-[80px]" placeholder="Ex. Avenue Bunia, en face de la pharmacie..." />
+              <Textarea
+                id="o-addr"
+                required
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="mt-1.5 min-h-[80px]"
+                placeholder="Ex. Avenue Bunia, en face de la pharmacie..."
+              />
             </div>
 
             {address.trim() && !savedAddresses.some((a) => a.address === address.trim()) && (
@@ -354,20 +399,35 @@ function OrderPage() {
               </div>
               <div>
                 <Label htmlFor="o-qty">{t("order.quantity")}</Label>
-                <Input id="o-qty" type="number" min={1} max={99} value={qty}
-                       onChange={(e) => setQty(Math.max(1, parseInt(e.target.value || "1", 10)))}
-                       className="mt-1.5 min-h-[48px]" />
+                <Input
+                  id="o-qty"
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={qty}
+                  onChange={(e) => setQty(Math.max(1, parseInt(e.target.value || "1", 10)))}
+                  className="mt-1.5 min-h-[48px]"
+                />
               </div>
             </div>
 
             <div className="rounded-xl bg-[color:var(--brand-light)] p-4 text-sm space-y-1.5">
-              <div className="flex justify-between"><span>{t("order.subtotal")}</span><span>${subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between">
+                <span>{t("order.subtotal")}</span>
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>{t("order.delivery")}{zoneName ? ` · ${zoneName}` : ""}</span>
-                <span className="font-medium text-foreground">{deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : "à confirmer"}</span>
+                <span>
+                  {t("order.delivery")}
+                  {zoneName ? ` · ${zoneName}` : ""}
+                </span>
+                <span className="font-medium text-foreground">
+                  {deliveryFee > 0 ? `$${deliveryFee.toFixed(2)}` : "à confirmer"}
+                </span>
               </div>
               <div className="flex justify-between font-display font-bold text-base pt-1 border-t border-[color:var(--brand-dark)]/15">
-                <span>Total à payer</span><span>${(total + deliveryFee).toFixed(2)}</span>
+                <span>Total à payer</span>
+                <span>${(total + deliveryFee).toFixed(2)}</span>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Prix final, livraison incluse — tu paies à la livraison. Aucun frais caché.
@@ -377,12 +437,14 @@ function OrderPage() {
             <div>
               <Label>Mode de paiement</Label>
               <div className="mt-1.5 grid grid-cols-2 gap-2">
-                {([
-                  { id: "cash", label: "💵 Cash à la livraison", hint: "Paie en main propre" },
-                  { id: "mpesa", label: "📱 M-Pesa", hint: "Vodacom" },
-                  { id: "airtel_money", label: "📱 Airtel Money", hint: "Airtel" },
-                  { id: "orange_money", label: "📱 Orange Money", hint: "Orange" },
-                ] as const).map((p) => (
+                {(
+                  [
+                    { id: "cash", label: "💵 Cash à la livraison", hint: "Paie en main propre" },
+                    { id: "mpesa", label: "📱 M-Pesa", hint: "Vodacom" },
+                    { id: "airtel_money", label: "📱 Airtel Money", hint: "Airtel" },
+                    { id: "orange_money", label: "📱 Orange Money", hint: "Orange" },
+                  ] as const
+                ).map((p) => (
                   <button
                     key={p.id}
                     type="button"
@@ -405,8 +467,12 @@ function OrderPage() {
               )}
             </div>
 
-            <Button type="submit" size="lg" disabled={submitting}
-                    className="w-full min-h-[52px] bg-[color:var(--whatsapp)] hover:brightness-105">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={submitting}
+              className="w-full min-h-[52px] bg-[color:var(--whatsapp)] hover:brightness-105"
+            >
               <MessageCircle className="h-5 w-5" />
               {t("order.submit")}
             </Button>
@@ -416,4 +482,3 @@ function OrderPage() {
     </SiteLayout>
   );
 }
-

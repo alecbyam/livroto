@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
+import { PRODUCT_LIST_SELECT } from "@/lib/products";
 
 export const Route = createFileRoute("/vendor/$slug")({
   component: VendorPublicPage,
@@ -71,7 +72,7 @@ function VendorPublicPage() {
       const [{ data: prods }, { data: zs }] = await Promise.all([
         supabase
           .from("products")
-          .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
+          .select(PRODUCT_LIST_SELECT)
           .eq("vendor_id", v.id)
           .eq("approved", true)
           .order("created_at", { ascending: false }),

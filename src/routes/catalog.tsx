@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import { type ProductCategory, CATEGORY_LIST } from "@/components/livroto/products";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 import { getPromo } from "@/lib/promo";
+import { PRODUCT_CATALOG_SELECT } from "@/lib/products";
 import { supabase } from "@/integrations/supabase/client";
 
 const CATEGORY_IDS = CATEGORY_LIST.map((c) => c.id) as [ProductCategory, ...ProductCategory[]];
@@ -88,7 +89,7 @@ function Catalog() {
       const [{ data, error }, { data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
         supabase
           .from("products")
-          .select("id,name,description,price_usd,stock,emoji,image_url,category,subcategory_id,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
+          .select(PRODUCT_CATALOG_SELECT)
           .eq("approved", true)
           .order("created_at", { ascending: false }),
         supabase

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { bucketOrdersByDay, isDelivered, sumRevenueUsd } from "@/lib/order-stats";
+import { isDelivered, sumRevenueUsd } from "@/lib/order-stats";
 
 // ---------- VENDOR ----------
 export const applyAsVendor = createServerFn({ method: "POST" })
@@ -54,19 +54,29 @@ export const getVendorDashboard = createServerFn({ method: "GET" })
   });
 
 // Statistiques enrichies du vendeur : ventes/jour, top produits, revenus (30 jours)
+// Le bucket "par jour" est calculé côté Postgres (admin_daily_order_stats, migration 29,
+// même fonction que l'analytics admin, filtrée par vendor_id) — topProducts/totals restent
+// en JS car ils ont besoin du join order_items, non couvert par cette fonction SQL.
 export const getVendorAnalytics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { userId } = context;
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: orders } = await supabaseAdmin
-      .from("orders")
-      .select("created_at,total_usd,status,items:order_items(product_name,quantity,line_total_usd)")
-      .eq("vendor_id", userId)
-      .gte("created_at", since)
-      .order("created_at");
-
-    const daily = bucketOrdersByDay(orders ?? [], 14);
+    const [{ data: orders }, dailyRes] = await Promise.all([
+      supabaseAdmin
+        .from("orders")
+        .select("created_at,total_usd,status,items:order_items(product_name,quantity,line_total_usd)")
+        .eq("vendor_id", userId)
+        .gte("created_at", since)
+        .order("created_at"),
+      supabaseAdmin.rpc("admin_daily_order_stats", { p_days: 14, p_vendor_id: userId }),
+    ]);
+    if (dailyRes.error) throw new Error(dailyRes.error.message);
+    const daily = (dailyRes.data ?? []).map((r: any) => ({
+      date: (r.day as string).slice(5),
+      commandes: Number(r.commandes),
+      revenus: Number(r.revenus),
+    }));
 
     let revenue30 = 0, delivered = 0, pending = 0;
     const prod = new Map<string, { qty: number; revenue: number }>();

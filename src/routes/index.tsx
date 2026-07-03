@@ -14,6 +14,7 @@ import { genericWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
+import { PRODUCT_LIST_SELECT } from "@/lib/products";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -59,7 +60,7 @@ function FeaturedProducts() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,description,price_usd,stock,emoji,image_url,vendor_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at")
+        .select(PRODUCT_LIST_SELECT)
         .eq("approved", true)
         .gt("stock", 0)
         .order("rating_count", { ascending: false })
