@@ -16,6 +16,7 @@ import { VendorPanel } from "@/components/livroto/dashboard/VendorPanel";
 import { RiderPanel } from "@/components/livroto/dashboard/RiderPanel";
 import { AdminPanel } from "@/components/livroto/dashboard/AdminPanel";
 import { CallMeBotCard } from "@/components/livroto/dashboard/shared";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function DashboardPage() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const fetchOverview = useServerFn(getMyOverview);
   const { data, isLoading, error, refetch } = useQuery({
@@ -40,18 +42,23 @@ function DashboardPage() {
   const hasRider = !!data?.rider;
 
   const tabs = useMemo(() => {
-    const t = [{ id: "home", label: "Accueil", icon: Package }];
-    if (hasVendor) t.push({ id: "vendor", label: "Ma boutique", icon: Store });
-    if (hasRider) t.push({ id: "rider", label: "Mes livraisons", icon: Bike });
-    if (isAdmin) t.push({ id: "admin", label: "Admin", icon: ShieldCheck });
-    return t;
-  }, [hasVendor, hasRider, isAdmin]);
+    const tabList = [{ id: "home", label: t("dashboard.tabs.home"), icon: Package }];
+    if (hasVendor) tabList.push({ id: "vendor", label: t("dashboard.tabs.vendor"), icon: Store });
+    if (hasRider) tabList.push({ id: "rider", label: t("dashboard.tabs.rider"), icon: Bike });
+    if (isAdmin) tabList.push({ id: "admin", label: t("dashboard.tabs.admin"), icon: ShieldCheck });
+    return tabList;
+  }, [hasVendor, hasRider, isAdmin, t]);
 
   const search = Route.useSearch();
   const [active, setActive] = useState<string>(search.tab ?? "home");
   useEffect(() => {
     if (!search.tab) return;
-    const allowed = new Set(["home", ...(hasVendor ? ["vendor"] : []), ...(hasRider ? ["rider"] : []), ...(isAdmin ? ["admin"] : [])]);
+    const allowed = new Set([
+      "home",
+      ...(hasVendor ? ["vendor"] : []),
+      ...(hasRider ? ["rider"] : []),
+      ...(isAdmin ? ["admin"] : []),
+    ]);
     if (allowed.has(search.tab)) setActive(search.tab);
   }, [search.tab, hasVendor, hasRider, isAdmin]);
 
@@ -77,22 +84,22 @@ function DashboardPage() {
       <SiteLayout>
         <div className="container mx-auto px-4 py-16 max-w-lg text-center">
           <p className="text-4xl">⚠️</p>
-          <h1 className="mt-4 font-display text-2xl font-bold">Erreur de chargement</h1>
+          <h1 className="mt-4 font-display text-2xl font-bold">{t("dashboard.error.title")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {(error as Error).message ?? "Impossible de charger ton espace. Vérifie ta connexion."}
+            {(error as Error).message ?? t("dashboard.error.fallback")}
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <button
               onClick={() => refetch()}
               className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground"
             >
-              Réessayer
+              {t("dashboard.error.retry")}
             </button>
             <button
               onClick={signOut}
               className="rounded-xl border px-6 py-2.5 text-sm font-semibold text-muted-foreground"
             >
-              Se déconnecter
+              {t("dashboard.error.signOut")}
             </button>
           </div>
         </div>
@@ -105,18 +112,25 @@ function DashboardPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Tableau de bord</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              {t("dashboard.tabLabel")}
+            </p>
             <h1 className="font-display text-3xl font-bold sm:text-4xl">
-              Karibu, {data?.profile?.name || "ami"} 👋
+              {t("dashboard.welcome").replace(
+                "{name}",
+                data?.profile?.name || t("dashboard.welcomeFallback"),
+              )}
             </h1>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {roles.map((r) => (
-                <Badge key={r} variant="outline" className="capitalize">{r}</Badge>
+                <Badge key={r} variant="outline" className="capitalize">
+                  {r}
+                </Badge>
               ))}
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={signOut}>
-            <LogOut className="h-4 w-4" /> Déconnexion
+            <LogOut className="h-4 w-4" /> {t("dashboard.signOut")}
           </Button>
         </div>
 

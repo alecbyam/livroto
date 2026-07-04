@@ -8,13 +8,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { applyAsVendor } from "@/lib/vendor.functions";
 import { applyAsRider } from "@/lib/rider.functions";
 import { getZones } from "@/lib/dashboard.functions";
+import { useI18n } from "@/lib/i18n";
 
 /* ---------------- HOME ---------------- */
-export function HomePanel({ hasVendor, hasRider, onDone }: { hasVendor: boolean; hasRider: boolean; onDone: () => void }) {
+export function HomePanel({
+  hasVendor,
+  hasRider,
+  onDone,
+}: {
+  hasVendor: boolean;
+  hasRider: boolean;
+  onDone: () => void;
+}) {
+  const { t } = useI18n();
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Link
@@ -22,9 +38,11 @@ export function HomePanel({ hasVendor, hasRider, onDone }: { hasVendor: boolean;
         className="group rounded-2xl border bg-card p-6 transition hover:border-primary/50 hover:shadow-md"
       >
         <Package className="h-7 w-7 text-primary" />
-        <h3 className="mt-3 font-display text-xl font-bold">Continuer mes achats</h3>
+        <h3 className="mt-3 font-display text-xl font-bold">
+          {t("dashboard.home.continueShopping")}
+        </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Parcours le catalogue local de Bunia et commande en quelques tapes.
+          {t("dashboard.home.continueShoppingDesc")}
         </p>
       </Link>
 
@@ -33,10 +51,8 @@ export function HomePanel({ hasVendor, hasRider, onDone }: { hasVendor: boolean;
         className="group rounded-2xl border bg-card p-6 transition hover:border-primary/50 hover:shadow-md"
       >
         <UserCircle2 className="h-7 w-7 text-primary" />
-        <h3 className="mt-3 font-display text-xl font-bold">Mon profil</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Mets à jour ton nom, ton numéro WhatsApp, ta zone et ta photo.
-        </p>
+        <h3 className="mt-3 font-display text-xl font-bold">{t("dashboard.home.myProfile")}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{t("dashboard.home.myProfileDesc")}</p>
       </Link>
 
       {!hasVendor ? (
@@ -44,8 +60,8 @@ export function HomePanel({ hasVendor, hasRider, onDone }: { hasVendor: boolean;
       ) : (
         <InfoCard
           icon={Store}
-          title="Tu es vendeur"
-          desc="Gère ta boutique et tes commandes dans l'onglet « Ma boutique »."
+          title={t("dashboard.home.isVendor")}
+          desc={t("dashboard.home.isVendorDesc")}
         />
       )}
 
@@ -54,8 +70,8 @@ export function HomePanel({ hasVendor, hasRider, onDone }: { hasVendor: boolean;
       ) : (
         <InfoCard
           icon={Bike}
-          title="Tu es livreur"
-          desc="Vois tes livraisons et active ta disponibilité dans l'onglet « Mes livraisons »."
+          title={t("dashboard.home.isRider")}
+          desc={t("dashboard.home.isRiderDesc")}
         />
       )}
     </div>
@@ -73,54 +89,82 @@ function InfoCard({ icon: I, title, desc }: { icon: any; title: string; desc: st
 }
 
 function VendorOnboarding({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n();
   const apply = useServerFn(applyAsVendor);
   const fetchZones = useServerFn(getZones);
   const { data: zonesData } = useQuery({ queryKey: ["zones"], queryFn: () => fetchZones() });
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ shop_name: "", whatsapp: "", description: "", base_zone_id: "" });
+  const [form, setForm] = useState({
+    shop_name: "",
+    whatsapp: "",
+    description: "",
+    base_zone_id: "",
+  });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
       await apply({ data: { ...form, base_zone_id: form.base_zone_id || null } });
-      toast.success("Demande envoyée ! Notre équipe te contacte sous 24h.");
+      toast.success(t("dashboard.home.toast.vendorApplied"));
       onDone();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setBusy(false); }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <form onSubmit={submit} className="rounded-2xl border bg-card p-6">
       <Store className="h-7 w-7 text-primary" />
-      <h3 className="mt-3 font-display text-xl font-bold">Devenir vendeur</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Ouvre ta boutique sur Livroto en 1 minute.</p>
+      <h3 className="mt-3 font-display text-xl font-bold">{t("dashboard.home.becomeVendor")}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{t("dashboard.home.becomeVendorDesc")}</p>
       <div className="mt-4 space-y-3">
         <div>
-          <Label>Nom de la boutique</Label>
-          <Input required value={form.shop_name} onChange={(e) => setForm({ ...form, shop_name: e.target.value })} />
+          <Label>{t("dashboard.home.shopName")}</Label>
+          <Input
+            required
+            value={form.shop_name}
+            onChange={(e) => setForm({ ...form, shop_name: e.target.value })}
+          />
         </div>
         <div>
-          <Label>WhatsApp</Label>
-          <Input required placeholder="+243…" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} />
+          <Label>{t("dashboard.home.whatsapp")}</Label>
+          <Input
+            required
+            placeholder="+243…"
+            value={form.whatsapp}
+            onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+          />
         </div>
         <div>
-          <Label>Quartier de base</Label>
-          <Select value={form.base_zone_id} onValueChange={(v) => setForm({ ...form, base_zone_id: v })}>
-            <SelectTrigger><SelectValue placeholder="Choisir un quartier" /></SelectTrigger>
+          <Label>{t("dashboard.home.baseZone")}</Label>
+          <Select
+            value={form.base_zone_id}
+            onValueChange={(v) => setForm({ ...form, base_zone_id: v })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("dashboard.home.chooseZone")} />
+            </SelectTrigger>
             <SelectContent>
               {(zonesData?.zones ?? []).map((z: any) => (
-                <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+                <SelectItem key={z.id} value={z.id}>
+                  {z.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div>
-          <Label>Description (optionnel)</Label>
-          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <Label>{t("dashboard.home.descriptionOptional")}</Label>
+          <Textarea
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
         </div>
         <Button type="submit" disabled={busy} className="w-full">
-          {busy ? "Envoi…" : "Envoyer ma candidature"}
+          {busy ? t("dashboard.home.sending") : t("dashboard.home.sendApplication")}
         </Button>
       </div>
     </form>
@@ -128,49 +172,68 @@ function VendorOnboarding({ onDone }: { onDone: () => void }) {
 }
 
 function RiderOnboarding({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n();
   const apply = useServerFn(applyAsRider);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ full_name: "", whatsapp: "", vehicle: "moto" as "moto" | "velo" | "pied" | "voiture" });
+  const [form, setForm] = useState({
+    full_name: "",
+    whatsapp: "",
+    vehicle: "moto" as "moto" | "velo" | "pied" | "voiture",
+  });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
       await apply({ data: form });
-      toast.success("Demande envoyée ! Notre équipe va te contacter.");
+      toast.success(t("dashboard.home.toast.riderApplied"));
       onDone();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setBusy(false); }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <form onSubmit={submit} className="rounded-2xl border bg-card p-6">
       <Bike className="h-7 w-7 text-primary" />
-      <h3 className="mt-3 font-display text-xl font-bold">Devenir livreur</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Gagne de l'argent en livrant à Bunia.</p>
+      <h3 className="mt-3 font-display text-xl font-bold">{t("dashboard.home.becomeRider")}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{t("dashboard.home.becomeRiderDesc")}</p>
       <div className="mt-4 space-y-3">
         <div>
-          <Label>Nom complet</Label>
-          <Input required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+          <Label>{t("dashboard.home.fullName")}</Label>
+          <Input
+            required
+            value={form.full_name}
+            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+          />
         </div>
         <div>
-          <Label>WhatsApp</Label>
-          <Input required placeholder="+243…" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} />
+          <Label>{t("dashboard.home.whatsapp")}</Label>
+          <Input
+            required
+            placeholder="+243…"
+            value={form.whatsapp}
+            onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+          />
         </div>
         <div>
-          <Label>Véhicule</Label>
+          <Label>{t("dashboard.home.vehicleLabel")}</Label>
           <Select value={form.vehicle} onValueChange={(v: any) => setForm({ ...form, vehicle: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="moto">Moto</SelectItem>
-              <SelectItem value="velo">Vélo</SelectItem>
-              <SelectItem value="pied">À pied</SelectItem>
-              <SelectItem value="voiture">Voiture</SelectItem>
+              <SelectItem value="moto">{t("dashboard.home.vehicleMoto")}</SelectItem>
+              <SelectItem value="velo">{t("dashboard.home.vehicleVelo")}</SelectItem>
+              <SelectItem value="pied">{t("dashboard.home.vehiclePied")}</SelectItem>
+              <SelectItem value="voiture">{t("dashboard.home.vehicleVoiture")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <Button type="submit" disabled={busy} className="w-full">
-          {busy ? "Envoi…" : "Postuler comme livreur"}
+          {busy ? t("dashboard.home.sending") : t("dashboard.home.applyRider")}
         </Button>
       </div>
     </form>
