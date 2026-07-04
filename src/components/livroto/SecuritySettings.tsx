@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  ShieldCheck, ShieldAlert, Smartphone, Monitor, LogOut, Loader2,
-  KeyRound, Check, X, Laptop,
+  ShieldCheck,
+  ShieldAlert,
+  Smartphone,
+  Monitor,
+  LogOut,
+  Loader2,
+  KeyRound,
+  Check,
+  X,
+  Laptop,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 type DeviceSession = {
   id: string;
@@ -31,19 +39,28 @@ function currentSessionId(token: string | undefined): string | null {
   }
 }
 
-function deviceLabel(ua: string | null): string {
-  if (!ua) return "Appareil inconnu";
-  const os = /android/i.test(ua) ? "Android"
-    : /iphone|ipad|ios/i.test(ua) ? "iPhone / iPad"
-    : /windows/i.test(ua) ? "Windows"
-    : /mac os/i.test(ua) ? "Mac"
-    : /linux/i.test(ua) ? "Linux"
-    : "Appareil";
-  const br = /edg/i.test(ua) ? "Edge"
-    : /chrome|crios/i.test(ua) ? "Chrome"
-    : /firefox|fxios/i.test(ua) ? "Firefox"
-    : /safari/i.test(ua) ? "Safari"
-    : "Navigateur";
+function deviceLabel(ua: string | null, t: (k: string) => string): string {
+  if (!ua) return t("security.deviceUnknown");
+  const os = /android/i.test(ua)
+    ? "Android"
+    : /iphone|ipad|ios/i.test(ua)
+      ? "iPhone / iPad"
+      : /windows/i.test(ua)
+        ? "Windows"
+        : /mac os/i.test(ua)
+          ? "Mac"
+          : /linux/i.test(ua)
+            ? "Linux"
+            : t("security.deviceGeneric");
+  const br = /edg/i.test(ua)
+    ? "Edge"
+    : /chrome|crios/i.test(ua)
+      ? "Chrome"
+      : /firefox|fxios/i.test(ua)
+        ? "Firefox"
+        : /safari/i.test(ua)
+          ? "Safari"
+          : t("security.browserGeneric");
   return `${br} · ${os}`;
 }
 
@@ -56,13 +73,19 @@ function deviceIcon(ua: string | null) {
 function fmtDate(d: string | null): string {
   if (!d) return "";
   try {
-    return new Date(d).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    return new Date(d).toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return "";
   }
 }
 
 export function SecuritySettings() {
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   /* ---------- Appareils connectés ---------- */
@@ -83,13 +106,18 @@ export function SecuritySettings() {
   /* ---------- 2FA (TOTP) ---------- */
   type MfaState = "loading" | "none" | "enrolling" | "active";
   const [mfaState, setMfaState] = useState<MfaState>("loading");
-  const [enroll, setEnroll] = useState<{ factorId: string; qr: string; secret: string } | null>(null);
+  const [enroll, setEnroll] = useState<{ factorId: string; qr: string; secret: string } | null>(
+    null,
+  );
   const [code, setCode] = useState("");
   const [mfaBusy, setMfaBusy] = useState(false);
 
   const loadMfa = useCallback(async () => {
     const { data, error } = await supabase.auth.mfa.listFactors();
-    if (error) { setMfaState("none"); return; }
+    if (error) {
+      setMfaState("none");
+      return;
+    }
     const verified = data.totp?.find((f) => f.status === "verified");
     setMfaState(verified ? "active" : "none");
   }, []);
@@ -103,8 +131,11 @@ export function SecuritySettings() {
     setSigningOut("others");
     const { error } = await supabase.auth.signOut({ scope: "others" });
     setSigningOut(null);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Les autres appareils ont été déconnectés.");
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(t("security.toast.othersSignedOut"));
     loadSessions();
   };
 
@@ -112,8 +143,11 @@ export function SecuritySettings() {
     setSigningOut("global");
     const { error } = await supabase.auth.signOut({ scope: "global" });
     setSigningOut(null);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Déconnecté de tous les appareils.");
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(t("security.toast.everywhereSignedOut"));
     navigate({ to: "/auth" });
   };
 
@@ -130,7 +164,7 @@ export function SecuritySettings() {
       setEnroll({ factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
       setMfaState("enrolling");
     } catch (e: any) {
-      toast.error(e.message ?? "Impossible de démarrer la 2FA");
+      toast.error(e.message ?? t("security.toast.mfaEnrollError"));
     } finally {
       setMfaBusy(false);
     }
@@ -140,7 +174,9 @@ export function SecuritySettings() {
     if (!enroll || code.trim().length < 6) return;
     setMfaBusy(true);
     try {
-      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({ factorId: enroll.factorId });
+      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({
+        factorId: enroll.factorId,
+      });
       if (cErr) throw cErr;
       const { error: vErr } = await supabase.auth.mfa.verify({
         factorId: enroll.factorId,
@@ -148,12 +184,12 @@ export function SecuritySettings() {
         code: code.trim(),
       });
       if (vErr) throw vErr;
-      toast.success("🔐 Authentification à deux facteurs activée !");
+      toast.success(t("security.toast.mfaEnabled"));
       setEnroll(null);
       setCode("");
       setMfaState("active");
     } catch (e: any) {
-      toast.error(e.message ?? "Code incorrect");
+      toast.error(e.message ?? t("security.toast.mfaWrongCode"));
     } finally {
       setMfaBusy(false);
     }
@@ -171,17 +207,20 @@ export function SecuritySettings() {
     try {
       const { data: list } = await supabase.auth.mfa.listFactors();
       const verified = list?.totp?.find((f) => f.status === "verified");
-      if (!verified) { setMfaState("none"); return; }
+      if (!verified) {
+        setMfaState("none");
+        return;
+      }
       const { error } = await supabase.auth.mfa.unenroll({ factorId: verified.id });
       if (error) throw error;
-      toast.success("2FA désactivée.");
+      toast.success(t("security.toast.mfaDisabled"));
       setMfaState("none");
     } catch (e: any) {
       // unenroll exige souvent une session aal2 (2FA validée durant cette session)
       toast.error(
         /assurance|aal|insufficient/i.test(e.message ?? "")
-          ? "Reconnecte-toi en validant ta 2FA pour pouvoir la désactiver."
-          : e.message ?? "Impossible de désactiver la 2FA",
+          ? t("security.toast.mfaReauthRequired")
+          : (e.message ?? t("security.toast.mfaDisableError")),
       );
     } finally {
       setMfaBusy(false);
@@ -193,46 +232,62 @@ export function SecuritySettings() {
       {/* ---------------- 2FA ---------------- */}
       <section className="rounded-2xl border bg-card p-5">
         <div className="flex items-start gap-3">
-          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${mfaState === "active" ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"}`}>
-            {mfaState === "active" ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+          <div
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${mfaState === "active" ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"}`}
+          >
+            {mfaState === "active" ? (
+              <ShieldCheck className="h-5 w-5" />
+            ) : (
+              <ShieldAlert className="h-5 w-5" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="font-display text-lg font-bold">Authentification à deux facteurs (2FA)</h2>
+            <h2 className="font-display text-lg font-bold">{t("security.mfa.title")}</h2>
             <p className="text-sm text-muted-foreground">
               {mfaState === "active"
-                ? "Activée. Un code de ton application d'authentification est demandé à chaque connexion."
-                : "Ajoute une couche de sécurité : un code à 6 chiffres depuis une app (Google Authenticator, Authy…) en plus de ton mot de passe."}
+                ? t("security.mfa.activeDesc")
+                : t("security.mfa.inactiveDesc")}
             </p>
           </div>
           {mfaState === "active" && (
             <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-600">
-              <Check className="h-3.5 w-3.5" /> Activée
+              <Check className="h-3.5 w-3.5" /> {t("security.mfa.activeBadge")}
             </span>
           )}
         </div>
 
         {mfaState === "loading" && (
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+            <Loader2 className="h-4 w-4 animate-spin" /> {t("security.mfa.loading")}
           </div>
         )}
 
         {mfaState === "none" && (
           <Button onClick={startEnroll} disabled={mfaBusy} className="mt-4">
-            {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-            Activer la 2FA
+            {mfaBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <KeyRound className="h-4 w-4" />
+            )}
+            {t("security.mfa.enable")}
           </Button>
         )}
 
         {mfaState === "enrolling" && enroll && (
           <div className="mt-4 rounded-xl border border-dashed border-border p-4">
-            <p className="text-sm font-medium">1. Scanne ce QR code avec ton app d'authentification</p>
+            <p className="text-sm font-medium">{t("security.mfa.step1")}</p>
             <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-              <img src={enroll.qr} alt="QR code 2FA" className="h-44 w-44 rounded-lg border bg-white p-2" />
+              <img
+                src={enroll.qr}
+                alt="QR code 2FA"
+                className="h-44 w-44 rounded-lg border bg-white p-2"
+              />
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-muted-foreground">Ou saisis cette clé manuellement :</p>
-                <code className="mt-1 block break-all rounded-lg bg-muted px-2 py-1.5 text-xs font-mono">{enroll.secret}</code>
-                <p className="mt-3 text-sm font-medium">2. Entre le code à 6 chiffres affiché</p>
+                <p className="text-xs text-muted-foreground">{t("security.mfa.orManual")}</p>
+                <code className="mt-1 block break-all rounded-lg bg-muted px-2 py-1.5 text-xs font-mono">
+                  {enroll.secret}
+                </code>
+                <p className="mt-3 text-sm font-medium">{t("security.mfa.step2")}</p>
                 <div className="mt-2 flex gap-2">
                   <Input
                     value={code}
@@ -242,13 +297,25 @@ export function SecuritySettings() {
                     placeholder="000000"
                     className="h-11 max-w-[140px] text-center text-lg font-mono tracking-[0.3em]"
                   />
-                  <Button onClick={confirmEnroll} disabled={mfaBusy || code.length < 6} className="h-11">
-                    {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    Vérifier
+                  <Button
+                    onClick={confirmEnroll}
+                    disabled={mfaBusy || code.length < 6}
+                    className="h-11"
+                  >
+                    {mfaBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    {t("security.mfa.verify")}
                   </Button>
                 </div>
-                <button type="button" onClick={cancelEnroll} className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" /> Annuler
+                <button
+                  type="button"
+                  onClick={cancelEnroll}
+                  className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" /> {t("security.mfa.cancel")}
                 </button>
               </div>
             </div>
@@ -256,9 +323,18 @@ export function SecuritySettings() {
         )}
 
         {mfaState === "active" && (
-          <Button onClick={disable2fa} disabled={mfaBusy} variant="outline" className="mt-4 text-destructive hover:text-destructive">
-            {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
-            Désactiver la 2FA
+          <Button
+            onClick={disable2fa}
+            disabled={mfaBusy}
+            variant="outline"
+            className="mt-4 text-destructive hover:text-destructive"
+          >
+            {mfaBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldAlert className="h-4 w-4" />
+            )}
+            {t("security.mfa.disable")}
           </Button>
         )}
       </section>
@@ -270,31 +346,34 @@ export function SecuritySettings() {
             <Monitor className="h-5 w-5" />
           </div>
           <div className="flex-1">
-            <h2 className="font-display text-lg font-bold">Appareils connectés</h2>
-            <p className="text-sm text-muted-foreground">Tu peux utiliser ton compte sur plusieurs appareils en même temps.</p>
+            <h2 className="font-display text-lg font-bold">{t("security.devices.title")}</h2>
+            <p className="text-sm text-muted-foreground">{t("security.devices.subtitle")}</p>
           </div>
         </div>
 
         <div className="mt-4 space-y-2">
           {loadingSessions ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Chargement des appareils…
+              <Loader2 className="h-4 w-4 animate-spin" /> {t("security.devices.loading")}
             </div>
           ) : sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune session active trouvée.</p>
+            <p className="text-sm text-muted-foreground">{t("security.devices.empty")}</p>
           ) : (
             sessions.map((s) => {
               const Icon = deviceIcon(s.user_agent);
               const isCurrent = s.id === currentSid;
               return (
-                <div key={s.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+                <div
+                  key={s.id}
+                  className="flex items-center gap-3 rounded-xl border border-border p-3"
+                >
                   <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2 text-sm font-medium">
-                      {deviceLabel(s.user_agent)}
+                      {deviceLabel(s.user_agent, t)}
                       {isCurrent && (
                         <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
-                          Cet appareil
+                          {t("security.devices.current")}
                         </span>
                       )}
                       {s.aal === "aal2" && (
@@ -304,7 +383,8 @@ export function SecuritySettings() {
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {s.ip ? `${s.ip} · ` : ""}Connecté le {fmtDate(s.created_at)}
+                      {s.ip ? `${s.ip} · ` : ""}
+                      {t("security.devices.connectedOn").replace("{date}", fmtDate(s.created_at))}
                     </p>
                   </div>
                 </div>
@@ -314,18 +394,34 @@ export function SecuritySettings() {
         </div>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <Button onClick={signOutOthers} disabled={!!signingOut || sessions.length <= 1} variant="outline" className="flex-1">
-            {signingOut === "others" ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-            Déconnecter les autres appareils
+          <Button
+            onClick={signOutOthers}
+            disabled={!!signingOut || sessions.length <= 1}
+            variant="outline"
+            className="flex-1"
+          >
+            {signingOut === "others" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="h-4 w-4" />
+            )}
+            {t("security.devices.signOutOthers")}
           </Button>
-          <Button onClick={signOutEverywhere} disabled={!!signingOut} variant="outline" className="flex-1 text-destructive hover:text-destructive">
-            {signingOut === "global" ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-            Déconnecter partout
+          <Button
+            onClick={signOutEverywhere}
+            disabled={!!signingOut}
+            variant="outline"
+            className="flex-1 text-destructive hover:text-destructive"
+          >
+            {signingOut === "global" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="h-4 w-4" />
+            )}
+            {t("security.devices.signOutEverywhere")}
           </Button>
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Les autres appareils perdent l'accès sous une heure (à l'expiration de leur jeton).
-        </p>
+        <p className="mt-2 text-[11px] text-muted-foreground">{t("security.devices.expiryNote")}</p>
       </section>
     </div>
   );
