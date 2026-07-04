@@ -27,6 +27,7 @@ import {
 import { notifyOrderStatusChanged } from "@/lib/notifications.functions";
 import { compressImage } from "@/lib/image";
 import { CATEGORY_LIST } from "@/components/livroto/products";
+import { useI18n } from "@/lib/i18n";
 import { statusColor, Stat, CallMeBotCard } from "./shared";
 
 // Graphique recharts (~500 kB) chargé à la demande -> bundle dashboard plus léger.
@@ -39,6 +40,7 @@ const ChartFallback = () => <div className="h-52 animate-pulse rounded-2xl bg-mu
 
 /* ---------------- VENDOR ---------------- */
 export function VendorPanel() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const fetchVendor = useServerFn(getVendorDashboard);
   const createP = useServerFn(createProduct);
@@ -431,16 +433,7 @@ export function VendorPanel() {
                   </p>
                 </div>
                 <Badge className={statusColor(o.status)} variant="outline">
-                  {(
-                    {
-                      pending: "En attente",
-                      confirmed: "Confirmée",
-                      ready: "Prête",
-                      picked_up: "En route",
-                      delivered: "Livrée",
-                      cancelled: "Annulée",
-                    } as Record<string, string>
-                  )[o.status] ?? o.status}
+                  {t(`order.status.${o.status}`)}
                 </Badge>
                 <Select value={o.status} onValueChange={(s) => changeStatus(o.id, s)}>
                   <SelectTrigger className="w-[140px]">
