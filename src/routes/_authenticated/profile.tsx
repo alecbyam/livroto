@@ -12,12 +12,14 @@ import { updateMyProfile } from "@/lib/profile.functions";
 import { compressImage } from "@/lib/image";
 import { SecuritySettings } from "@/components/livroto/SecuritySettings";
 import { AddressBook } from "@/components/livroto/AddressBook";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
 });
 
 function ProfilePage() {
+  const { t } = useI18n();
   const save = useServerFn(updateMyProfile);
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
@@ -33,8 +35,13 @@ function ProfilePage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setLoading(false); return; }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setLoading(false);
+        return;
+      }
       setUserId(session.user.id);
       const { data: p } = await supabase
         .from("profiles")
@@ -57,7 +64,7 @@ function ProfilePage() {
     if (!userId) return;
     file = await compressImage(file, { maxSize: 512 });
     if (file.size > 3 * 1024 * 1024) {
-      toast.error("Image trop lourde (max 3MB)");
+      toast.error(t("profile.toast.imageTooBig"));
       return;
     }
     setUploading(true);
@@ -70,12 +77,13 @@ function ProfilePage() {
       });
       if (upErr) throw upErr;
       const { data: signed, error: sErr } = await supabase.storage
-        .from("avatars").createSignedUrl(path, 60 * 60 * 24 * 365);
+        .from("avatars")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
       if (sErr || !signed?.signedUrl) throw sErr ?? new Error("URL signée");
       setForm((f) => ({ ...f, avatar_url: signed.signedUrl }));
-      toast.success("Photo téléversée");
+      toast.success(t("profile.toast.photoUploaded"));
     } catch (e: any) {
-      toast.error(e.message ?? "Erreur upload");
+      toast.error(e.message ?? t("profile.toast.uploadError"));
     } finally {
       setUploading(false);
     }
@@ -85,15 +93,17 @@ function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await save({ data: {
-        name: form.name.trim(),
-        phone: form.phone.trim(),
-        zone: form.zone.trim() || null,
-        avatar_url: form.avatar_url || null,
-      }});
-      toast.success("Profil mis à jour");
+      await save({
+        data: {
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          zone: form.zone.trim() || null,
+          avatar_url: form.avatar_url || null,
+        },
+      });
+      toast.success(t("profile.toast.updated"));
     } catch (e: any) {
-      toast.error(e.message ?? "Erreur");
+      toast.error(e.message ?? t("profile.toast.error"));
     } finally {
       setSaving(false);
     }
@@ -112,11 +122,15 @@ function ProfilePage() {
   return (
     <SiteLayout>
       <div className="container mx-auto max-w-xl px-4 py-8">
-        <Link to="/dashboard" search={{ tab: "home" } as any} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Tableau de bord
+        <Link
+          to="/dashboard"
+          search={{ tab: "home" } as any}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> {t("myOrders.back")}
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-bold">Mon profil</h1>
-        <p className="text-sm text-muted-foreground">Ces infos sont préremplies à chaque commande.</p>
+        <h1 className="mt-3 font-display text-3xl font-bold">{t("profile.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("profile.subtitle")}</p>
 
         <form onSubmit={onSubmit} className="mt-6 rounded-2xl border bg-card p-5 space-y-5">
           <div className="flex items-center gap-4">
@@ -133,39 +147,68 @@ function ProfilePage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onUpload(f);
+                }}
               />
-              <Button type="button" variant="outline" size="sm" disabled={uploading}
-                      onClick={() => fileRef.current?.click()}>
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {form.avatar_url ? "Changer la photo" : "Ajouter une photo"}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {form.avatar_url ? t("profile.changePhoto") : t("profile.addPhoto")}
               </Button>
-              <p className="mt-1 text-xs text-muted-foreground">JPG ou PNG, max 3MB</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("profile.photoHint")}</p>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="p-name">Nom complet</Label>
-            <Input id="p-name" required value={form.name}
-                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                   className="mt-1.5 min-h-[48px]" maxLength={80} />
+            <Label htmlFor="p-name">{t("profile.fullName")}</Label>
+            <Input
+              id="p-name"
+              required
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="mt-1.5 min-h-[48px]"
+              maxLength={80}
+            />
           </div>
           <div>
-            <Label htmlFor="p-phone">Téléphone WhatsApp</Label>
-            <Input id="p-phone" required type="tel" value={form.phone}
-                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                   className="mt-1.5 min-h-[48px]" placeholder="+243 ..." maxLength={20} />
+            <Label htmlFor="p-phone">{t("profile.whatsappPhone")}</Label>
+            <Input
+              id="p-phone"
+              required
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              className="mt-1.5 min-h-[48px]"
+              placeholder="+243 ..."
+              maxLength={20}
+            />
           </div>
           <div>
-            <Label htmlFor="p-zone">Quartier / zone par défaut</Label>
-            <Input id="p-zone" value={form.zone}
-                   onChange={(e) => setForm({ ...form, zone: e.target.value })}
-                   className="mt-1.5 min-h-[48px]" placeholder="Ex. Mudzipela, Lumumba..." maxLength={80} />
+            <Label htmlFor="p-zone">{t("profile.defaultZone")}</Label>
+            <Input
+              id="p-zone"
+              value={form.zone}
+              onChange={(e) => setForm({ ...form, zone: e.target.value })}
+              className="mt-1.5 min-h-[48px]"
+              placeholder={t("profile.zonePlaceholder")}
+              maxLength={80}
+            />
           </div>
 
           <Button type="submit" size="lg" disabled={saving} className="w-full min-h-[52px]">
             {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-            Enregistrer
+            {t("profile.save")}
           </Button>
         </form>
 
@@ -178,8 +221,8 @@ function ProfilePage() {
             <Gift className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-display font-bold">Invite & gagne</p>
-            <p className="text-sm text-muted-foreground">Invite un ami : vous gagnez chacun 1&nbsp;$ de crédit.</p>
+            <p className="font-display font-bold">{t("profile.inviteEarnTitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("profile.inviteEarnDesc")}</p>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
         </Link>
@@ -188,8 +231,8 @@ function ProfilePage() {
         <AddressBook />
 
         {/* Sécurité : 2FA + gestion des appareils connectés */}
-        <h2 className="mt-10 font-display text-2xl font-bold">Sécurité</h2>
-        <p className="text-sm text-muted-foreground">Protège ton compte et gère tes appareils.</p>
+        <h2 className="mt-10 font-display text-2xl font-bold">{t("profile.security")}</h2>
+        <p className="text-sm text-muted-foreground">{t("profile.securityDesc")}</p>
         <SecuritySettings />
       </div>
     </SiteLayout>
