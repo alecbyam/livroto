@@ -96,7 +96,7 @@ function OrderDetailPage() {
   const reorder = async () => {
     const lines = (items as any[]).filter((it) => it.product_id);
     if (lines.length === 0) {
-      toast.error("Aucun article à recommander");
+      toast.error(t("myOrders.toast.noItemsToReorder"));
       return;
     }
     const { data: prods } = await supabase
@@ -130,21 +130,20 @@ function OrderDetailPage() {
       added++;
     }
     if (added === 0) {
-      toast.error("Ces produits ne sont plus disponibles.");
+      toast.error(t("myOrders.toast.itemsUnavailable"));
       return;
     }
-    toast.success(
-      `🔁 ${added} article${added > 1 ? "s" : ""} ajouté${added > 1 ? "s" : ""} au panier${skipped > 0 ? ` · ${skipped} indisponible${skipped > 1 ? "s" : ""}` : ""}`,
-    );
+    toast.success(t("myOrders.toast.reordered"));
+    if (skipped > 0) toast.message(t("myOrders.toast.someSkipped"));
     navigate({ to: "/cart" });
   };
 
   const onCancel = async () => {
-    if (!confirm("Annuler cette commande ?")) return;
+    if (!confirm(t("orderDetail.confirmCancel"))) return;
     setBusy(true);
     try {
       await cancel({ data: { order_id: orderId } });
-      toast.success("Commande annulée");
+      toast.success(t("orderDetail.orderCancelled"));
       qc.invalidateQueries({ queryKey: ["order-detail", orderId] });
     } catch (e: any) {
       toast.error(e.message);
@@ -158,7 +157,7 @@ function OrderDetailPage() {
     setBusy(true);
     try {
       await review({ data: { order_id: orderId, rating, comment, target: "product" } });
-      toast.success("Merci pour ton avis !");
+      toast.success(t("orderDetail.thanksForReview"));
       qc.invalidateQueries({ queryKey: ["order-detail", orderId] });
     } catch (e: any) {
       toast.error(e.message);
@@ -176,7 +175,7 @@ function OrderDetailPage() {
           to="/orders"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" /> Mes commandes
+          <ArrowLeft className="h-4 w-4" /> {t("myOrders.title")}
         </Link>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -195,7 +194,7 @@ function OrderDetailPage() {
         {/* Timeline */}
         {order.status !== "cancelled" && (
           <div className="mt-6 rounded-2xl border bg-card p-5">
-            <h2 className="font-display font-semibold">Suivi</h2>
+            <h2 className="font-display font-semibold">{t("orderDetail.tracking")}</h2>
             <ol className="mt-4 space-y-3">
               {STATUS_FLOW.map((s, i) => {
                 const done = i <= currentIdx;
@@ -226,10 +225,12 @@ function OrderDetailPage() {
 
         {/* Items */}
         <div className="mt-6 rounded-2xl border bg-card p-5">
-          <h2 className="font-display font-semibold">Articles</h2>
+          <h2 className="font-display font-semibold">{t("orderDetail.items")}</h2>
           <ul className="mt-3 divide-y">
             {items.length === 0 && (
-              <li className="py-3 text-sm text-muted-foreground">qty {order.quantity}</li>
+              <li className="py-3 text-sm text-muted-foreground">
+                {t("myOrders.qty")} {order.quantity}
+              </li>
             )}
             {items.map((it: any) => (
               <li key={it.id} className="flex items-center justify-between py-3 text-sm">
@@ -242,24 +243,24 @@ function OrderDetailPage() {
           </ul>
           <div className="mt-3 space-y-1 border-t pt-3 text-sm">
             <div className="flex justify-between text-muted-foreground">
-              <span>Sous-total</span>
+              <span>{t("order.subtotal")}</span>
               <span>${Number(order.subtotal_usd ?? 0).toFixed(2)}</span>
             </div>
             {Number(order.discount_usd) > 0 && (
               <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                 <span>
-                  Code promo{" "}
+                  {t("orderDetail.discount")}{" "}
                   {order.coupon_code && <span className="font-semibold">{order.coupon_code}</span>}
                 </span>
                 <span>-${Number(order.discount_usd).toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-muted-foreground">
-              <span>Livraison</span>
+              <span>{t("order.delivery")}</span>
               <span>${Number(order.delivery_fee ?? 0).toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-display text-base font-bold">
-              <span>Total à payer</span>
+              <span>{t("cart.totalToPay")}</span>
               <span>${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)}</span>
             </div>
           </div>
@@ -269,11 +270,12 @@ function OrderDetailPage() {
         {mobileMoney && (
           <div className="mt-6 rounded-2xl border-2 border-[color:var(--brand-dark)]/30 bg-[color:var(--brand-light)] p-5">
             <h2 className="font-display font-semibold flex items-center gap-2">
-              📱 Paiement {MM_LABEL[mobileMoney.operator] ?? mobileMoney.operator}
+              {t("orderDetail.payVia")} {MM_LABEL[mobileMoney.operator] ?? mobileMoney.operator}
             </h2>
             <p className="mt-2 text-sm">
-              Envoie <span className="font-bold">${Number(order.total_usd).toFixed(2)}</span> au
-              numéro :
+              {t("orderDetail.sendAmountTo")}{" "}
+              <span className="font-bold">${Number(order.total_usd).toFixed(2)}</span>{" "}
+              {t("orderDetail.toNumber")}
             </p>
             <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border bg-card p-3">
               <div>
@@ -287,21 +289,21 @@ function OrderDetailPage() {
                 variant="outline"
                 onClick={() => {
                   navigator.clipboard?.writeText(mobileMoney.number);
-                  toast.success("Numéro copié");
+                  toast.success(t("orderDetail.numberCopied"));
                 }}
               >
-                Copier
+                {t("orderDetail.copy")}
               </Button>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Après le paiement, garde le SMS de confirmation — le livreur peut le demander.
+              {t("orderDetail.keepSmsConfirmation")}
             </p>
           </div>
         )}
 
         {/* Delivery info */}
         <div className="mt-6 rounded-2xl border bg-card p-5">
-          <h2 className="font-display font-semibold">Livraison</h2>
+          <h2 className="font-display font-semibold">{t("orderDetail.deliveryTitle")}</h2>
           <p className="mt-2 text-sm">
             {order.customer_name} · {order.customer_phone}
           </p>
@@ -318,7 +320,7 @@ function OrderDetailPage() {
               rel="noreferrer"
               className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--brand-dark)] hover:underline"
             >
-              📍 Position GPS partagée — voir sur la carte
+              {t("orderDetail.gpsSharedSeeMap")}
             </a>
           )}
         </div>
@@ -335,7 +337,9 @@ function OrderDetailPage() {
         {/* Livreur assigné */}
         {order.rider_id && (
           <div className="mt-6 rounded-2xl border bg-card p-5">
-            <h2 className="font-display font-semibold flex items-center gap-2">🛵 Ton livreur</h2>
+            <h2 className="font-display font-semibold flex items-center gap-2">
+              {t("orderDetail.yourRider")}
+            </h2>
             {rider ? (
               <>
                 <p className="mt-2 text-sm">
@@ -344,7 +348,7 @@ function OrderDetailPage() {
                 </p>
                 <p className="text-xs text-muted-foreground">{rider.whatsapp}</p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Appelle-le pour préciser ta position (repère, rue, maison).
+                  {t("orderDetail.callForPosition")}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
@@ -353,23 +357,23 @@ function OrderDetailPage() {
                     className="bg-[color:var(--whatsapp)] hover:brightness-105 text-white"
                   >
                     <a
-                      href={`https://wa.me/${String(rider.whatsapp).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Bonjour, je suis ${order.customer_name} (commande Livroto #${order.code ?? order.id.slice(0, 6)}). Ma position : ${order.customer_address}, ${order.zone}.`)}`}
+                      href={`https://wa.me/${String(rider.whatsapp).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`${t("orderDetail.helloImCustomer")} ${order.customer_name} (Livroto #${order.code ?? order.id.slice(0, 6)}). ${t("orderDetail.myPosition")} ${order.customer_address}, ${order.zone}.`)}`}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <MessageCircle className="h-4 w-4" /> WhatsApp livreur
+                      <MessageCircle className="h-4 w-4" /> {t("orderDetail.whatsappRider")}
                     </a>
                   </Button>
                   <Button asChild size="sm" variant="outline">
                     <a href={`tel:${String(rider.whatsapp).replace(/[^\d+]/g, "")}`}>
-                      <Phone className="h-4 w-4" /> Appeler
+                      <Phone className="h-4 w-4" /> {t("orderDetail.call")}
                     </a>
                   </Button>
                 </div>
               </>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
-                Un livreur a pris en charge ta commande. Tu peux le contacter directement.
+                {t("orderDetail.riderAssignedNoDetails")}
               </p>
             )}
           </div>
@@ -378,11 +382,11 @@ function OrderDetailPage() {
         {/* Actions */}
         <div className="mt-6 flex flex-wrap gap-2">
           <Button onClick={reorder}>
-            <RotateCcw className="h-4 w-4" /> Recommander
+            <RotateCcw className="h-4 w-4" /> {t("myOrders.reorder")}
           </Button>
           {order.status === "pending" && (
             <Button variant="outline" onClick={onCancel} disabled={busy}>
-              <X className="h-4 w-4" /> Annuler la commande
+              <X className="h-4 w-4" /> {t("orderDetail.cancelOrder")}
             </Button>
           )}
           <Button
@@ -396,33 +400,33 @@ function OrderDetailPage() {
                         `• ${it.product_name} ×${it.quantity} — $${Number(it.line_total_usd).toFixed(2)}`,
                     )
                     .join("\n")
-                : `• Quantité : ${order.quantity}`;
+                : `• ${t("order.quantity")} : ${order.quantity}`;
               const recu =
-                `🧾 *Reçu Livroto* — Commande #${code}\n` +
+                `${t("orderDetail.receiptHeader")} #${code}\n` +
                 `${new Date(order.created_at).toLocaleString("fr-FR")}\n\n` +
                 `${lignes}\n` +
                 (Number(order.discount_usd) > 0
-                  ? `Réduction${order.coupon_code ? ` (${order.coupon_code})` : ""} : -$${Number(order.discount_usd).toFixed(2)}\n`
+                  ? `${t("orderDetail.discount")}${order.coupon_code ? ` (${order.coupon_code})` : ""} : -$${Number(order.discount_usd).toFixed(2)}\n`
                   : "") +
-                `Total produits : $${Number(order.total_usd).toFixed(2)}\n` +
-                `Livraison : $${Number(order.delivery_fee ?? 0).toFixed(2)}\n` +
-                `*TOTAL À PAYER : $${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)}*\n` +
-                `Paiement : ${order.payment_method ?? "cash"}\n` +
-                `Statut : ${t(`order.status.${order.status}`)}\n` +
-                `Livraison : ${order.customer_name}, ${order.zone} — ${order.customer_address}\n\n` +
+                `${t("orderDetail.totalProducts")} : $${Number(order.total_usd).toFixed(2)}\n` +
+                `${t("order.delivery")} : $${Number(order.delivery_fee ?? 0).toFixed(2)}\n` +
+                `*${t("cart.totalToPay").toUpperCase()} : $${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)}*\n` +
+                `${t("orderDetail.payment")} : ${order.payment_method ?? "cash"}\n` +
+                `${t("orderDetail.status")} : ${t(`order.status.${order.status}`)}\n` +
+                `${t("order.delivery")} : ${order.customer_name}, ${order.zone} — ${order.customer_address}\n\n` +
                 `Livroto Bunia 🛵 — Senda order yako !`;
               window.open(`https://wa.me/?text=${encodeURIComponent(recu)}`, "_blank");
             }}
           >
-            <Share2 className="h-4 w-4" /> Partager le reçu
+            <Share2 className="h-4 w-4" /> {t("orderDetail.shareReceipt")}
           </Button>
           <Button asChild variant="outline">
             <a
-              href={`https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(`Bonjour Livroto, info sur ma commande #${order.code ?? order.id.slice(0, 6)}`)}`}
+              href={`https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(`${t("orderDetail.supportMessage")} #${order.code ?? order.id.slice(0, 6)}`)}`}
               target="_blank"
               rel="noreferrer"
             >
-              <MessageCircle className="h-4 w-4" /> Support Livroto
+              <MessageCircle className="h-4 w-4" /> {t("orderDetail.support")}
             </a>
           </Button>
         </div>
@@ -430,7 +434,7 @@ function OrderDetailPage() {
         {/* Review */}
         {order.status === "delivered" && (
           <div className="mt-6 rounded-2xl border bg-card p-5">
-            <h2 className="font-display font-semibold">Laisser un avis</h2>
+            <h2 className="font-display font-semibold">{t("orderDetail.leaveReview")}</h2>
             {existingReview ? (
               <div className="mt-3 text-sm">
                 <div className="flex items-center gap-1">
@@ -457,12 +461,12 @@ function OrderDetailPage() {
                   ))}
                 </div>
                 <Textarea
-                  placeholder="Comment était le produit ?"
+                  placeholder={t("orderDetail.reviewPlaceholder")}
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                 />
                 <Button type="submit" disabled={busy}>
-                  Envoyer mon avis
+                  {t("orderDetail.submitReview")}
                 </Button>
               </form>
             )}
@@ -493,6 +497,7 @@ function DeliveryTracker({
   custLat: number | null;
   custLng: number | null;
 }) {
+  const { t } = useI18n();
   const track = useServerFn(getDeliveryTracking);
   const { data } = useQuery({
     queryKey: ["delivery-track", orderId],
@@ -504,11 +509,13 @@ function DeliveryTracker({
   if (!data?.ok) {
     return (
       <div className="mt-6 rounded-2xl border bg-card p-5">
-        <h2 className="font-display font-semibold flex items-center gap-2">🛵 Suivi en direct</h2>
+        <h2 className="font-display font-semibold flex items-center gap-2">
+          {t("orderDetail.liveTracking")}
+        </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           {(data as any)?.reason === "no_location"
-            ? "Le livreur n'a pas encore activé le partage de sa position. Contacte-le directement ci-dessous."
-            : "Suivi en cours d'activation…"}
+            ? t("orderDetail.noLocationYet")
+            : t("orderDetail.trackingActivating")}
         </p>
       </div>
     );
@@ -518,7 +525,10 @@ function DeliveryTracker({
     0,
     Math.round((Date.now() - new Date(data.updated_at as string).getTime()) / 1000),
   );
-  const ageLabel = ageSec < 60 ? `il y a ${ageSec}s` : `il y a ${Math.round(ageSec / 60)} min`;
+  const ageLabel =
+    ageSec < 60
+      ? t("orderDetail.secondsAgo").replace("{n}", String(ageSec))
+      : t("orderDetail.minutesAgo").replace("{n}", String(Math.round(ageSec / 60)));
   const dist =
     custLat != null && custLng != null ? distanceKm(data.lat, data.lng, custLat, custLng) : null;
   const mapsUrl = `https://maps.google.com/?q=${data.lat},${data.lng}`;
@@ -526,22 +536,24 @@ function DeliveryTracker({
   return (
     <div className="mt-6 rounded-2xl border-2 border-[color:var(--brand-dark)]/30 bg-[color:var(--brand-light)] p-5">
       <h2 className="font-display font-semibold flex items-center gap-2">
-        🛵 {data.name} arrive vers toi
+        🛵 {data.name} {t("orderDetail.arrivingSuffix")}
       </h2>
       {dist != null ? (
         <p className="mt-2 font-display text-3xl font-bold text-[color:var(--brand-dark)]">
           ~{dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`}
-          <span className="ml-2 text-sm font-normal text-muted-foreground">de toi</span>
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
+            {t("orderDetail.fromYou")}
+          </span>
         </p>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">Position du livreur partagée.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("orderDetail.positionShared")}</p>
       )}
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Mise à jour {ageLabel} · actualisation automatique
+        {t("orderDetail.lastUpdate")} {ageLabel} · {t("orderDetail.autoRefresh")}
       </p>
       <Button asChild size="sm" variant="outline" className="mt-3">
         <a href={mapsUrl} target="_blank" rel="noreferrer">
-          📍 Voir le livreur sur la carte
+          📍 {t("orderDetail.viewOnMap")}
         </a>
       </Button>
     </div>
