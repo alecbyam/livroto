@@ -19,7 +19,14 @@ export function useUserRoles() {
       setLoading(false);
     };
     supabase.auth.getSession().then(({ data }) => load(data.session?.user.id ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => load(s?.user.id ?? null));
+    // ⚠️ Pas d'appel supabase direct dans le callback onAuthStateChange : la requête
+    // .from() repasse par getSession() → verrou d'auth potentiellement encore tenu par
+    // l'opération qui a émis l'événement → blocage 15 s (incident 4/07/2026). setTimeout 0
+    // diffère le travail hors du verrou (motif recommandé par la doc Supabase).
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      const uid = s?.user.id ?? null;
+      setTimeout(() => { load(uid); }, 0);
+    });
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, []);
 

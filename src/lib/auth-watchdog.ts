@@ -1,35 +1,32 @@
 import { supabase } from "@/integrations/supabase/client";
-import { resetAuthState } from "@/lib/auth-recovery";
 import { authLog } from "@/lib/auth-log";
 
 const ATTEMPTS_FLAG = "livroto.authHealAttempts";
-// INCIDENT (5 juillet 2026) : ce timeout était resté à 12 s alors que le verrou
-// anti-deadlock (client.ts, LOCK_ACQUIRE_MAX_MS) a été porté à 15 s le 13/06/2026
-// pour couvrir les refreshes lents sur 2G Bunia (6-12 s, parfois plus). Le watchdog
-// se déclenchait donc AVANT que le verrou n'ait fini d'attendre un refresh pourtant
-// légitime : getSession() (qui passe par le même verrou) était pris à tort pour un
-// gel, et au 2ᵉ épisode dans la session de navigation, resetAuthState() purgeait une
-// session VALIDE => déconnexion + reconnexion forcée. Confirmé par les logs Supabase
-// (auth) : le même compte se reconnectait plusieurs fois en quelques minutes, avec un
-// `token_revoked` explicite. Le watchdog doit toujours rester largement AU-DESSUS du
-// timeout du verrou, jamais en dessous — sinon une simple lenteur réseau (pas un vrai
-// gel) déclenche l'auto-réparation à tort. 20 s laisse ~5 s de marge au-delà des 15 s
-// du verrou.
-const GETSESSION_TIMEOUT_MS = 20000;
+// Doit rester NETTEMENT au-dessus de LOCK_ACQUIRE_MAX_MS (client.ts, 15 s) : en dessous,
+// une simple lenteur (réseau 2G, téléphone lent, verrous en file au démarrage) est prise
+// pour un gel. C'est exactement l'oubli du 13/06/2026 (verrou 15 s, watchdog resté à 12 s)
+// qui a fait durer l'incident de déconnexions ~3 semaines.
+// 4/07/2026 : même à 20 s, un vrai téléphone Android a dépassé le délai à cause des
+// callbacks onAuthStateChange qui faisaient la queue sur le verrou (corrigé — voir
+// favorites/cart/useUserRoles) ; porté à 30 s pour garder de la marge.
+const GETSESSION_TIMEOUT_MS = 30000;
 
 /**
- * Filet de sécurité au démarrage : si l'auth est réellement FIGÉE (getSession ne répond
- * pas en 12 s — signature d'un verrou Web Lock bloqué), on répare automatiquement.
+ * Filet de sécurité au démarrage : si getSession() ne répond pas dans le délai (signature
+ * d'un blocage côté client), on tente UN reload — recharger libère les Web Locks tenus par
+ * CET onglet, et via le repli anti-deadlock (client.ts) la 2ᵉ tentative aboutit presque
+ * toujours. Au 2ᵉ dépassement on ABANDONNE, on ne purge JAMAIS automatiquement.
  *
- * Escalade DOUCE (on ne détruit jamais une session valide au premier hoquet) :
- *   1er gel  -> simple reload. Recharger libère les Web Locks tenus par CET onglet et
- *              relance getSession ; via le repli anti-deadlock (5 s) la 2ᵉ tentative
- *              aboutit le plus souvent SANS rien effacer.
- *   2ᵉ gel   -> resetAuthState (purge) + reload, en dernier recours.
- *   3ᵉ gel   -> on abandonne (anti-boucle) pour ne pas recharger en boucle.
- *
- * On n'agit QUE sur un vrai TIMEOUT (gel) : une erreur "normale" de getSession (ex. hors
- * ligne) est déjà gérée ailleurs (garde de route -> /auth) et ne doit pas purger l'auth.
+ * HISTORIQUE (pourquoi on ne purge plus) : jusqu'au 6/07/2026, le 2ᵉ dépassement
+ * déclenchait resetAuthState() (purge du storage). Le journal de diagnostic d'un appareil
+ * réel (4/07/2026, 16:50 UTC) a prouvé que cette escalade détruisait une session VALIDE :
+ * SIGNED_IN émis 20 s avant la purge, token encore valable ~3 h. Un dépassement de délai
+ * signifie « lent » (2G, appareil modeste, contention de verrous), pas « storage empoisonné » :
+ *  - un vrai deadlock de verrou est déjà couvert par deadlockSafeLock (plafond 15 s) ;
+ *  - un refresh token réellement révoqué produit une erreur définitive, sur laquelle
+ *    supabase-js purge LUI-MÊME le storage (_callRefreshToken → removeSession) ;
+ * → il n'existe plus de scénario où purger sur timeout répare quoi que ce soit. Le bouton
+ * « Réinitialiser la session » sur /auth reste le recours manuel en dernier ressort.
  */
 export async function runAuthWatchdog(): Promise<void> {
   if (typeof window === "undefined") return;
@@ -53,33 +50,23 @@ export async function runAuthWatchdog(): Promise<void> {
 
   if (outcome !== "timeout") {
     authLog(outcome === "ok" ? "watchdog:ok" : "watchdog:error — pas d'action (géré ailleurs)");
-    // Auth qui répond : on réarme le compteur pour une future auto-réparation.
+    // Auth qui répond : on réarme le compteur.
     try { sessionStorage.removeItem(ATTEMPTS_FLAG); } catch {}
     return;
   }
 
-  authLog("watchdog:TIMEOUT — auth figée");
+  authLog("watchdog:TIMEOUT — auth très lente ou figée");
 
-  // Escalade selon le nombre de gels déjà rencontrés dans cette session de navigation.
   let attempts = 0;
   try { attempts = Number(sessionStorage.getItem(ATTEMPTS_FLAG)) || 0; } catch {}
 
-  if (attempts >= 2) {
-    authLog("watchdog:abandon — 2 réparations déjà tentées (anti-boucle)");
+  if (attempts >= 1) {
+    // 2ᵉ dépassement : on n'insiste pas et surtout on ne purge RIEN (voir historique).
+    authLog("watchdog:abandon — reload déjà tenté, pas de purge automatique");
     return;
   }
 
   try { sessionStorage.setItem(ATTEMPTS_FLAG, String(attempts + 1)); } catch {}
-
-  if (attempts === 0) {
-    // 1er gel : reload simple, SANS purge -> ne déconnecte pas une session valide.
-    authLog("watchdog:1er gel -> reload simple (sans purge)");
-    setTimeout(() => window.location.reload(), 300);
-    return;
-  }
-
-  // 2ᵉ gel : le reload n'a pas suffi -> purge + reload en dernier recours.
-  authLog("watchdog:2e gel -> resetAuthState + reload");
-  await resetAuthState();
+  authLog("watchdog:1er dépassement -> reload simple (sans purge)");
   setTimeout(() => window.location.reload(), 300);
 }

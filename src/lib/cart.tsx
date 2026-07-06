@@ -92,10 +92,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .then(({ data }) => { if (data.session) mergeWithServer(data.session.user.id); })
       .catch(() => {});
 
+    // ⚠️ Pas d'appel supabase direct dans le callback onAuthStateChange : fetchCart()
+    // (serverFn) repasse par getSession() pour attacher le Bearer → verrou d'auth
+    // potentiellement encore tenu par l'opération qui a émis l'événement → blocage 15 s
+    // (incident 4/07/2026). setTimeout 0 diffère la fusion hors du verrou.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") mergeWithServer(session.user.id);
-        else userIdRef.current = session.user.id;
+        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+          const uid = session.user.id;
+          setTimeout(() => { mergeWithServer(uid); }, 0);
+        } else userIdRef.current = session.user.id;
       } else {
         // Déconnexion : on redevient invité (le panier local reste), refusion au prochain login.
         userIdRef.current = null;
