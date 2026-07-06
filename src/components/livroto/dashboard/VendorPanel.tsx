@@ -90,6 +90,7 @@ export function VendorPanel() {
     { id: string; name: string; emoji: string | null; parent_category: string }[]
   >([]);
   const [uploading, setUploading] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     supabase
@@ -145,10 +146,14 @@ export function VendorPanel() {
 
   const submitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Anti double-soumission : sur 2G un envoi peut durer plusieurs secondes, un
+    // double-tap créait le produit en double (vu en prod le 4/07/2026).
+    if (creating) return;
     if (!form.subcategory_id) {
       toast.error("Choisis une sous-catégorie pour bien classer ton produit");
       return;
     }
+    setCreating(true);
     try {
       await createP({
         data: {
@@ -177,6 +182,8 @@ export function VendorPanel() {
       qc.invalidateQueries({ queryKey: ["vendor-dash"] });
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -373,8 +380,8 @@ export function VendorPanel() {
                 </p>
               </div>
             </div>
-            <Button type="submit" className="md:col-span-2">
-              Créer le produit
+            <Button type="submit" disabled={creating} className="md:col-span-2">
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Créer le produit"}
             </Button>
           </form>
         )}
