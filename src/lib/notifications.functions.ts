@@ -55,14 +55,15 @@ export const notifyOrderCreated = createServerFn({ method: "POST" })
 
     const { data: order, error: oErr } = await supabaseAdmin
       .from("orders")
-      .select("id,code,customer_name,customer_phone,customer_address,zone,total_usd,delivery_fee,vendor_id,quantity,payment_method,customer_notes")
+      .select("id,code,customer_id,customer_name,customer_phone,customer_address,zone,total_usd,delivery_fee,vendor_id,quantity,payment_method,customer_notes")
       .eq("id", data.order_id)
       .maybeSingle();
     if (oErr || !order) throw new Error(oErr?.message ?? "Commande introuvable");
-    if (order.customer_phone == null) {
-      // ownership lightly verified by RLS would be ideal, but admin client bypasses;
-      // restrict to the caller having created it (matches RLS insert policy).
-    }
+    // Sécurité (audit A-2) : le client admin contourne la RLS, donc on vérifie
+    // EXPLICITEMENT que l'appelant est bien le client qui a créé la commande.
+    // Sinon n'importe quel utilisateur connecté pourrait déclencher les notifs
+    // vendeur/livreurs d'une commande arbitraire via son id.
+    if (order.customer_id !== userId) throw new Error("Forbidden: not your order");
 
     const { data: items } = await supabaseAdmin
       .from("order_items")
@@ -188,13 +189,21 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
       status: z.string().min(2).max(20),
     }).parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id,code,customer_id,customer_name,customer_phone,total_usd,delivery_fee")
+      .select("id,code,customer_id,vendor_id,rider_id,customer_name,customer_phone,total_usd,delivery_fee")
       .eq("id", data.order_id)
       .maybeSingle();
     if (!order || !order.customer_id) return { ok: false, reason: "no_order" };
+    // Sécurité (audit A-2) : admin contourne la RLS → seuls le vendeur ou le livreur
+    // de la commande peuvent en notifier le changement de statut (ce sont les seuls
+    // appelants : VendorPanel / RiderPanel). Sans ça, n'importe quel utilisateur
+    // connecté pourrait envoyer au client un faux statut ("livrée"…) par WhatsApp/SMS.
+    if (order.vendor_id !== userId && order.rider_id !== userId) {
+      return { ok: false, reason: "forbidden" };
+    }
 
     const codeLabel = order.code ?? order.id.slice(0, 8);
 

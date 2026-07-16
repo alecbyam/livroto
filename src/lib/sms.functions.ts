@@ -72,14 +72,19 @@ export const STATUS_SMS: Record<string, string> = {
 export const notifyOrderCreatedSMS = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ order_id: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id,code,customer_phone,customer_name,total_usd,delivery_fee,zone,payment_method")
+      .select("id,code,customer_id,customer_phone,customer_name,total_usd,delivery_fee,zone,payment_method")
       .eq("id", data.order_id)
       .maybeSingle();
 
-    if (!order?.customer_phone) return { ok: false, reason: "no_phone" };
+    if (!order) return { ok: false, reason: "not_found" };
+    // Sécurité (audit A-2) : admin contourne la RLS → on vérifie que l'appelant
+    // est bien le client de la commande, sinon on pourrait faire envoyer un SMS
+    // (crédits payants) au numéro d'une commande arbitraire.
+    if (order.customer_id !== context.userId) return { ok: false, reason: "forbidden" };
+    if (!order.customer_phone) return { ok: false, reason: "no_phone" };
 
     const codeLabel = order.code ?? order.id.slice(0, 8);
     const paymentFR = {
