@@ -1240,6 +1240,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      delivered_revenue_total: {
+        Args: { p_vendor_id?: string | null }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

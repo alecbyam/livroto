@@ -6,6 +6,7 @@ import { sendAfricasTalkingSMS, STATUS_SMS } from "./sms.functions";
 import { getPublicFlag } from "@/lib/integrations/config.server";
 import { getWhatsappConfig, sendWhatsAppText } from "@/lib/integrations/whatsapp.server";
 import { phoneDigits } from "@/lib/phone";
+import { orderSummaryLines, type OrderLine } from "@/lib/whatsapp";
 
 // CallMeBot WhatsApp sender.
 // Each recipient must have activated CallMeBot on his own WhatsApp number
@@ -70,9 +71,21 @@ export const notifyOrderCreated = createServerFn({ method: "POST" })
       .select("product_name,quantity,unit_price_usd,line_total_usd")
       .eq("order_id", order.id);
 
-    const summary = (items ?? [])
-      .map((it: any) => `• ${it.product_name} x${it.quantity} — $${Number(it.line_total_usd ?? it.quantity * it.unit_price_usd).toFixed(2)}`)
-      .join("\n") || `Quantité ${order.quantity}`;
+    // Récapitulatif articles + totaux : même source unique que les messages
+    // client → support (lib/whatsapp.ts, audit D-1) — plus de format divergent.
+    const lines: OrderLine[] = (items ?? []).map((it: any) => ({
+      name: it.product_name,
+      qty: Number(it.quantity),
+      lineTotal: Number(it.line_total_usd ?? it.quantity * it.unit_price_usd),
+    }));
+    const body = orderSummaryLines({
+      lines,
+      productTotal: Number(order.total_usd),
+      deliveryFee: Number(order.delivery_fee ?? 0),
+      zone: order.zone,
+    });
+    // Vieilles commandes sans lignes d'articles : on garde au moins la quantité.
+    if (lines.length === 0) body.unshift(`Quantité ${order.quantity}`);
 
     const codeLabel = order.code ?? order.id.slice(0, 8);
     const baseText =
@@ -80,10 +93,7 @@ export const notifyOrderCreated = createServerFn({ method: "POST" })
       `Client: ${order.customer_name} (${order.customer_phone})\n` +
       `Quartier: ${order.zone}\n` +
       `Adresse: ${order.customer_address}\n` +
-      `${summary}\n` +
-      `Total produits: $${Number(order.total_usd).toFixed(2)}\n` +
-      `Livraison (${order.zone}): $${Number(order.delivery_fee ?? 0).toFixed(2)}\n` +
-      `TOTAL À PAYER: $${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)}\n` +
+      `${body.join("\n")}\n` +
       `Paiement: ${order.payment_method}` +
       (order.customer_notes ? `\nNote: ${order.customer_notes}` : "");
 

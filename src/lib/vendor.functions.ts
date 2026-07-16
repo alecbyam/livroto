@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { isDelivered, sumRevenueUsd } from "@/lib/order-stats";
 
 // ---------- VENDOR ----------
 export const applyAsVendor = createServerFn({ method: "POST" })
@@ -40,15 +39,23 @@ export const getVendorDashboard = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data: vendor } = await supabaseAdmin.from("vendors").select("*").eq("owner_id", userId).maybeSingle();
     if (!vendor) return { vendor: null, products: [], orders: [], stats: null };
-    const [products, orders] = await Promise.all([
+    // Stats exactes sur TOUTE la table (compteurs head + agrégat SQL) — avant,
+    // revenu/compteurs étaient dérivés des 50 dernières commandes affichées, donc
+    // faux dès que le vendeur dépassait 50 commandes. La liste reste limitée à 50
+    // pour l'affichage. Le revenu passe par delivered_revenue_total (service_role,
+    // p_vendor_id FORCÉ à l'appelant — jamais fourni par le client).
+    const [products, orders, ordersCountHead, pendingHead, revenueRes] = await Promise.all([
       supabase.from("products").select("*, subcategory:product_subcategories(name,emoji)").eq("vendor_id", userId).order("created_at", { ascending: false }),
       supabase.from("orders").select("*, items:order_items(product_name,quantity,unit_price_usd,line_total_usd)").eq("vendor_id", userId).order("created_at", { ascending: false }).limit(50),
+      supabase.from("orders").select("id", { count: "exact", head: true }).eq("vendor_id", userId),
+      supabase.from("orders").select("id", { count: "exact", head: true }).eq("vendor_id", userId).eq("status", "pending"),
+      supabaseAdmin.rpc("delivered_revenue_total", { p_vendor_id: userId }),
     ]);
     const stats = {
       productsCount: products.data?.length ?? 0,
-      ordersCount: orders.data?.length ?? 0,
-      revenueUsd: sumRevenueUsd((orders.data ?? []).filter(isDelivered)),
-      pending: (orders.data ?? []).filter((o: any) => o.status === "pending").length,
+      ordersCount: ordersCountHead.count ?? 0,
+      revenueUsd: Number(revenueRes.data ?? 0),
+      pending: pendingHead.count ?? 0,
     };
     return { vendor, products: products.data ?? [], orders: orders.data ?? [], stats };
   });

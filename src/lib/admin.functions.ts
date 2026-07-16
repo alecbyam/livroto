@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { sumRevenueUsd } from "@/lib/order-stats";
 
 // Garde d'accès admin centralisée — évite de dupliquer la vérification de rôle
 // dans chaque handler admin (une copie oubliée/mal faite = trou de sécurité).
@@ -58,7 +57,10 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       supabaseAdmin.from("zones").select("*").order("name"),
       supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("orders").select("id", { count: "exact", head: true }).eq("status", "delivered"),
-      supabaseAdmin.from("orders").select("total_usd").eq("status", "delivered"),
+      // Agrégat SQL (migration delivered_revenue_total_fn) : l'ancien
+      // .select("total_usd") + somme JS sous-comptait silencieusement au-delà
+      // du plafond de lignes PostgREST (1000).
+      supabaseAdmin.rpc("delivered_revenue_total", { p_vendor_id: null }),
       supabaseAdmin.from("vendors").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabaseAdmin.from("riders").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabaseAdmin.from("products").select("id", { count: "exact", head: true }).eq("approved", false),
@@ -71,7 +73,7 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       stats: {
         totalOrders: totalOrdersHead.count ?? 0,
         delivered: deliveredHead.count ?? 0,
-        revenue: sumRevenueUsd(deliveredRevenueRes.data ?? []),
+        revenue: Number(deliveredRevenueRes.data ?? 0),
         pendingVendors: pendingVendorsHead.count ?? 0,
         pendingRiders: pendingRidersHead.count ?? 0,
         pendingProducts: pendingProductsHead.count ?? 0,

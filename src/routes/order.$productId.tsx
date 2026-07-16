@@ -16,7 +16,7 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { getPromo } from "@/lib/promo";
-import { buildOrderWhatsAppUrl } from "@/lib/whatsapp";
+import { customerOrderWaUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyOrderCreated } from "@/lib/notifications.functions";
@@ -219,14 +219,15 @@ function OrderPage() {
         }
       }
       toast.success(t("order.success"));
-      const url = buildOrderWhatsAppUrl({
-        productName: `${product.name} (#${orderRow.code ?? ""})`,
-        quantity: qty,
-        address,
-        zone: orderRow.zoneName,
-        name,
+      const url = customerOrderWaUrl({
+        codes: orderRow.code ? [orderRow.code] : [],
+        lines: [{ name: product.name, qty, lineTotal: orderRow.subtotal }],
         productTotal: orderRow.subtotal,
         deliveryFee: orderRow.deliveryFee,
+        zone: orderRow.zoneName,
+        address,
+        customerName: name,
+        payment: paymentMethod,
       });
       window.open(url, "_blank");
       setTimeout(() => navigate({ to: "/orders" }), 800);

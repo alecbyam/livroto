@@ -34,7 +34,7 @@ import { LandmarkPicker } from "@/components/livroto/LandmarkPicker";
 import { RecommendedProducts } from "@/components/livroto/RecommendedProducts";
 import { FlexPayDialog } from "@/components/livroto/FlexPayDialog";
 import { offlineQueue, isOnline } from "@/lib/offline-queue";
-import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
+import { customerOrderWaUrl } from "@/lib/whatsapp";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyOrderCreated } from "@/lib/notifications.functions";
 import { notifyOrderCreatedSMS } from "@/lib/sms.functions";
@@ -373,24 +373,22 @@ function CartPage() {
         return;
       }
 
-      // One WhatsApp message summarising the whole cart
-      const summary = items
-        .map((i) => `• ${i.name} x${i.qty} — $${(i.qty * i.price_usd).toFixed(2)}`)
-        .join("\n");
-      const text =
-        `Bonjour Livroto ! Nouvelle commande (${createdCodes.join(", ")}) :\n${summary}\n` +
-        (res.discount > 0
-          ? `Code promo ${coupon?.code ?? ""} : -$${res.discount.toFixed(2)}\n`
-          : "") +
-        (creditUsed > 0 ? `Crédit Livroto : -$${creditUsed.toFixed(2)}\n` : "") +
-        (coords
-          ? `📍 Position GPS : https://maps.google.com/?q=${coords.lat},${coords.lng}\n`
-          : "") +
-        `Total produits : $${finalTotal.toFixed(2)}\n` +
-        `Livraison (${res.zoneName}) : $${res.deliveryTotal.toFixed(2)}\n` +
-        `*TOTAL À PAYER : $${(finalTotal + res.deliveryTotal).toFixed(2)}*\n` +
-        `Adresse : ${address}, ${res.zoneName}. Paiement : ${payment}. Nom : ${name}.`;
-      const waUrl = `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(text)}`;
+      // Un seul message WhatsApp récapitulant tout le panier — construit par la
+      // source unique lib/whatsapp.ts (audit D-1), même format que l'achat direct.
+      const waUrl = customerOrderWaUrl({
+        codes: createdCodes,
+        lines: items.map((i) => ({ name: i.name, qty: i.qty, lineTotal: i.qty * i.price_usd })),
+        productTotal: finalTotal,
+        deliveryFee: res.deliveryTotal,
+        zone: res.zoneName,
+        address,
+        customerName: name,
+        payment,
+        discount: res.discount,
+        discountCode: coupon?.code ?? null,
+        credit: creditUsed,
+        gps: coords,
+      });
       clear();
       toast.success(t("cart.toast.sent"));
       window.open(waUrl, "_blank");
