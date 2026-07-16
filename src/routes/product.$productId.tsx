@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Heart, ShoppingCart, Star, Store, Loader2, MessageCircle, Zap, AlertTriangle, ShieldCheck, Minus, Plus, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
@@ -39,52 +40,73 @@ function ProductPage() {
   const { productId } = Route.useParams();
   const { add } = useCart();
   const { isFav, toggle } = useFavorite(productId);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [related, setRelated] = useState<DisplayProduct[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
   const [stickyVisible, setStickyVisible] = useState(false);
   const [qty, setQty] = useState(1);
   const [lightbox, setLightbox] = useState(false);
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let cancel = false;
-    setLoading(true);
-    (async () => {
-      const { data: p } = await supabase
+  // Migré de useEffect → useQuery (audit P-1) : cache inter-navigations, dédup,
+  // et requêtes indépendantes (vendeur/avis/liés) en parallèle au lieu d'en série.
+  // Les données affichées sont identiques ; le catalogue bouge peu → staleTime long.
+  const { data: product = null, isLoading: loading } = useQuery({
+    queryKey: ["product", productId],
+    queryFn: async () => {
+      const { data } = await supabase
         .from("products")
         .select(PRODUCT_DETAIL_SELECT)
         .eq("id", productId).eq("approved", true).maybeSingle();
-      if (cancel) return;
-      setProduct(p as any);
-      setActiveImg(0);
-      if (p) recordView(p.id);
-      if (p?.vendor_id) {
-        supabase.from("vendors").select("id,shop_name,slug,whatsapp,logo_url,rating_avg,rating_count,status")
-          .eq("owner_id", p.vendor_id).maybeSingle()
-          .then(({ data }) => !cancel && setVendor(data as any));
-      }
-      supabase.from("reviews").select("id,rating,comment,created_at,author_id")
-        .eq("product_id", productId).order("created_at", { ascending: false }).limit(10)
-        .then(({ data }) => !cancel && setReviews((data ?? []) as any));
-      if (p?.category) {
-        const { data: rel } = await supabase
-          .from("products")
-          .select(PRODUCT_LIST_SELECT)
-          .eq("approved", true).eq("category", p.category).neq("id", productId).limit(8);
-        if (!cancel) setRelated((rel ?? []).map((r: any) => ({
-          ...r, price_usd: Number(r.price_usd),
-          rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
-          rating_count: r.rating_count ?? 0,
-        })));
-      }
-      setLoading(false);
-    })();
-    return () => { cancel = true; };
-  }, [productId]);
+      return (data as Product | null) ?? null;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: vendor = null } = useQuery({
+    queryKey: ["product-vendor", product?.vendor_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("vendors").select("id,shop_name,slug,whatsapp,logo_url,rating_avg,rating_count,status")
+        .eq("owner_id", product!.vendor_id!).maybeSingle();
+      return (data as Vendor | null) ?? null;
+    },
+    enabled: !!product?.vendor_id,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["product-reviews", productId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("reviews").select("id,rating,comment,created_at,author_id")
+        .eq("product_id", productId).order("created_at", { ascending: false }).limit(10);
+      return (data ?? []) as Review[];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: related = [] } = useQuery({
+    queryKey: ["product-related", productId, product?.category],
+    queryFn: async () => {
+      const { data: rel } = await supabase
+        .from("products").select(PRODUCT_LIST_SELECT)
+        .eq("approved", true).eq("category", product!.category as any).neq("id", productId).limit(8);
+      return (rel ?? []).map((r: any) => ({
+        ...r, price_usd: Number(r.price_usd),
+        rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
+        rating_count: r.rating_count ?? 0,
+      })) as DisplayProduct[];
+    },
+    enabled: !!product?.category,
+    staleTime: 5 * 60_000,
+  });
+
+  // Effets de bord au chargement d'un produit : réinitialiser la galerie et
+  // enregistrer la vue (auparavant faits dans le fetch manuel).
+  useEffect(() => {
+    if (!product) return;
+    setActiveImg(0);
+    recordView(product.id);
+  }, [product?.id]);
 
   useEffect(() => {
     if (product?.name && typeof document !== "undefined") {
