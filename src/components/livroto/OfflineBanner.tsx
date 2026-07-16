@@ -6,6 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { createCartOrders } from "@/lib/checkout.functions";
 import { toast } from "sonner";
 
+// Au-delà de ce nombre d'échecs, une commande hors-ligne est abandonnée (et le
+// client averti) plutôt que ré-essayée indéfiniment à chaque reconnexion.
+const MAX_SYNC_ATTEMPTS = 5;
+
 export function OfflineBanner() {
   const createOrders = useServerFn(createCartOrders);
   const [online, setOnline] = useState(true);
@@ -23,11 +27,15 @@ export function OfflineBanner() {
 
     setSyncing(true);
     let synced = 0;
+    let dropped = 0;
 
     for (const queued of orders) {
       try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) break;
+        // getSession() (local) et non getUser() (réseau) : on vient de repasser en
+        // ligne mais la connexion reste fragile ; inutile d'un aller-retour réseau
+        // juste pour connaître l'utilisateur courant.
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) break;
 
         // Recrée la commande via le même chemin serveur que le checkout en
         // ligne : prix et frais de livraison sont recalculés depuis la base,
@@ -50,7 +58,21 @@ export function OfflineBanner() {
 
         offlineQueue.remove(queued.id);
         synced++;
-      } catch {}
+      } catch (e) {
+        // Anti-zombie : une commande qui échoue en boucle (ex. produit retiré du
+        // catalogue depuis la panne) restait sinon indéfiniment dans la file,
+        // ré-essayée à chaque reconnexion, sans que personne ne le sache. On
+        // plafonne les tentatives, puis on l'abandonne en le signalant au client.
+        const attempts = offlineQueue.bumpAttempt(queued.id);
+        console.warn(
+          `[offline-sync] échec envoi commande (tentative ${attempts}/${MAX_SYNC_ATTEMPTS})`,
+          (e as Error)?.message ?? e,
+        );
+        if (attempts >= MAX_SYNC_ATTEMPTS) {
+          offlineQueue.remove(queued.id);
+          dropped++;
+        }
+      }
     }
 
     setSyncing(false);
@@ -60,6 +82,15 @@ export function OfflineBanner() {
       toast.success(
         `✅ ${synced} commande${synced > 1 ? "s" : ""} envoyée${synced > 1 ? "s" : ""} avec succès !`,
         { description: "Tes commandes hors-ligne ont été synchronisées." },
+      );
+    }
+    if (dropped > 0) {
+      toast.error(
+        `${dropped} commande${dropped > 1 ? "s" : ""} n'a pas pu être envoyée`,
+        {
+          description:
+            "Un article n'est peut-être plus disponible. Repasse par le catalogue pour recommander.",
+        },
       );
     }
   }, [refreshQueue]);

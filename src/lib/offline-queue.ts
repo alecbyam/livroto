@@ -7,6 +7,7 @@
 export type QueuedOrder = {
   id: string;            // UUID local temporaire
   createdAt: string;
+  attempts?: number;     // nombre d'envois ratés (anti-zombie, voir OfflineBanner)
   payload: Record<string, unknown>;
   items: Array<{
     product_id: string;
@@ -53,6 +54,16 @@ export const offlineQueue = {
 
   remove(id: string): void {
     save(load().filter((o) => o.id !== id));
+  },
+
+  /** Incrémente le compteur d'échecs d'une commande et renvoie sa nouvelle valeur. */
+  bumpAttempt(id: string): number {
+    const orders = load();
+    const o = orders.find((x) => x.id === id);
+    if (!o) return 0;
+    o.attempts = (o.attempts ?? 0) + 1;
+    save(orders);
+    return o.attempts;
   },
 
   clear(): void {

@@ -264,8 +264,11 @@ function CartPage() {
       // Mode hors-ligne : mettre en file d'attente
       if (!isOnline()) {
         for (const g of groups) {
-          const first = g.items[0];
-          const groupDiscount = Math.min(discount, g.subtotal);
+          // Le payload ne contient QUE ce que la resynchro rejoue (infos client +
+          // zone + coupon + IDs/quantités via `items`). Aucun montant : à la
+          // reconnexion, OfflineBanner rappelle createCartOrders qui RECALCULE
+          // prix, remise et livraison côté serveur — les prix locaux ne feraient
+          // pas autorité, donc on ne les stocke même pas.
           offlineQueue.add({
             id: crypto.randomUUID(),
             createdAt: new Date().toISOString(),
@@ -275,21 +278,12 @@ function CartPage() {
               customer_name: name,
               customer_phone: phone,
               customer_address: address,
-              zone: zoneName,
               zone_id: selectedZone?.id ?? null,
-              product_id: first.id,
-              vendor_id: g.vendor_id,
-              quantity: g.items.reduce((s, i) => s + i.qty, 0),
-              subtotal_usd: g.subtotal,
-              total_usd: Math.max(0, g.subtotal - groupDiscount),
-              delivery_fee: deliveryFee,
               payment_method: payment,
               customer_notes: notes || null,
               coupon_code: coupon?.code ?? null,
-              discount_usd: groupDiscount,
               customer_lat: coords?.lat ?? null,
               customer_lng: coords?.lng ?? null,
-              status: "pending",
             },
             items: g.items.map((it) => ({
               product_id: it.id,
