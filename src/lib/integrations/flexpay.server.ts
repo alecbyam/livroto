@@ -12,6 +12,7 @@
 // l'interface admin, getFlexpayConfig() renvoie null et rien n'est appelé.
 // ============================================================================
 import { loadIntegrationConfig } from "./config.server";
+import { phoneDigits } from "@/lib/phone";
 
 export type FlexpayConfig = {
   baseUrl: string;
@@ -50,7 +51,7 @@ export async function flexpayInitiateMobileMoney(params: {
   currency?: string;
 }): Promise<FlexpayInitResult> {
   const { cfg } = params;
-  const phone = params.phone.replace(/[^\d]/g, "");
+  const phone = phoneDigits(params.phone);
   const payload: Record<string, string> = {
     merchant: cfg.merchant,
     type: "1", // 1 = mobile money

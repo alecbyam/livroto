@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { phoneE164 } from "@/lib/phone";
 
 /**
  * Envoi SMS via Africa's Talking — opère en RDC (Airtel, Vodacom, Orange)
@@ -17,7 +18,7 @@ export async function sendAfricasTalkingSMS(to: string, message: string): Promis
   }
 
   // Normaliser le numéro : doit commencer par +
-  const phone = to.startsWith("+") ? to : `+${to.replace(/[^\d]/g, "")}`;
+  const phone = phoneE164(to);
 
   try {
     const body = new URLSearchParams({

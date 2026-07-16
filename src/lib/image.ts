@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 /**
  * Compression d'image côté navigateur AVANT upload.
  * Essentiel pour Bunia : réduit la data consommée par le vendeur (upload)
@@ -43,4 +45,43 @@ export async function compressImage(
   } catch {
     return file;
   }
+}
+
+/**
+ * Compresse une image, l'envoie dans le bucket `products` sous le dossier de
+ * l'utilisateur, et renvoie une URL signée (5 ans). Source unique partagée par
+ * les trois uploaders du panneau vendeur (photo produit ×2, logo/couverture) —
+ * avant, cette séquence compress→upload→URL signée était copiée-collée.
+ *
+ * @param opts.maxSize   côté le plus long après compression (défaut 1280)
+ * @param opts.pathPrefix si fourni, chemin déterministe `<prefix>-<timestamp>`
+ *                        (logo/couverture, réécrivables) ; sinon UUID aléatoire
+ * @param opts.upsert     autorise l'écrasement (défaut false)
+ */
+export async function uploadProductImage(
+  file: File,
+  opts: { maxSize?: number; pathPrefix?: string; upsert?: boolean } = {},
+): Promise<string> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("Non connecté");
+
+  const compressed = await compressImage(file, opts.maxSize ? { maxSize: opts.maxSize } : {});
+  const ext = compressed.name.split(".").pop()?.toLowerCase() || "jpg";
+  const name = opts.pathPrefix ? `${opts.pathPrefix}-${Date.now()}.${ext}` : `${crypto.randomUUID()}.${ext}`;
+  const path = `${session.user.id}/${name}`;
+
+  const { error: upErr } = await supabase.storage.from("products").upload(path, compressed, {
+    cacheControl: "31536000",
+    upsert: opts.upsert ?? false,
+    contentType: compressed.type,
+  });
+  if (upErr) throw upErr;
+
+  const { data: signed, error: sErr } = await supabase.storage
+    .from("products")
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 5); // 5 ans
+  if (sErr || !signed) throw sErr ?? new Error("URL impossible");
+  return signed.signedUrl;
 }

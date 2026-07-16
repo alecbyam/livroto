@@ -28,6 +28,7 @@ import {
   getDeliveryTracking,
 } from "@/lib/dashboard.functions";
 import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
+import { phoneDigits } from "@/lib/phone";
 import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/orders/$orderId")({
@@ -357,7 +358,7 @@ function OrderDetailPage() {
                     className="bg-[color:var(--whatsapp)] hover:brightness-105 text-white"
                   >
                     <a
-                      href={`https://wa.me/${String(rider.whatsapp).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`${t("orderDetail.helloImCustomer")} ${order.customer_name} (Livroto #${order.code ?? order.id.slice(0, 6)}). ${t("orderDetail.myPosition")} ${order.customer_address}, ${order.zone}.`)}`}
+                      href={`https://wa.me/${phoneDigits(String(rider.whatsapp))}?text=${encodeURIComponent(`${t("orderDetail.helloImCustomer")} ${order.customer_name} (Livroto #${order.code ?? order.id.slice(0, 6)}). ${t("orderDetail.myPosition")} ${order.customer_address}, ${order.zone}.`)}`}
                       target="_blank"
                       rel="noreferrer"
                     >

@@ -14,6 +14,7 @@ import {
   getFlexpayConfig, flexpayInitiateMobileMoney, flexpayCheck, flexpayPing,
 } from "@/lib/integrations/flexpay.server";
 import { getWhatsappConfig, whatsappPing } from "@/lib/integrations/whatsapp.server";
+import { phoneDigits } from "@/lib/phone";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data: roles } = await ctx.supabase.from("user_roles").select("role").eq("user_id", ctx.userId);
@@ -179,7 +180,7 @@ export const flexpayInitiate = createServerFn({ method: "POST" })
       provider: "flexpay",
       provider_ref: result.orderNumber,
       provider_status: "pending",
-      phone: data.phone.replace(/[^\d]/g, ""),
+      phone: phoneDigits(data.phone),
       currency: cfg.currency,
       raw: result.raw,
     });

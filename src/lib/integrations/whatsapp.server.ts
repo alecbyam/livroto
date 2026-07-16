@@ -12,6 +12,7 @@
 // getWhatsappConfig() renvoie null et rien n'est appelé.
 // ============================================================================
 import { loadIntegrationConfig } from "./config.server";
+import { phoneDigits } from "@/lib/phone";
 
 export type WhatsappConfig = {
   baseUrl: string;
@@ -32,11 +33,6 @@ export async function getWhatsappConfig(cfg?: Record<string, string>): Promise<W
 }
 
 type SendResult = { ok: boolean; error?: string; raw?: any };
-
-function normalizePhone(to: string): string {
-  // Meta attend un numéro international sans "+" ni espaces.
-  return to.replace(/[^\d]/g, "");
-}
 
 async function postMessage(cfg: WhatsappConfig, body: Record<string, any>): Promise<SendResult> {
   try {
@@ -61,7 +57,7 @@ async function postMessage(cfg: WhatsappConfig, body: Record<string, any>): Prom
 /** Message texte libre (fenêtre 24h). */
 export async function sendWhatsAppText(cfg: WhatsappConfig, to: string, body: string): Promise<SendResult> {
   return postMessage(cfg, {
-    to: normalizePhone(to),
+    to: phoneDigits(to),
     type: "text",
     text: { preview_url: false, body },
   });
@@ -83,7 +79,7 @@ export async function sendWhatsAppTemplate(
       ? [{ type: "body", parameters: bodyParams.map((t) => ({ type: "text", text: t })) }]
       : [];
   return postMessage(cfg, {
-    to: normalizePhone(to),
+    to: phoneDigits(to),
     type: "template",
     template: {
       name: templateName,

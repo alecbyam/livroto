@@ -25,7 +25,7 @@ import {
   vendorUpdateShop,
 } from "@/lib/vendor.functions";
 import { notifyOrderStatusChanged } from "@/lib/notifications.functions";
-import { compressImage } from "@/lib/image";
+import { uploadProductImage } from "@/lib/image";
 import { CATEGORY_LIST } from "@/components/livroto/products";
 import { useI18n } from "@/lib/i18n";
 import { statusColor, Stat, CallMeBotCard } from "./shared";
@@ -106,29 +106,13 @@ export function VendorPanel() {
   const uploadImage = async (file: File) => {
     setUploading(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non connecté");
-      file = await compressImage(file);
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${session.user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("products").upload(path, file, {
-        cacheControl: "31536000",
-        upsert: false,
-        contentType: file.type,
-      });
-      if (upErr) throw upErr;
-      const { data: signed, error: sErr } = await supabase.storage
-        .from("products")
-        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5); // 5 ans
-      if (sErr || !signed) throw sErr ?? new Error("URL impossible");
+      const url = await uploadProductImage(file);
       setForm((f) => {
         if (f.images.length >= 5) {
           toast.error("Maximum 5 photos par produit");
           return f;
         }
-        return { ...f, images: [...f.images, signed.signedUrl] };
+        return { ...f, images: [...f.images, url] };
       });
       toast.success("Photo téléversée");
     } catch (e: any) {
@@ -530,22 +514,8 @@ function VendorProductRow({
   const uploadImage = async (file: File) => {
     setUploading(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non connecté");
-      file = await compressImage(file);
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${session.user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("products")
-        .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
-      if (upErr) throw upErr;
-      const { data: signed, error: sErr } = await supabase.storage
-        .from("products")
-        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-      if (sErr || !signed) throw sErr ?? new Error("URL impossible");
-      setImages((prev) => (prev.length >= 5 ? prev : [...prev, signed.signedUrl]));
+      const url = await uploadProductImage(file);
+      setImages((prev) => (prev.length >= 5 ? prev : [...prev, url]));
       toast.success("Photo ajoutée");
     } catch (e: any) {
       toast.error(e.message ?? "Erreur upload");
@@ -777,24 +747,12 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
   const uploadImage = async (file: File, type: "logo" | "cover") => {
     setUploading(type);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Non connecté");
-      file = await compressImage(file, { maxSize: 1024 });
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${session.user.id}/vendor-${type}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("products").upload(path, file, {
-        cacheControl: "31536000",
+      const url = await uploadProductImage(file, {
+        maxSize: 1024,
+        pathPrefix: `vendor-${type}`,
         upsert: true,
-        contentType: file.type,
       });
-      if (upErr) throw upErr;
-      const { data: signed, error: sErr } = await supabase.storage
-        .from("products")
-        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-      if (sErr || !signed) throw sErr ?? new Error("URL impossible");
-      setForm((f) => ({ ...f, [`${type}_url`]: signed.signedUrl }));
+      setForm((f) => ({ ...f, [`${type}_url`]: url }));
       toast.success(`${type === "logo" ? "Logo" : "Couverture"} téléversé`);
     } catch (e: any) {
       toast.error(e.message ?? "Erreur upload");

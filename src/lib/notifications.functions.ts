@@ -5,13 +5,14 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendAfricasTalkingSMS, STATUS_SMS } from "./sms.functions";
 import { getPublicFlag } from "@/lib/integrations/config.server";
 import { getWhatsappConfig, sendWhatsAppText } from "@/lib/integrations/whatsapp.server";
+import { phoneDigits } from "@/lib/phone";
 
 // CallMeBot WhatsApp sender.
 // Each recipient must have activated CallMeBot on his own WhatsApp number
 // and shared his personal apikey (stored in vendors/riders.callmebot_apikey).
 // Docs: https://www.callmebot.com/blog/free-api-whatsapp-messages/
 async function sendCallMeBot(phone: string, text: string, apikey: string) {
-  const cleanPhone = phone.replace(/[^\d]/g, "");
+  const cleanPhone = phoneDigits(phone);
   const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(
     cleanPhone,
   )}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apikey)}`;
