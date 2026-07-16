@@ -66,7 +66,7 @@ export function VendorPanel() {
         },
         () => {
           qc.invalidateQueries({ queryKey: ["vendor-dash"] });
-          toast.info("🛒 Nouvelle commande reçue !");
+          toast.info(t("vendor.toast.newOrder"));
         },
       )
       .subscribe();
@@ -109,21 +109,21 @@ export function VendorPanel() {
       const url = await uploadProductImage(file);
       setForm((f) => {
         if (f.images.length >= 5) {
-          toast.error("Maximum 5 photos par produit");
+          toast.error(t("vendor.toast.maxPhotos"));
           return f;
         }
         return { ...f, images: [...f.images, url] };
       });
-      toast.success("Photo téléversée");
+      toast.success(t("vendor.toast.photoUploaded"));
     } catch (e: any) {
-      toast.error(e.message ?? "Erreur upload");
+      toast.error(e.message ?? t("vendor.toast.uploadError"));
     } finally {
       setUploading(false);
     }
   };
 
   if (isLoading) return <div className="h-32 animate-pulse rounded-2xl bg-muted" />;
-  if (!data?.vendor) return <p>Aucune boutique trouvée.</p>;
+  if (!data?.vendor) return <p>{t("vendor.noShop")}</p>;
 
   const v = data.vendor as any;
   const stats = data.stats!;
@@ -134,7 +134,7 @@ export function VendorPanel() {
     // double-tap créait le produit en double (vu en prod le 4/07/2026).
     if (creating) return;
     if (!form.subcategory_id) {
-      toast.error("Choisis une sous-catégorie pour bien classer ton produit");
+      toast.error(t("vendor.toast.needSubcat"));
       return;
     }
     setCreating(true);
@@ -151,7 +151,7 @@ export function VendorPanel() {
           images: form.images.length > 0 ? form.images : undefined,
         },
       });
-      toast.success("Produit créé. En attente de validation admin.");
+      toast.success(t("vendor.toast.productCreated"));
       setOpen(false);
       setForm({
         name: "",
@@ -174,7 +174,7 @@ export function VendorPanel() {
   const changeStatus = async (order_id: string, status: any) => {
     try {
       await updateStatus({ data: { order_id, status } });
-      toast.success("Statut mis à jour");
+      toast.success(t("vendor.toast.statusUpdated"));
       qc.invalidateQueries({ queryKey: ["vendor-dash"] });
       notifyStatus({ data: { order_id, status } }).catch(() => {});
     } catch (e: any) {
@@ -193,10 +193,10 @@ export function VendorPanel() {
             </Badge>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Produits" value={stats.productsCount} />
-            <Stat label="Commandes" value={stats.ordersCount} />
-            <Stat label="En attente" value={stats.pending} />
-            <Stat label="Revenu $" value={stats.revenueUsd.toFixed(2)} />
+            <Stat label={t("vendor.stats.products")} value={stats.productsCount} />
+            <Stat label={t("vendor.stats.orders")} value={stats.ordersCount} />
+            <Stat label={t("vendor.stats.pending")} value={stats.pending} />
+            <Stat label={t("vendor.stats.revenue")} value={stats.revenueUsd.toFixed(2)} />
           </div>
         </div>
       </div>
@@ -214,15 +214,15 @@ export function VendorPanel() {
 
       <div className="rounded-2xl border bg-card">
         <div className="flex items-center justify-between border-b p-4">
-          <h3 className="font-display text-lg font-bold">Mes produits</h3>
+          <h3 className="font-display text-lg font-bold">{t("vendor.myProducts.title")}</h3>
           <Button size="sm" onClick={() => setOpen(!open)}>
-            <Plus className="h-4 w-4" /> Ajouter
+            <Plus className="h-4 w-4" /> {t("vendor.addBtn")}
           </Button>
         </div>
         {open && (
           <form onSubmit={submitProduct} className="grid gap-3 border-b p-4 md:grid-cols-2">
             <div>
-              <Label>Nom</Label>
+              <Label>{t("vendor.form.name")}</Label>
               <Input
                 required
                 value={form.name}
@@ -230,7 +230,7 @@ export function VendorPanel() {
               />
             </div>
             <div>
-              <Label>Catégorie</Label>
+              <Label>{t("vendor.form.category")}</Label>
               <Select
                 value={form.category}
                 onValueChange={(v: any) => {
@@ -252,14 +252,14 @@ export function VendorPanel() {
             </div>
             <div className="md:col-span-2">
               <Label>
-                Sous-catégorie <span className="text-destructive">*</span>
+                {t("vendor.form.subcategory")} <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={form.subcategory_id}
                 onValueChange={(v) => setForm({ ...form, subcategory_id: v })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir une sous-catégorie" />
+                  <SelectValue placeholder={t("vendor.form.subcategoryPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {subOptions.map((s) => (
@@ -271,11 +271,11 @@ export function VendorPanel() {
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                {subOptions.length} sous-catégorie{subOptions.length > 1 ? "s" : ""} disponibles
+                {t("vendor.form.subcatCount").replace("{n}", String(subOptions.length))}
               </p>
             </div>
             <div>
-              <Label>Prix (USD)</Label>
+              <Label>{t("vendor.form.price")}</Label>
               <Input
                 type="number"
                 step="0.5"
@@ -285,7 +285,7 @@ export function VendorPanel() {
               />
             </div>
             <div>
-              <Label>Stock</Label>
+              <Label>{t("vendor.form.stock")}</Label>
               <Input
                 type="number"
                 required
@@ -294,14 +294,14 @@ export function VendorPanel() {
               />
             </div>
             <div className="md:col-span-2">
-              <Label>Description</Label>
+              <Label>{t("vendor.form.description")}</Label>
               <Textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
             </div>
             <div className="md:col-span-2">
-              <Label>Photos du produit (jusqu'à 5)</Label>
+              <Label>{t("vendor.form.photosLabel")}</Label>
               <div className="mt-1.5 space-y-3">
                 <div className="flex flex-wrap gap-2">
                   {form.images.map((url, idx) => (
@@ -311,12 +311,12 @@ export function VendorPanel() {
                     >
                       <img
                         src={url}
-                        alt={`Photo ${idx + 1}`}
+                        alt={t("vendor.form.photoAlt").replace("{n}", String(idx + 1))}
                         className="h-full w-full object-cover"
                       />
                       {idx === 0 && (
                         <span className="absolute top-1 left-1 rounded bg-primary px-1 py-0.5 text-[10px] font-bold text-primary-foreground">
-                          1ère
+                          {t("vendor.form.firstPhoto")}
                         </span>
                       )}
                       <button
@@ -325,7 +325,7 @@ export function VendorPanel() {
                           setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))
                         }
                         className="absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-full bg-destructive text-destructive-foreground text-xs opacity-0 group-hover:opacity-100"
-                        aria-label="Retirer"
+                        aria-label={t("vendor.form.removePhoto")}
                       >
                         ×
                       </button>
@@ -360,18 +360,18 @@ export function VendorPanel() {
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  JPG/PNG, max 5 Mo chacune. La 1ère photo sera mise en avant.
+                  {t("vendor.form.photoHint")}
                 </p>
               </div>
             </div>
             <Button type="submit" disabled={creating} className="md:col-span-2">
-              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Créer le produit"}
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("vendor.createProductBtn")}
             </Button>
           </form>
         )}
         <div className="divide-y">
           {data.products.length === 0 && (
-            <p className="p-6 text-sm text-muted-foreground">Aucun produit encore.</p>
+            <p className="p-6 text-sm text-muted-foreground">{t("vendor.myProducts.empty")}</p>
           )}
           {data.products.map((p: any) => (
             <VendorProductRow
@@ -380,17 +380,17 @@ export function VendorPanel() {
               onUpdate={async (patch) => {
                 try {
                   await updateP({ data: { product_id: p.id, ...patch } });
-                  toast.success("Mis à jour");
+                  toast.success(t("vendor.toast.updated"));
                   qc.invalidateQueries({ queryKey: ["vendor-dash"] });
                 } catch (e: any) {
                   toast.error(e.message);
                 }
               }}
               onDelete={async () => {
-                if (!confirm(`Supprimer "${p.name}" ?`)) return;
+                if (!confirm(t("vendor.confirmDelete").replace("{name}", p.name))) return;
                 try {
                   await deleteP({ data: { product_id: p.id } });
-                  toast.success("Produit supprimé");
+                  toast.success(t("vendor.toast.deleted"));
                   qc.invalidateQueries({ queryKey: ["vendor-dash"] });
                 } catch (e: any) {
                   toast.error(e.message);
@@ -403,11 +403,11 @@ export function VendorPanel() {
 
       <div className="rounded-2xl border bg-card">
         <div className="border-b p-4">
-          <h3 className="font-display text-lg font-bold">Commandes reçues</h3>
+          <h3 className="font-display text-lg font-bold">{t("vendor.orders.title")}</h3>
         </div>
         <div className="divide-y">
           {data.orders.length === 0 && (
-            <p className="p-6 text-sm text-muted-foreground">Pas encore de commande.</p>
+            <p className="p-6 text-sm text-muted-foreground">{t("vendor.orders.empty")}</p>
           )}
           {data.orders.map((o: any) => (
             <div key={o.id} className="p-4 space-y-2">
@@ -432,12 +432,12 @@ export function VendorPanel() {
                   </SelectTrigger>
                   <SelectContent>
                     {[
-                      { v: "pending", l: "En attente" },
-                      { v: "confirmed", l: "Confirmer" },
-                      { v: "ready", l: "Prête" },
-                      { v: "picked_up", l: "En route" },
-                      { v: "delivered", l: "Livrée" },
-                      { v: "cancelled", l: "Annuler" },
+                      { v: "pending", l: t("vendor.statusAction.pending") },
+                      { v: "confirmed", l: t("vendor.statusAction.confirm") },
+                      { v: "ready", l: t("vendor.statusAction.ready") },
+                      { v: "picked_up", l: t("vendor.statusAction.pickedUp") },
+                      { v: "delivered", l: t("vendor.statusAction.delivered") },
+                      { v: "cancelled", l: t("vendor.statusAction.cancel") },
                     ].map(({ v, l }) => (
                       <SelectItem key={v} value={v}>
                         {l}
@@ -497,6 +497,7 @@ function VendorProductRow({
   }) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [edit, setEdit] = useState(false);
   const [price, setPrice] = useState(String(product.price_usd));
   const [stock, setStock] = useState(String(product.stock));
@@ -516,9 +517,9 @@ function VendorProductRow({
     try {
       const url = await uploadProductImage(file);
       setImages((prev) => (prev.length >= 5 ? prev : [...prev, url]));
-      toast.success("Photo ajoutée");
+      toast.success(t("vendor.toast.photoAdded"));
     } catch (e: any) {
-      toast.error(e.message ?? "Erreur upload");
+      toast.error(e.message ?? t("vendor.toast.uploadError"));
     } finally {
       setUploading(false);
     }
@@ -547,8 +548,8 @@ function VendorProductRow({
                     : ""
               }
             >
-              stock {product.stock}
-              {product.stock === 0 ? " — rupture 🔴" : product.stock <= 5 ? " — faible ⚠️" : ""}
+              {t("vendor.product.stockLabel")} {product.stock}
+              {product.stock === 0 ? ` ${t("vendor.product.outOfStock")}` : product.stock <= 5 ? ` ${t("vendor.product.lowStock")}` : ""}
             </span>
             {product.subcategory && (
               <>
@@ -562,7 +563,7 @@ function VendorProductRow({
           variant="outline"
           className={product.approved ? "border-primary/30 text-primary" : ""}
         >
-          {product.approved ? "Approuvé" : "En attente"}
+          {product.approved ? t("vendor.product.approved") : t("vendor.product.pendingApproval")}
         </Badge>
         {product.promo_price_usd != null && (
           <Badge
@@ -574,8 +575,8 @@ function VendorProductRow({
             }
           >
             {product.promo_active && product.promo_approved
-              ? "🔖 Promo active"
-              : "🔖 Promo en attente"}
+              ? t("vendor.promo.active")
+              : t("vendor.promo.pending")}
           </Badge>
         )}
         <div className="flex gap-1">
@@ -597,14 +598,14 @@ function VendorProductRow({
               step="0.5"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="Prix $"
+              placeholder={t("vendor.form.pricePlaceholder")}
             />
             <Input
               className="w-24"
               type="number"
               value={stock}
               onChange={(e) => setStock(e.target.value)}
-              placeholder="Stock"
+              placeholder={t("vendor.form.stock")}
             />
             <Button
               size="sm"
@@ -621,21 +622,21 @@ function VendorProductRow({
                 setEdit(false);
               }}
             >
-              Enregistrer
+              {t("vendor.saveBtn")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEdit(false)}>
-              Annuler
+              {t("vendor.cancelBtn")}
             </Button>
           </div>
 
           {/* Promotion (prix barré) — validée par l'admin avant affichage */}
           <div className="rounded-lg border border-dashed border-red-300/60 bg-red-50/40 dark:bg-red-500/5 p-3 space-y-2">
             <p className="text-xs font-semibold text-red-700 dark:text-red-400">
-              🔖 Promotion (prix barré)
+              {t("vendor.promo.sectionTitle")}
             </p>
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <label className="block text-[11px] text-muted-foreground">Prix promo ($)</label>
+                <label className="block text-[11px] text-muted-foreground">{t("vendor.promo.priceLabel")}</label>
                 <Input
                   className="w-32 mt-0.5"
                   type="number"
@@ -647,7 +648,7 @@ function VendorProductRow({
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-muted-foreground">Début</label>
+                <label className="block text-[11px] text-muted-foreground">{t("vendor.promo.startLabel")}</label>
                 <Input
                   className="mt-0.5 h-10"
                   type="datetime-local"
@@ -656,7 +657,7 @@ function VendorProductRow({
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-muted-foreground">Fin</label>
+                <label className="block text-[11px] text-muted-foreground">{t("vendor.promo.endLabel")}</label>
                 <Input
                   className="mt-0.5 h-10"
                   type="datetime-local"
@@ -671,19 +672,18 @@ function VendorProductRow({
                   onChange={(e) => setPromoActive(e.target.checked)}
                   className="h-4 w-4 rounded border-border"
                 />
-                Activer
+                {t("vendor.promo.activate")}
               </label>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Le prix promo doit être inférieur au prix original ($
-              {Number(product.price_usd).toFixed(2)}). La promo n'apparaît qu'une fois{" "}
-              <b>validée par l'admin</b> — toute modification annule la validation. Laisse le prix
-              vide pour retirer la promo.
+              {t("vendor.promo.priceHint").replace("{price}", Number(product.price_usd).toFixed(2))}{" "}
+              {t("vendor.promo.validationBefore")}{" "}
+              <b>{t("vendor.promo.validationBold")}</b> {t("vendor.promo.validationAfter")}
             </p>
           </div>
           {/* Images */}
           <div>
-            <p className="text-xs text-muted-foreground mb-1.5">Photos ({images.length}/5)</p>
+            <p className="text-xs text-muted-foreground mb-1.5">{t("vendor.product.photosCount").replace("{n}", String(images.length))}</p>
             <div className="flex flex-wrap gap-2">
               {images.map((url, idx) => (
                 <div
@@ -695,7 +695,7 @@ function VendorProductRow({
                     type="button"
                     onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
                     className="absolute inset-0 grid place-items-center bg-black/50 opacity-0 group-hover:opacity-100 text-white text-lg"
-                    aria-label="Supprimer"
+                    aria-label={t("vendor.form.removePhoto")}
                   >
                     ×
                   </button>
@@ -730,6 +730,7 @@ function VendorProductRow({
 
 /* ---------------- VENDOR: Shop editor ---------------- */
 function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void }) {
+  const { t } = useI18n();
   const updateShop = useServerFn(vendorUpdateShop);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -753,9 +754,9 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
         upsert: true,
       });
       setForm((f) => ({ ...f, [`${type}_url`]: url }));
-      toast.success(`${type === "logo" ? "Logo" : "Couverture"} téléversé`);
+      toast.success(type === "logo" ? t("vendor.shop.uploadedLogo") : t("vendor.shop.uploadedCover"));
     } catch (e: any) {
-      toast.error(e.message ?? "Erreur upload");
+      toast.error(e.message ?? t("vendor.toast.uploadError"));
     } finally {
       setUploading(null);
     }
@@ -776,7 +777,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
           mobile_money_name: form.mobile_money_name.trim() || null,
         },
       });
-      toast.success("Boutique mise à jour");
+      toast.success(t("vendor.toast.shopUpdated"));
       setOpen(false);
       onDone();
     } catch (e: any) {
@@ -811,14 +812,14 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
           )}
         </div>
         <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
-          <Pencil className="h-4 w-4" /> Modifier la boutique
+          <Pencil className="h-4 w-4" /> {t("vendor.shop.editBtn")}
         </Button>
       </div>
 
       {open && (
         <form onSubmit={onSave} className="grid gap-4 border-t p-5 md:grid-cols-2">
           <div>
-            <Label>Nom de la boutique</Label>
+            <Label>{t("vendor.shop.nameLabel")}</Label>
             <Input
               required
               value={form.shop_name}
@@ -838,7 +839,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
             />
           </div>
           <div className="md:col-span-2">
-            <Label>Description</Label>
+            <Label>{t("vendor.form.description")}</Label>
             <Textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -849,14 +850,13 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
 
           {/* Mobile Money — affiché au client qui paie par M-Pesa / Airtel / Orange */}
           <div className="md:col-span-2 rounded-xl border border-dashed bg-muted/30 p-3">
-            <p className="text-sm font-semibold">📱 Paiement Mobile Money (optionnel)</p>
+            <p className="text-sm font-semibold">{t("vendor.shop.mobileMoneyTitle")}</p>
             <p className="mb-2 text-[11px] text-muted-foreground">
-              Affiché au client s'il choisit M-Pesa, Airtel Money ou Orange Money. Laisse vide pour
-              cash uniquement.
+              {t("vendor.shop.mobileMoneyDesc")}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label className="text-xs">Numéro Mobile Money</Label>
+                <Label className="text-xs">{t("vendor.shop.mmNumberLabel")}</Label>
                 <Input
                   value={form.mobile_money_number}
                   onChange={(e) => setForm({ ...form, mobile_money_number: e.target.value })}
@@ -867,7 +867,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
                 />
               </div>
               <div>
-                <Label className="text-xs">Nom du compte</Label>
+                <Label className="text-xs">{t("vendor.shop.mmNameLabel")}</Label>
                 <Input
                   value={form.mobile_money_name}
                   onChange={(e) => setForm({ ...form, mobile_money_name: e.target.value })}
@@ -881,7 +881,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
 
           {/* Logo upload */}
           <div>
-            <Label>Logo de la boutique</Label>
+            <Label>{t("vendor.shop.logoLabel")}</Label>
             <div className="mt-1.5 flex items-center gap-3">
               {form.logo_url && (
                 <img
@@ -896,7 +896,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
                 ) : (
                   <Upload className="h-4 w-4" />
                 )}
-                {form.logo_url ? "Changer" : "Uploader"}
+                {form.logo_url ? t("vendor.shop.changeBtn") : t("vendor.shop.uploadBtn")}
                 <input
                   type="file"
                   accept="image/*"
@@ -912,7 +912,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
 
           {/* Cover upload */}
           <div>
-            <Label>Image de couverture</Label>
+            <Label>{t("vendor.shop.coverLabel")}</Label>
             <div className="mt-1.5 flex items-center gap-3">
               {form.cover_url && (
                 <img
@@ -927,7 +927,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
                 ) : (
                   <ImageIcon className="h-4 w-4" />
                 )}
-                {form.cover_url ? "Changer" : "Uploader"}
+                {form.cover_url ? t("vendor.shop.changeBtn") : t("vendor.shop.uploadBtn")}
                 <input
                   type="file"
                   accept="image/*"
@@ -945,7 +945,7 @@ function VendorShopCard({ vendor, onDone }: { vendor: any; onDone: () => void })
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              "Enregistrer les modifications"
+              t("vendor.shop.saveBtn")
             )}
           </Button>
         </form>
