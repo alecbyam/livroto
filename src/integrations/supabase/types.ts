@@ -59,6 +59,24 @@ export type Database = {
         }
         Relationships: []
       }
+      carts: {
+        Row: {
+          items: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          items?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          items?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           active: boolean
@@ -669,6 +687,53 @@ export type Database = {
         }
         Relationships: []
       }
+      referrals: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          qualified_at: string | null
+          qualifying_order_id: string | null
+          referred_id: string
+          referrer_id: string
+          reward_referred_usd: number
+          reward_referrer_usd: number
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          qualified_at?: string | null
+          qualifying_order_id?: string | null
+          referred_id: string
+          referrer_id: string
+          reward_referred_usd?: number
+          reward_referrer_usd?: number
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          qualified_at?: string | null
+          qualifying_order_id?: string | null
+          referred_id?: string
+          referrer_id?: string
+          reward_referred_usd?: number
+          reward_referrer_usd?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_qualifying_order_id_fkey"
+            columns: ["qualifying_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           created_at: string
@@ -876,6 +941,56 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_addresses: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          landmark: string | null
+          lat: number | null
+          lng: number | null
+          updated_at: string
+          user_id: string
+          zone_id: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          landmark?: string | null
+          lat?: number | null
+          lng?: number | null
+          updated_at?: string
+          user_id: string
+          zone_id?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          landmark?: string | null
+          lat?: number | null
+          lng?: number | null
+          updated_at?: string
+          user_id?: string
+          zone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_addresses_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -998,6 +1113,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wallets: {
+        Row: {
+          created_at: string
+          credit_usd: number
+          referral_code: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credit_usd?: number
+          referral_code?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credit_usd?: number
+          referral_code?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       zones: {
         Row: {

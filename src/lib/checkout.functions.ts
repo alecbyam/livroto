@@ -68,7 +68,7 @@ export const createCartOrders = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
+    const admin = supabaseAdmin;
 
     const productIds = [...new Set(data.items.map((i) => i.product_id))];
     const { data: products, error: prodErr } = await admin
@@ -179,7 +179,10 @@ export const createCartOrders = createServerFn({ method: "POST" })
     }
 
     if (appliedCode && discount > 0) {
-      await admin.rpc("increment_coupon_uses", { p_code: appliedCode }).catch(() => {});
+      // Incrément du compteur d'usage du coupon : non bloquant (une erreur ici ne
+      // doit pas annuler une commande déjà créée). Le builder PostgREST est un
+      // thenable sans `.catch` — on ignore l'échec via le 2ᵉ argument de `.then`.
+      await admin.rpc("increment_coupon_uses", { p_code: appliedCode }).then(undefined, () => {});
     }
 
     return {
@@ -211,7 +214,7 @@ export const createDirectOrder = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
+    const admin = supabaseAdmin;
 
     const { data: product, error: prodErr } = await admin
       .from("products")

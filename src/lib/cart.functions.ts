@@ -2,8 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Table `carts` pas encore dans les types générés → cast `any` (comme wallets/referrals).
-
 const cartItem = z.object({
   id: z.string(),
   name: z.string(),
@@ -24,7 +22,7 @@ export const getMyCart = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("carts")
       .select("items")
       .eq("user_id", userId)
@@ -38,7 +36,7 @@ export const saveMyCart = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ items: z.array(cartItem).max(100) }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("carts")
       .upsert(
         { user_id: userId, items: data.items, updated_at: new Date().toISOString() },

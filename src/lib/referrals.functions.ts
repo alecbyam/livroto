@@ -29,7 +29,7 @@ export const getMyReferral = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
+    const admin = supabaseAdmin;
 
     let { data: wallet } = await admin.from("wallets").select("credit_usd, referral_code").eq("user_id", userId).maybeSingle();
     if (!wallet) {
@@ -54,7 +54,7 @@ export const applyReferralCode = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
+    const admin = supabaseAdmin;
     const code = data.code.trim().toUpperCase();
 
     // 1 parrainage par filleul
@@ -95,7 +95,7 @@ export const redeemCreditForOrder = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
+    const admin = supabaseAdmin;
 
     const { data: order } = await admin.from("orders")
       .select("id, customer_id, subtotal_usd, discount_usd, status").eq("id", data.order_id).maybeSingle();

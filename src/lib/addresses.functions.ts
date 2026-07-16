@@ -2,10 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Note : la table `saved_addresses` n'est pas encore dans les types générés
-// (types.ts). On caste donc le client en `any` pour ces requêtes, comme pour
-// wallets/referrals — à nettoyer à la prochaine régénération des types.
-
 export type SavedAddress = {
   id: string;
   label: string;
@@ -32,7 +28,7 @@ export const getMyAddresses = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("saved_addresses")
       .select("id,label,address,landmark,zone_id,lat,lng,is_default,created_at")
       .eq("user_id", userId)
@@ -47,7 +43,7 @@ export const saveAddress = createServerFn({ method: "POST" })
   .inputValidator((input) => addressInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const db = supabase as any;
+    const db = supabase;
 
     // Une seule adresse par défaut : on retire le drapeau des autres si besoin.
     if (data.is_default) {
@@ -83,7 +79,7 @@ export const updateAddress = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const db = supabase as any;
+    const db = supabase;
 
     if (data.is_default) {
       const { error: clrErr } = await db
@@ -116,7 +112,7 @@ export const setDefaultAddress = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const db = supabase as any;
+    const db = supabase;
     const { error: clrErr } = await db
       .from("saved_addresses")
       .update({ is_default: false })
@@ -136,7 +132,7 @@ export const deleteAddress = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("saved_addresses")
       .delete()
       .eq("id", data.id)
