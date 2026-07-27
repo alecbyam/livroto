@@ -121,7 +121,7 @@ export const adminListPendingProductsPage = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { data: rows, error, count } = await supabaseAdmin
       .from("products")
-      .select("*", { count: "exact" })
+      .select("*, subcategory:product_subcategories(name,emoji)", { count: "exact" })
       .eq("approved", false)
       .order("created_at", { ascending: false })
       .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);

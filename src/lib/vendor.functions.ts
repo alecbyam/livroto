@@ -113,17 +113,6 @@ export const createProduct = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z.object({
       name: z.string().min(2).max(120),
-      category: z.enum([
-        "phone_accessories",
-        "local_food",
-        "delivery_service",
-        "home_tools",
-        "beauty",
-        "jewelry",
-        "watches",
-        "computers",
-        "electronics",
-      ]),
       price_usd: z.number().positive().max(10000),
       stock: z.number().int().min(0).max(100000),
       emoji: z.string().max(8).optional(),
@@ -144,8 +133,7 @@ export const createProduct = createServerFn({ method: "POST" })
       .insert({
         vendor_id: userId,
         name: data.name,
-        category: data.category,
-        subcategory_id: data.subcategory_id ?? null,
+        subcategory_id: data.subcategory_id,
         price_usd: data.price_usd,
         stock: data.stock,
         emoji: data.emoji ?? null,

@@ -26,7 +26,7 @@ import {
 } from "@/lib/vendor.functions";
 import { notifyOrderStatusChanged } from "@/lib/notifications.functions";
 import { uploadProductImage } from "@/lib/image";
-import { CATEGORY_LIST } from "@/components/livroto/products";
+import { useCategories } from "@/components/livroto/products";
 import { useI18n } from "@/lib/i18n";
 import { statusColor, Stat, CallMeBotCard } from "./shared";
 
@@ -76,9 +76,10 @@ export function VendorPanel() {
   }, [(data?.vendor as any)?.id]);
 
   const [open, setOpen] = useState(false);
+  const { data: categories } = useCategories();
+  const [categoryId, setCategoryId] = useState("");
   const [form, setForm] = useState({
     name: "",
-    category: "phone_accessories" as "phone_accessories" | "local_food" | "delivery_service",
     subcategory_id: "" as string,
     price_usd: "",
     stock: "1",
@@ -87,7 +88,7 @@ export function VendorPanel() {
     images: [] as string[],
   });
   const [subcats, setSubcats] = useState<
-    { id: string; name: string; emoji: string | null; parent_category: string }[]
+    { id: string; name: string; emoji: string | null; category_id: string }[]
   >([]);
   const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -95,13 +96,18 @@ export function VendorPanel() {
   useEffect(() => {
     supabase
       .from("product_subcategories")
-      .select("id,name,emoji,parent_category,sort_order")
+      .select("id,name,emoji,category_id,sort_order")
       .eq("active", true)
       .order("sort_order")
       .then(({ data }) => setSubcats(data ?? []));
   }, []);
 
-  const subOptions = subcats.filter((s) => s.parent_category === form.category);
+  // Défaut : première catégorie une fois chargée
+  useEffect(() => {
+    if (!categoryId && categories && categories.length > 0) setCategoryId(categories[0].id);
+  }, [categories, categoryId]);
+
+  const subOptions = subcats.filter((s) => s.category_id === categoryId);
 
   const uploadImage = async (file: File) => {
     setUploading(true);
@@ -142,7 +148,6 @@ export function VendorPanel() {
       await createP({
         data: {
           name: form.name,
-          category: form.category,
           subcategory_id: form.subcategory_id,
           price_usd: Number(form.price_usd),
           stock: Number(form.stock),
@@ -155,7 +160,6 @@ export function VendorPanel() {
       setOpen(false);
       setForm({
         name: "",
-        category: "phone_accessories",
         subcategory_id: "",
         price_usd: "",
         stock: "1",
@@ -232,19 +236,20 @@ export function VendorPanel() {
             <div>
               <Label>{t("vendor.form.category")}</Label>
               <Select
-                value={form.category}
-                onValueChange={(v: any) => {
-                  const emoji = CATEGORY_LIST.find((c) => c.id === v)?.emoji ?? form.emoji;
-                  setForm({ ...form, category: v, subcategory_id: "", emoji });
+                value={categoryId}
+                onValueChange={(v: string) => {
+                  const icon = categories?.find((c) => c.id === v)?.icon ?? form.emoji;
+                  setCategoryId(v);
+                  setForm({ ...form, subcategory_id: "", emoji: icon });
                 }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORY_LIST.map((c) => (
+                  {(categories ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.emoji} {c.label}
+                      {c.icon} {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

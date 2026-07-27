@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { useI18n } from "@/lib/i18n";
 import { useCurrency } from "@/lib/currency";
-import { categoryMeta, CATEGORY_LIST } from "@/components/livroto/products";
+import { useCategories } from "@/components/livroto/products";
 import { genericWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -186,6 +186,7 @@ function Hero() {
 
 function Categories() {
   const { t } = useI18n();
+  const { data: categories } = useCategories();
   return (
     <section className="container mx-auto px-4 py-16 md:py-24">
       <h2 className="font-display text-3xl md:text-4xl font-bold text-center">
@@ -193,18 +194,17 @@ function Categories() {
       </h2>
       <p className="mt-2 text-center text-muted-foreground">{t("categories.subtitle")}</p>
       <div className="mt-10 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {CATEGORY_LIST.map((c) => (
+        {(categories ?? []).map((c) => (
           <Link
             key={c.id}
             to="/catalog"
-            search={{ cat: c.id, sub: "all", q: "" } as any}
+            search={{ cat: c.slug, sub: "all", q: "" } as any}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
           >
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--brand-light)] text-3xl">
-              {c.emoji}
+              {c.icon}
             </div>
-            <h3 className="mt-4 font-display text-lg font-bold">{c.label}</h3>
-            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{c.desc}</p>
+            <h3 className="mt-4 font-display text-lg font-bold">{c.name}</h3>
             <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:gap-2 transition-all">
               Voir <ArrowRight className="h-4 w-4" />
             </span>

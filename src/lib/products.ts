@@ -9,8 +9,8 @@ const PRODUCT_CORE_FIELDS =
 export const PRODUCT_LIST_SELECT = PRODUCT_CORE_FIELDS;
 
 /** Catalogue avec filtre par catégorie/sous-catégorie. */
-export const PRODUCT_CATALOG_SELECT = `${PRODUCT_CORE_FIELDS},category,subcategory_id`;
+export const PRODUCT_CATALOG_SELECT = `${PRODUCT_CORE_FIELDS},subcategory_id`;
 
 /** Fiche produit détaillée (inclut la galerie d'images). */
 export const PRODUCT_DETAIL_SELECT =
-  "id,name,description,price_usd,emoji,image_url,images,vendor_id,stock,category,subcategory_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at";
+  "id,name,description,price_usd,emoji,image_url,images,vendor_id,stock,subcategory_id,rating_avg,rating_count,promo_price_usd,promo_active,promo_approved,promo_starts_at,promo_ends_at";

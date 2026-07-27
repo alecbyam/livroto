@@ -8,16 +8,14 @@ import { z } from "zod";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n";
-import { type ProductCategory, CATEGORY_LIST } from "@/components/livroto/products";
+import { useCategories } from "@/components/livroto/products";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 import { getPromo } from "@/lib/promo";
 import { PRODUCT_CATALOG_SELECT } from "@/lib/products";
 import { supabase } from "@/integrations/supabase/client";
 
-const CATEGORY_IDS = CATEGORY_LIST.map((c) => c.id) as [ProductCategory, ...ProductCategory[]];
-
 const catalogSearchSchema = z.object({
-  cat: fallback(z.enum(["all", ...CATEGORY_IDS]), "all").default("all"),
+  cat: fallback(z.string(), "all").default("all"),
   sub: fallback(z.string(), "all").default("all"),
   zone: fallback(z.string(), "all").default("all"),
   q:   fallback(z.string(), "").default(""),
@@ -42,13 +40,8 @@ export const Route = createFileRoute("/catalog")({
   component: Catalog,
 });
 
-const CATS: { id: "all" | ProductCategory; label: string; emoji: string }[] = [
-  { id: "all", label: "Tout", emoji: "✨" },
-  ...CATEGORY_LIST.map((c) => ({ id: c.id, label: c.label, emoji: c.emoji })),
-];
-
-type Subcat = { id: string; name: string; emoji: string | null; parent_category: ProductCategory };
-type CatProduct = DisplayProduct & { category: ProductCategory; subcategory_id: string | null };
+type Subcat = { id: string; name: string; emoji: string | null; category_id: string };
+type CatProduct = DisplayProduct & { subcategory_id: string };
 type VendorMeta = Map<string, { shopName: string; zoneIds: Set<string> }>;
 
 // Références vides stables -> évitent de recalculer les useMemo à chaque rendu.
@@ -61,7 +54,8 @@ function Catalog() {
   const { t } = useI18n();
   const { cat, sub: subId, zone, q: query, sort, min, max, rate, stk, promo } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
-  const setCat = (next: "all" | ProductCategory) =>
+  const { data: categories } = useCategories();
+  const setCat = (next: string) =>
     navigate({ search: (p: any) => ({ ...p, cat: next, sub: "all" }) });
   const setSubId = (next: "all" | string) =>
     navigate({ search: (p: any) => ({ ...p, sub: next }) });
@@ -94,7 +88,7 @@ function Catalog() {
           .order("created_at", { ascending: false }),
         supabase
           .from("product_subcategories")
-          .select("id,name,emoji,parent_category,sort_order")
+          .select("id,name,emoji,category_id,sort_order")
           .eq("active", true)
           .order("sort_order", { ascending: true }),
         supabase
@@ -134,7 +128,6 @@ function Catalog() {
         stock: p.stock,
         emoji: p.emoji,
         image_url: p.image_url,
-        category: p.category as ProductCategory,
         subcategory_id: p.subcategory_id,
         vendor_id: p.vendor_id,
         rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
@@ -160,15 +153,33 @@ function Catalog() {
   const zones = catalog?.zones ?? EMPTY_ZONES;
   const vendorMeta = catalog?.vendorMeta ?? EMPTY_META;
 
+  const catPills = useMemo(
+    () => [{ slug: "all", name: "Tout", icon: "✨" }, ...(categories ?? [])],
+    [categories],
+  );
+
+  const selectedCategoryId = useMemo(
+    () => (cat === "all" ? null : (categories ?? []).find((c) => c.slug === cat)?.id ?? null),
+    [cat, categories],
+  );
+
   const visibleSubcats = useMemo(
-    () => (cat === "all" ? [] : subcats.filter((s) => s.parent_category === cat)),
-    [cat, subcats],
+    () => (selectedCategoryId ? subcats.filter((s) => s.category_id === selectedCategoryId) : []),
+    [selectedCategoryId, subcats],
+  );
+
+  // Sous-catégories de la catégorie sélectionnée -> permet de filtrer les
+  // produits par catégorie sans dupliquer category_id sur `products`
+  // (la catégorie d'un produit se déduit toujours de sa sous-catégorie).
+  const subcatIdsInCategory = useMemo(
+    () => new Set(visibleSubcats.map((s) => s.id)),
+    [visibleSubcats],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = products.filter((p) => {
-      if (cat !== "all" && p.category !== cat) return false;
+      if (selectedCategoryId && !subcatIdsInCategory.has(p.subcategory_id)) return false;
       if (subId !== "all" && p.subcategory_id !== subId) return false;
       const meta = p.vendor_id ? vendorMeta.get(p.vendor_id) : undefined;
       if (zone !== "all" && !(meta?.zoneIds.has(zone))) return false;
@@ -192,7 +203,7 @@ function Catalog() {
       default: break;
     }
     return sorted;
-  }, [query, cat, subId, zone, products, vendorMeta, sort, min, max, rate, stk, promo]);
+  }, [query, selectedCategoryId, subcatIdsInCategory, subId, zone, products, vendorMeta, sort, min, max, rate, stk, promo]);
 
   const activeFiltersCount = (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) + (rate > 0 ? 1 : 0) + (stk ? 1 : 0) + (zone !== "all" ? 1 : 0) + (promo ? 1 : 0);
   const resetFilters = () => patchSearch({ min: 0, max: 0, rate: 0, stk: false, sort: "new", zone: "all", promo: false });
@@ -225,19 +236,19 @@ function Catalog() {
             )}
           </div>
           <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
-            {CATS.map((c) => {
-              const active = cat === c.id;
+            {catPills.map((c) => {
+              const active = cat === c.slug;
               return (
                 <button
-                  key={c.id}
-                  onClick={() => setCat(c.id)}
+                  key={c.slug}
+                  onClick={() => setCat(c.slug)}
                   className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors min-h-[44px] ${
                     active
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-card text-foreground border-border hover:border-primary/50"
                   }`}
                 >
-                  <span>{c.emoji}</span> {c.label}
+                  <span>{c.icon}</span> {c.name}
                 </button>
               );
             })}

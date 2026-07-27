@@ -180,7 +180,7 @@ export function AdminPanel() {
             <div className="text-xl">{p.emoji || "📦"}</div>
             <div className="flex-1">
               <p className="font-medium">{p.name}</p>
-              <p className="text-xs text-muted-foreground">${Number(p.price_usd).toFixed(2)} · {p.category}</p>
+              <p className="text-xs text-muted-foreground">${Number(p.price_usd).toFixed(2)} · {p.subcategory?.name ?? "—"}</p>
             </div>
             <Button size="sm" variant="outline" onClick={() => onProd(p.id, true)}><CheckCircle2 className="h-4 w-4" /> Approuver</Button>
           </>

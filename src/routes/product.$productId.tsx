@@ -29,7 +29,7 @@ export const Route = createFileRoute("/product/$productId")({
 type Product = {
   id: string; name: string; description: string | null; price_usd: number;
   emoji: string | null; image_url: string | null; images: string[] | null; vendor_id: string | null; stock: number;
-  category: string; subcategory_id: string | null; rating_avg: number | null; rating_count: number | null;
+  subcategory_id: string; rating_avg: number | null; rating_count: number | null;
   promo_price_usd: number | null; promo_active: boolean | null; promo_approved: boolean | null;
   promo_starts_at: string | null; promo_ends_at: string | null;
 };
@@ -85,18 +85,18 @@ function ProductPage() {
   });
 
   const { data: related = [] } = useQuery({
-    queryKey: ["product-related", productId, product?.category],
+    queryKey: ["product-related", productId, product?.subcategory_id],
     queryFn: async () => {
       const { data: rel } = await supabase
         .from("products").select(PRODUCT_LIST_SELECT)
-        .eq("approved", true).eq("category", product!.category as any).neq("id", productId).limit(8);
+        .eq("approved", true).eq("subcategory_id", product!.subcategory_id).neq("id", productId).limit(8);
       return (rel ?? []).map((r: any) => ({
         ...r, price_usd: Number(r.price_usd),
         rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
         rating_count: r.rating_count ?? 0,
       })) as DisplayProduct[];
     },
-    enabled: !!product?.category,
+    enabled: !!product?.subcategory_id,
     staleTime: 5 * 60_000,
   });
 

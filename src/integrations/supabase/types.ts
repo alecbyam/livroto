@@ -16,46 +16,19 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
-          description: string | null
           key: string
           updated_at: string
           value: string
         }
         Insert: {
-          description?: string | null
           key: string
           updated_at?: string
           value: string
         }
         Update: {
-          description?: string | null
           key?: string
           updated_at?: string
           value?: string
-        }
-        Relationships: []
-      }
-      integration_settings: {
-        Row: {
-          is_secret: boolean
-          key: string
-          updated_at: string
-          updated_by: string | null
-          value: string | null
-        }
-        Insert: {
-          is_secret?: boolean
-          key: string
-          updated_at?: string
-          updated_by?: string | null
-          value?: string | null
-        }
-        Update: {
-          is_secret?: boolean
-          key?: string
-          updated_at?: string
-          updated_by?: string | null
-          value?: string | null
         }
         Relationships: []
       }
@@ -74,6 +47,39 @@ export type Database = {
           items?: Json
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          active: boolean
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          icon: string
+          id?: string
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -218,6 +224,30 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_settings: {
+        Row: {
+          is_secret: boolean
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string | null
+        }
+        Insert: {
+          is_secret?: boolean
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Update: {
+          is_secret?: boolean
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           channel: Database["public"]["Enums"]["notification_channel"]
@@ -315,20 +345,6 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_vendor_id_fkey"
-            columns: ["vendor_id"]
-            isOneToOne: false
-            referencedRelation: "vendors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_vendor_id_fkey"
-            columns: ["vendor_id"]
-            isOneToOne: false
-            referencedRelation: "vendors_public"
             referencedColumns: ["id"]
           },
         ]
@@ -532,40 +548,47 @@ export type Database = {
       product_subcategories: {
         Row: {
           active: boolean
+          category_id: string
           created_at: string
           emoji: string | null
           id: string
           name: string
-          parent_category: Database["public"]["Enums"]["product_category"]
           slug: string
           sort_order: number
         }
         Insert: {
           active?: boolean
+          category_id: string
           created_at?: string
           emoji?: string | null
           id?: string
           name: string
-          parent_category: Database["public"]["Enums"]["product_category"]
           slug: string
           sort_order?: number
         }
         Update: {
           active?: boolean
+          category_id?: string
           created_at?: string
           emoji?: string | null
           id?: string
           name?: string
-          parent_category?: Database["public"]["Enums"]["product_category"]
           slug?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
           approved: boolean
-          category: Database["public"]["Enums"]["product_category"]
           created_at: string
           description: string | null
           emoji: string | null
@@ -583,14 +606,13 @@ export type Database = {
           rating_count: number
           slug: string | null
           stock: number
-          subcategory_id: string | null
+          subcategory_id: string
           unit: string
           updated_at: string
           vendor_id: string | null
         }
         Insert: {
           approved?: boolean
-          category: Database["public"]["Enums"]["product_category"]
           created_at?: string
           description?: string | null
           emoji?: string | null
@@ -608,14 +630,13 @@ export type Database = {
           rating_count?: number
           slug?: string | null
           stock?: number
-          subcategory_id?: string | null
+          subcategory_id: string
           unit?: string
           updated_at?: string
           vendor_id?: string | null
         }
         Update: {
           approved?: boolean
-          category?: Database["public"]["Enums"]["product_category"]
           created_at?: string
           description?: string | null
           emoji?: string | null
@@ -633,7 +654,7 @@ export type Database = {
           rating_count?: number
           slug?: string | null
           stock?: number
-          subcategory_id?: string | null
+          subcategory_id?: string
           unit?: string
           updated_at?: string
           vendor_id?: string | null
@@ -1053,10 +1074,10 @@ export type Database = {
           cover_url: string | null
           created_at: string
           description: string | null
-          mobile_money_name: string | null
-          mobile_money_number: string | null
           id: string
           logo_url: string | null
+          mobile_money_name: string | null
+          mobile_money_number: string | null
           owner_id: string
           rating_avg: number
           rating_count: number
@@ -1226,23 +1247,30 @@ export type Database = {
     }
     Functions: {
       admin_daily_order_stats: {
-        Args: {
-          p_days: number
-          p_vendor_id?: string | null
-        }
+        Args: { p_days: number; p_vendor_id?: string }
         Returns: {
-          day: string
           commandes: number
+          day: string
           revenus: number
         }[]
       }
-      admin_overview_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      admin_overview_stats: { Args: never; Returns: Json }
       delivered_revenue_total: {
-        Args: { p_vendor_id?: string | null }
+        Args: { p_vendor_id?: string }
         Returns: number
+      }
+      get_my_sessions: {
+        Args: never
+        Returns: {
+          aal: string
+          created_at: string
+          id: string
+          ip: string
+          not_after: string
+          refreshed_at: string
+          updated_at: string
+          user_agent: string
+        }[]
       }
       has_role: {
         Args: {
@@ -1251,17 +1279,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      increment_coupon_uses: {
-        Args: {
-          p_code: string
-        }
-        Returns: undefined
-      }
+      increment_coupon_uses: { Args: { p_code: string }; Returns: undefined }
       increment_wallet_credit: {
-        Args: {
-          p_amount: number
-          p_user_id: string
-        }
+        Args: { p_amount: number; p_user_id: string }
         Returns: undefined
       }
     }
@@ -1285,16 +1305,6 @@ export type Database = {
         | "cancelled"
       payment_method: "cash" | "mpesa" | "airtel_money" | "orange_money"
       payment_status: "pending" | "paid" | "failed" | "refunded"
-      product_category:
-        | "phone_accessories"
-        | "local_food"
-        | "delivery_service"
-        | "home_tools"
-        | "beauty"
-        | "jewelry"
-        | "watches"
-        | "computers"
-        | "electronics"
       report_status: "open" | "reviewing" | "resolved" | "dismissed"
       report_target: "product" | "vendor" | "rider" | "order"
       review_target: "product" | "vendor" | "rider"
@@ -1449,17 +1459,6 @@ export const Constants = {
       ],
       payment_method: ["cash", "mpesa", "airtel_money", "orange_money"],
       payment_status: ["pending", "paid", "failed", "refunded"],
-      product_category: [
-        "phone_accessories",
-        "local_food",
-        "delivery_service",
-        "home_tools",
-        "beauty",
-        "jewelry",
-        "watches",
-        "computers",
-        "electronics",
-      ],
       report_status: ["open", "reviewing", "resolved", "dismissed"],
       report_target: ["product", "vendor", "rider", "order"],
       review_target: ["product", "vendor", "rider"],
