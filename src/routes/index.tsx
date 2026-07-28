@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   ShoppingBag,
@@ -40,8 +39,93 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "Commande. Livroto arrive." },
     ],
   }),
+  // Chargé côté serveur (pas dans un useEffect client) : le HTML envoyé au
+  // navigateur contient déjà les vrais produits/zones/avis. Sur le réseau
+  // 2G/3G de nos utilisateurs à Bunia, ça évite un aller-retour client vers
+  // Supabase après le chargement du JS (voir audit perf du 5/07).
+  loader: async () => {
+    const [featuredProducts, homeZones, homeTestimonials] = await Promise.all([
+      fetchFeaturedProducts(),
+      fetchHomeZones(),
+      fetchHomeTestimonials(),
+    ]);
+    return { featuredProducts, homeZones, homeTestimonials };
+  },
   component: Index,
 });
+
+async function fetchFeaturedProducts(): Promise<DisplayProduct[]> {
+  const { data } = await supabase
+    .from("products")
+    .select(PRODUCT_LIST_SELECT)
+    .eq("approved", true)
+    .gt("stock", 0)
+    .order("rating_count", { ascending: false })
+    .limit(8);
+  return (data ?? []).map((p) => ({
+    ...p,
+    price_usd: Number(p.price_usd),
+    rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
+    rating_count: p.rating_count ?? 0,
+  })) as DisplayProduct[];
+}
+
+type HomeZone = { id: string; name: string; delivery_fee_usd: number };
+
+async function fetchHomeZones(): Promise<HomeZone[]> {
+  const { data } = await supabase
+    .from("zones")
+    .select("id,name,delivery_fee_usd")
+    .eq("active", true)
+    .order("delivery_fee_usd", { ascending: true });
+  return (data ?? []).map((z) => ({ ...z, delivery_fee_usd: Number(z.delivery_fee_usd) }));
+}
+
+type HomeTestimonial = {
+  id: string;
+  quote: string;
+  rating: number;
+  name: string;
+  zone: string;
+};
+
+async function fetchHomeTestimonials(): Promise<HomeTestimonial[]> {
+  // Vrais avis clients (preuve sociale authentique — réflexe Airbnb/Amazon).
+  // Jamais de faux témoignages : la section est masquée tant qu'il n'y en a pas.
+  const { data: revs } = await supabase
+    .from("reviews")
+    .select("id,rating,comment,created_at,author_id,product_id")
+    .eq("target", "product")
+    .gte("rating", 4)
+    .not("comment", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(12);
+  const clean = (revs ?? []).filter((r) => (r.comment ?? "").trim().length >= 8).slice(0, 3);
+  if (clean.length === 0) return [];
+
+  const authorIds = [...new Set(clean.map((r) => r.author_id))];
+  const productIds = [...new Set(clean.map((r) => r.product_id).filter(Boolean) as string[])];
+  const [{ data: profs }, { data: prods }] = await Promise.all([
+    supabase.from("profiles").select("id,name,zone").in("id", authorIds),
+    productIds.length
+      ? supabase.from("products").select("id,name").in("id", productIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const nameById = new Map((profs ?? []).map((p) => [p.id, p]));
+  const prodById = new Map((prods ?? []).map((p) => [p.id, p.name]));
+
+  return clean.map((r) => {
+    const prof = nameById.get(r.author_id);
+    return {
+      id: r.id,
+      quote: (r.comment ?? "").trim(),
+      rating: r.rating,
+      name: prof?.name?.trim() || "Client Livroto",
+      zone:
+        prof?.zone?.trim() || (r.product_id ? (prodById.get(r.product_id) ?? "Bunia") : "Bunia"),
+    };
+  });
+}
 
 const zones = [
   { name: "Centre-ville", fee: 2 },
@@ -68,29 +152,11 @@ function Index() {
   );
 }
 
-/* ---------- Featured Products (depuis la DB) ---------- */
+/* ---------- Featured Products (chargés côté serveur via le loader) ---------- */
 function FeaturedProducts() {
-  const { data: products = [], isLoading: loading } = useQuery({
-    queryKey: ["featured-products"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select(PRODUCT_LIST_SELECT)
-        .eq("approved", true)
-        .gt("stock", 0)
-        .order("rating_count", { ascending: false })
-        .limit(8);
-      return (data ?? []).map((p) => ({
-        ...p,
-        price_usd: Number(p.price_usd),
-        rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
-        rating_count: p.rating_count ?? 0,
-      })) as DisplayProduct[];
-    },
-    staleTime: 5 * 60_000, // produits tendances : pas besoin de re-fetch souvent
-  });
+  const { featuredProducts: products } = Route.useLoaderData();
 
-  if (!loading && products.length === 0) return null;
+  if (products.length === 0) return null;
 
   return (
     <section className="container mx-auto px-4 py-12 md:py-16">
@@ -110,19 +176,11 @@ function FeaturedProducts() {
           </Link>
         </Button>
       </div>
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="rounded-2xl bg-muted animate-pulse aspect-[3/4]" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {products.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -247,19 +305,8 @@ function HowItWorks() {
 function Zones() {
   const { t } = useI18n();
   const { fmt } = useCurrency();
-  // Zones réelles depuis la DB → l'estimation affichée colle au panier (anti-anxiété prix).
-  const { data: dbZones = [] } = useQuery({
-    queryKey: ["home-zones"],
-    staleTime: 10 * 60_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("zones")
-        .select("id,name,delivery_fee_usd")
-        .eq("active", true)
-        .order("delivery_fee_usd", { ascending: true });
-      return (data ?? []).map((z) => ({ ...z, delivery_fee_usd: Number(z.delivery_fee_usd) }));
-    },
-  });
+  // Zones réelles depuis la DB (chargées côté serveur) → l'estimation affichée colle au panier.
+  const { homeZones: dbZones } = Route.useLoaderData();
   const list =
     dbZones.length > 0
       ? dbZones
@@ -402,48 +449,9 @@ function SellerForm() {
 
 function Testimonials() {
   const { t } = useI18n();
-  // Vrais avis clients (preuve sociale authentique — réflexe Airbnb/Amazon).
-  // On masque la section tant qu'il n'y a pas de vrais avis : jamais de faux témoignages.
-  const { data: items = [] } = useQuery({
-    queryKey: ["home-testimonials"],
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { data: revs } = await supabase
-        .from("reviews")
-        .select("id,rating,comment,created_at,author_id,product_id")
-        .eq("target", "product")
-        .gte("rating", 4)
-        .not("comment", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(12);
-      const clean = (revs ?? []).filter((r) => (r.comment ?? "").trim().length >= 8).slice(0, 3);
-      if (clean.length === 0) return [];
-
-      const authorIds = [...new Set(clean.map((r) => r.author_id))];
-      const productIds = [...new Set(clean.map((r) => r.product_id).filter(Boolean) as string[])];
-      const [{ data: profs }, { data: prods }] = await Promise.all([
-        supabase.from("profiles").select("id,name,zone").in("id", authorIds),
-        productIds.length
-          ? supabase.from("products").select("id,name").in("id", productIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-      const nameById = new Map((profs ?? []).map((p) => [p.id, p]));
-      const prodById = new Map((prods ?? []).map((p) => [p.id, p.name]));
-
-      return clean.map((r) => {
-        const prof = nameById.get(r.author_id);
-        return {
-          id: r.id,
-          quote: (r.comment ?? "").trim(),
-          rating: r.rating,
-          name: prof?.name?.trim() || "Client Livroto",
-          zone:
-            prof?.zone?.trim() ||
-            (r.product_id ? (prodById.get(r.product_id) ?? "Bunia") : "Bunia"),
-        };
-      });
-    },
-  });
+  // Vrais avis clients (preuve sociale authentique — réflexe Airbnb/Amazon), chargés
+  // côté serveur. On masque la section tant qu'il n'y a pas de vrais avis.
+  const { homeTestimonials: items } = Route.useLoaderData();
 
   if (items.length === 0) return null;
 
