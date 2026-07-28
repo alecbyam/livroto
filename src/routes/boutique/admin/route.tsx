@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { hasStoredSupabaseSession } from "@/lib/auth-recovery";
+import { BoutiqueAdminLayout } from "@/components/boutiques/BoutiqueAdminLayout";
 
 // Backoffice boutique (stock, POS, facturation, fournisseurs, promo,
 // rapports). Accès : staff de LA boutique résolue par le layout parent
@@ -39,5 +40,9 @@ export const Route = createFileRoute("/boutique/admin")({
 
     return {};
   },
-  component: () => <Outlet />,
+  component: () => (
+    <BoutiqueAdminLayout>
+      <Outlet />
+    </BoutiqueAdminLayout>
+  ),
 });
