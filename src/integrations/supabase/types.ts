@@ -32,6 +32,255 @@ export type Database = {
         }
         Relationships: []
       }
+      bon_commande_lignes: {
+        Row: {
+          bon_commande_id: string
+          id: string
+          nom_produit: string | null
+          prix_achat_unitaire_usd: number
+          produit_id: string | null
+          quantite_commandee: number
+          quantite_recue: number
+        }
+        Insert: {
+          bon_commande_id: string
+          id?: string
+          nom_produit?: string | null
+          prix_achat_unitaire_usd: number
+          produit_id?: string | null
+          quantite_commandee: number
+          quantite_recue?: number
+        }
+        Update: {
+          bon_commande_id?: string
+          id?: string
+          nom_produit?: string | null
+          prix_achat_unitaire_usd?: number
+          produit_id?: string | null
+          quantite_commandee?: number
+          quantite_recue?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bon_commande_lignes_bon_commande_id_fkey"
+            columns: ["bon_commande_id"]
+            isOneToOne: false
+            referencedRelation: "bons_commande_fournisseur"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bon_commande_lignes_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bons_commande_fournisseur: {
+        Row: {
+          boutique_id: string
+          created_at: string
+          created_by: string | null
+          date_commande: string | null
+          date_reception: string | null
+          fournisseur_id: string
+          id: string
+          numero: string | null
+          statut: string
+          updated_at: string
+        }
+        Insert: {
+          boutique_id: string
+          created_at?: string
+          created_by?: string | null
+          date_commande?: string | null
+          date_reception?: string | null
+          fournisseur_id: string
+          id?: string
+          numero?: string | null
+          statut?: string
+          updated_at?: string
+        }
+        Update: {
+          boutique_id?: string
+          created_at?: string
+          created_by?: string | null
+          date_commande?: string | null
+          date_reception?: string | null
+          fournisseur_id?: string
+          id?: string
+          numero?: string | null
+          statut?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bons_commande_fournisseur_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bons_commande_fournisseur_fournisseur_id_fkey"
+            columns: ["fournisseur_id"]
+            isOneToOne: false
+            referencedRelation: "fournisseurs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boutique_compteurs: {
+        Row: {
+          boutique_id: string
+          prochain_numero_bon_commande: number
+          prochain_numero_commande: number
+          prochain_numero_facture: number
+          prochain_numero_vente: number
+        }
+        Insert: {
+          boutique_id: string
+          prochain_numero_bon_commande?: number
+          prochain_numero_commande?: number
+          prochain_numero_facture?: number
+          prochain_numero_vente?: number
+        }
+        Update: {
+          boutique_id?: string
+          prochain_numero_bon_commande?: number
+          prochain_numero_commande?: number
+          prochain_numero_facture?: number
+          prochain_numero_vente?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boutique_compteurs_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: true
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boutique_integration_settings: {
+        Row: {
+          boutique_id: string
+          is_secret: boolean
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          boutique_id: string
+          is_secret?: boolean
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          boutique_id?: string
+          is_secret?: boolean
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boutique_integration_settings_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boutique_users: {
+        Row: {
+          boutique_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["boutique_role"]
+          user_id: string
+        }
+        Insert: {
+          boutique_id: string
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["boutique_role"]
+          user_id: string
+        }
+        Update: {
+          boutique_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["boutique_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boutique_users_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boutiques: {
+        Row: {
+          actif: boolean
+          adresse: string | null
+          created_at: string
+          devise: string
+          domaine: string | null
+          email: string | null
+          id: string
+          id_national: string | null
+          logo_url: string | null
+          nom: string
+          rccm: string | null
+          slug: string
+          telephone: string | null
+          theme: Json
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          adresse?: string | null
+          created_at?: string
+          devise?: string
+          domaine?: string | null
+          email?: string | null
+          id?: string
+          id_national?: string | null
+          logo_url?: string | null
+          nom: string
+          rccm?: string | null
+          slug: string
+          telephone?: string | null
+          theme?: Json
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          adresse?: string | null
+          created_at?: string
+          devise?: string
+          domaine?: string | null
+          email?: string | null
+          id?: string
+          id_national?: string | null
+          logo_url?: string | null
+          nom?: string
+          rccm?: string | null
+          slug?: string
+          telephone?: string | null
+          theme?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       carts: {
         Row: {
           items: Json
@@ -82,6 +331,231 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      clients_boutique: {
+        Row: {
+          adresse_defaut: string | null
+          boutique_id: string
+          created_at: string
+          email: string | null
+          id: string
+          nom: string
+          telephone: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          adresse_defaut?: string | null
+          boutique_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          nom: string
+          telephone: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          adresse_defaut?: string | null
+          boutique_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          nom?: string
+          telephone?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_boutique_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      codes_promo: {
+        Row: {
+          actif: boolean
+          boutique_id: string
+          code: string
+          created_at: string
+          date_debut: string | null
+          date_fin: string | null
+          id: string
+          montant_min_usd: number
+          type_reduction: Database["public"]["Enums"]["boutique_promo_type"]
+          updated_at: string
+          usage_actuel: number
+          usage_max: number | null
+          valeur: number
+        }
+        Insert: {
+          actif?: boolean
+          boutique_id: string
+          code: string
+          created_at?: string
+          date_debut?: string | null
+          date_fin?: string | null
+          id?: string
+          montant_min_usd?: number
+          type_reduction: Database["public"]["Enums"]["boutique_promo_type"]
+          updated_at?: string
+          usage_actuel?: number
+          usage_max?: number | null
+          valeur: number
+        }
+        Update: {
+          actif?: boolean
+          boutique_id?: string
+          code?: string
+          created_at?: string
+          date_debut?: string | null
+          date_fin?: string | null
+          id?: string
+          montant_min_usd?: number
+          type_reduction?: Database["public"]["Enums"]["boutique_promo_type"]
+          updated_at?: string
+          usage_actuel?: number
+          usage_max?: number | null
+          valeur?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "codes_promo_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commande_lignes: {
+        Row: {
+          commande_id: string
+          id: string
+          prix_unitaire_usd: number
+          produit_id: string
+          quantite: number
+          total_ligne_usd: number
+        }
+        Insert: {
+          commande_id: string
+          id?: string
+          prix_unitaire_usd: number
+          produit_id: string
+          quantite: number
+          total_ligne_usd: number
+        }
+        Update: {
+          commande_id?: string
+          id?: string
+          prix_unitaire_usd?: number
+          produit_id?: string
+          quantite?: number
+          total_ligne_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commande_lignes_commande_id_fkey"
+            columns: ["commande_id"]
+            isOneToOne: false
+            referencedRelation: "commandes_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commande_lignes_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commandes_ecommerce: {
+        Row: {
+          adresse_livraison: string
+          boutique_id: string
+          client_id: string
+          code_promo_id: string | null
+          created_at: string
+          frais_livraison_usd: number
+          id: string
+          mode_paiement: string
+          numero: string | null
+          remise_usd: number
+          sous_total_usd: number
+          statut: string
+          total_usd: number
+          updated_at: string
+          vente_id: string | null
+        }
+        Insert: {
+          adresse_livraison: string
+          boutique_id: string
+          client_id: string
+          code_promo_id?: string | null
+          created_at?: string
+          frais_livraison_usd?: number
+          id?: string
+          mode_paiement: string
+          numero?: string | null
+          remise_usd?: number
+          sous_total_usd: number
+          statut?: string
+          total_usd: number
+          updated_at?: string
+          vente_id?: string | null
+        }
+        Update: {
+          adresse_livraison?: string
+          boutique_id?: string
+          client_id?: string
+          code_promo_id?: string | null
+          created_at?: string
+          frais_livraison_usd?: number
+          id?: string
+          mode_paiement?: string
+          numero?: string | null
+          remise_usd?: number
+          sous_total_usd?: number
+          statut?: string
+          total_usd?: number
+          updated_at?: string
+          vente_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commandes_ecommerce_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commandes_ecommerce_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients_boutique"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commandes_ecommerce_code_promo_id_fkey"
+            columns: ["code_promo_id"]
+            isOneToOne: false
+            referencedRelation: "codes_promo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commandes_ecommerce_vente_id_fkey"
+            columns: ["vente_id"]
+            isOneToOne: false
+            referencedRelation: "ventes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coupons: {
         Row: {
@@ -206,6 +680,48 @@ export type Database = {
           },
         ]
       }
+      factures: {
+        Row: {
+          boutique_id: string
+          created_at: string
+          id: string
+          numero: string | null
+          pdf_url: string | null
+          vente_id: string
+        }
+        Insert: {
+          boutique_id: string
+          created_at?: string
+          id?: string
+          numero?: string | null
+          pdf_url?: string | null
+          vente_id: string
+        }
+        Update: {
+          boutique_id?: string
+          created_at?: string
+          id?: string
+          numero?: string | null
+          pdf_url?: string | null
+          vente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factures_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factures_vente_id_fkey"
+            columns: ["vente_id"]
+            isOneToOne: true
+            referencedRelation: "ventes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favorites: {
         Row: {
           created_at: string
@@ -223,6 +739,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      fournisseurs: {
+        Row: {
+          actif: boolean
+          adresse: string | null
+          boutique_id: string
+          contact: string | null
+          created_at: string
+          id: string
+          nom: string
+          telephone: string | null
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          adresse?: string | null
+          boutique_id: string
+          contact?: string | null
+          created_at?: string
+          id?: string
+          nom: string
+          telephone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          adresse?: string | null
+          boutique_id?: string
+          contact?: string | null
+          created_at?: string
+          id?: string
+          nom?: string
+          telephone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fournisseurs_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integration_settings: {
         Row: {
@@ -247,6 +807,69 @@ export type Database = {
           value?: string | null
         }
         Relationships: []
+      }
+      livraisons: {
+        Row: {
+          boutique_id: string
+          commande_id: string
+          coursier_id: string | null
+          coursier_nom: string | null
+          created_at: string
+          date_livraison: string | null
+          date_prise_en_charge: string | null
+          id: string
+          mode_livraison: string
+          rider_id: string | null
+          statut_livraison: string
+          tracking_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          boutique_id: string
+          commande_id: string
+          coursier_id?: string | null
+          coursier_nom?: string | null
+          created_at?: string
+          date_livraison?: string | null
+          date_prise_en_charge?: string | null
+          id?: string
+          mode_livraison?: string
+          rider_id?: string | null
+          statut_livraison?: string
+          tracking_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          boutique_id?: string
+          commande_id?: string
+          coursier_id?: string | null
+          coursier_nom?: string | null
+          created_at?: string
+          date_livraison?: string | null
+          date_prise_en_charge?: string | null
+          id?: string
+          mode_livraison?: string
+          rider_id?: string | null
+          statut_livraison?: string
+          tracking_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "livraisons_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "livraisons_commande_id_fkey"
+            columns: ["commande_id"]
+            isOneToOne: true
+            referencedRelation: "commandes_ecommerce"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -483,6 +1106,61 @@ export type Database = {
           },
         ]
       }
+      panier: {
+        Row: {
+          boutique_id: string
+          client_id: string | null
+          created_at: string
+          id: string
+          produit_id: string
+          quantite: number
+          session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          boutique_id: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          produit_id: string
+          quantite: number
+          session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          boutique_id?: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          produit_id?: string
+          quantite?: number
+          session_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "panier_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "panier_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients_boutique"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "panier_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_usd: number
@@ -665,6 +1343,74 @@ export type Database = {
             columns: ["subcategory_id"]
             isOneToOne: false
             referencedRelation: "product_subcategories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produits: {
+        Row: {
+          actif: boolean
+          boutique_id: string
+          categorie: string
+          couleur: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          nom: string
+          prix_usd: number
+          qr_code_data: string | null
+          qr_code_url: string | null
+          quantite: number
+          seuil_alerte: number
+          stock_bas: boolean | null
+          taille: string | null
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          boutique_id: string
+          categorie?: string
+          couleur?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          nom: string
+          prix_usd: number
+          qr_code_data?: string | null
+          qr_code_url?: string | null
+          quantite?: number
+          seuil_alerte?: number
+          stock_bas?: boolean | null
+          taille?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          boutique_id?: string
+          categorie?: string
+          couleur?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          nom?: string
+          prix_usd?: number
+          qr_code_data?: string | null
+          qr_code_url?: string | null
+          quantite?: number
+          seuil_alerte?: number
+          stock_bas?: boolean | null
+          taille?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produits_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
             referencedColumns: ["id"]
           },
         ]
@@ -1012,6 +1758,63 @@ export type Database = {
           },
         ]
       }
+      stock_movements: {
+        Row: {
+          boutique_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          motif: string | null
+          produit_id: string
+          quantite: number
+          quantite_apres: number
+          reference_id: string | null
+          reference_type: string | null
+          type_mouvement: string
+        }
+        Insert: {
+          boutique_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          motif?: string | null
+          produit_id: string
+          quantite: number
+          quantite_apres: number
+          reference_id?: string | null
+          reference_type?: string | null
+          type_mouvement: string
+        }
+        Update: {
+          boutique_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          motif?: string | null
+          produit_id?: string
+          quantite?: number
+          quantite_apres?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          type_mouvement?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1131,6 +1934,121 @@ export type Database = {
             columns: ["base_zone_id"]
             isOneToOne: false
             referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vente_lignes: {
+        Row: {
+          id: string
+          prix_unitaire_usd: number
+          produit_id: string
+          quantite: number
+          total_ligne_usd: number
+          vente_id: string
+        }
+        Insert: {
+          id?: string
+          prix_unitaire_usd: number
+          produit_id: string
+          quantite: number
+          total_ligne_usd: number
+          vente_id: string
+        }
+        Update: {
+          id?: string
+          prix_unitaire_usd?: number
+          produit_id?: string
+          quantite?: number
+          total_ligne_usd?: number
+          vente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vente_lignes_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vente_lignes_vente_id_fkey"
+            columns: ["vente_id"]
+            isOneToOne: false
+            referencedRelation: "ventes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ventes: {
+        Row: {
+          boutique_id: string
+          caissier_id: string | null
+          canal: string
+          client_id: string | null
+          code_promo_id: string | null
+          created_at: string
+          hors_ligne_id: string | null
+          id: string
+          mode_paiement: string
+          numero: string | null
+          remise_usd: number
+          sous_total_usd: number
+          statut: string
+          total_usd: number
+        }
+        Insert: {
+          boutique_id: string
+          caissier_id?: string | null
+          canal?: string
+          client_id?: string | null
+          code_promo_id?: string | null
+          created_at?: string
+          hors_ligne_id?: string | null
+          id?: string
+          mode_paiement: string
+          numero?: string | null
+          remise_usd?: number
+          sous_total_usd?: number
+          statut?: string
+          total_usd: number
+        }
+        Update: {
+          boutique_id?: string
+          caissier_id?: string | null
+          canal?: string
+          client_id?: string | null
+          code_promo_id?: string | null
+          created_at?: string
+          hors_ligne_id?: string | null
+          id?: string
+          mode_paiement?: string
+          numero?: string | null
+          remise_usd?: number
+          sous_total_usd?: number
+          statut?: string
+          total_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ventes_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients_boutique"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventes_code_promo_fk"
+            columns: ["code_promo_id"]
+            isOneToOne: false
+            referencedRelation: "codes_promo"
             referencedColumns: ["id"]
           },
         ]
@@ -1259,6 +2177,74 @@ export type Database = {
         Args: { p_vendor_id?: string }
         Returns: number
       }
+      fn_incrementer_usage_code_promo: {
+        Args: { p_code_promo_id: string }
+        Returns: undefined
+      }
+      fn_mouvement_stock: {
+        Args: {
+          p_motif?: string
+          p_produit_id: string
+          p_quantite_delta: number
+          p_reference_id?: string
+          p_reference_type?: string
+          p_type: string
+        }
+        Returns: {
+          boutique_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          motif: string | null
+          produit_id: string
+          quantite: number
+          quantite_apres: number
+          reference_id: string | null
+          reference_type: string | null
+          type_mouvement: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "stock_movements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_prochain_numero: {
+        Args: { p_boutique_id: string; p_compteur: string }
+        Returns: number
+      }
+      fn_receptionner_ligne: {
+        Args: {
+          p_ligne_id: string
+          p_prix_vente_usd?: number
+          p_quantite_recue: number
+        }
+        Returns: {
+          bon_commande_id: string
+          id: string
+          nom_produit: string | null
+          prix_achat_unitaire_usd: number
+          produit_id: string | null
+          quantite_commandee: number
+          quantite_recue: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bon_commande_lignes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_valider_code_promo: {
+        Args: { p_boutique_id: string; p_code: string; p_montant_usd: number }
+        Returns: {
+          code_promo_id: string
+          motif: string
+          remise_usd: number
+          valide: boolean
+        }[]
+      }
       get_my_sessions: {
         Args: never
         Returns: {
@@ -1284,9 +2270,18 @@ export type Database = {
         Args: { p_amount: number; p_user_id: string }
         Returns: undefined
       }
+      is_boutique_staff: {
+        Args: {
+          p_boutique_id: string
+          p_roles?: Database["public"]["Enums"]["boutique_role"][]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "customer" | "vendor" | "rider" | "admin"
+      boutique_promo_type: "pourcentage" | "montant_fixe"
+      boutique_role: "admin" | "vendeur" | "caissier"
       coupon_type: "fixed" | "percent"
       delivery_status:
         | "assigned"
@@ -1439,6 +2434,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["customer", "vendor", "rider", "admin"],
+      boutique_promo_type: ["pourcentage", "montant_fixe"],
+      boutique_role: ["admin", "vendeur", "caissier"],
       coupon_type: ["fixed", "percent"],
       delivery_status: [
         "assigned",

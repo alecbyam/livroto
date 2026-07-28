@@ -21,15 +21,27 @@ import { Route as BoutiquesRouteImport } from './routes/boutiques'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AideRouteImport } from './routes/aide'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as BoutiqueRouteRouteImport } from './routes/boutique/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BoutiqueIndexRouteImport } from './routes/boutique/index'
 import { Route as VendorSlugRouteImport } from './routes/vendor.$slug'
 import { Route as ProductProductIdRouteImport } from './routes/product.$productId'
 import { Route as OrderProductIdRouteImport } from './routes/order.$productId'
+import { Route as BoutiquePanierRouteImport } from './routes/boutique/panier'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedParrainageRouteImport } from './routes/_authenticated/parrainage'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as BoutiqueAdminRouteRouteImport } from './routes/boutique/admin/route'
+import { Route as BoutiqueAdminRapportsRouteImport } from './routes/boutique/admin/rapports'
+import { Route as BoutiqueAdminPromoRouteImport } from './routes/boutique/admin/promo'
+import { Route as BoutiqueAdminProduitsRouteImport } from './routes/boutique/admin/produits'
+import { Route as BoutiqueAdminPosRouteImport } from './routes/boutique/admin/pos'
+import { Route as BoutiqueAdminParametresRouteImport } from './routes/boutique/admin/parametres'
+import { Route as BoutiqueAdminFournisseursRouteImport } from './routes/boutique/admin/fournisseurs'
+import { Route as BoutiqueAdminFacturesRouteImport } from './routes/boutique/admin/factures'
+import { Route as BoutiqueAdminCommandesRouteImport } from './routes/boutique/admin/commandes'
 import { Route as AuthenticatedOrdersOrderIdRouteImport } from './routes/_authenticated/orders.$orderId'
 
 const TermsRoute = TermsRouteImport.update({
@@ -92,6 +104,11 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BoutiqueRouteRoute = BoutiqueRouteRouteImport.update({
+  id: '/boutique',
+  path: '/boutique',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -100,6 +117,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BoutiqueIndexRoute = BoutiqueIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BoutiqueRouteRoute,
 } as any)
 const VendorSlugRoute = VendorSlugRouteImport.update({
   id: '/vendor/$slug',
@@ -115,6 +137,11 @@ const OrderProductIdRoute = OrderProductIdRouteImport.update({
   id: '/order/$productId',
   path: '/order/$productId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BoutiquePanierRoute = BoutiquePanierRouteImport.update({
+  id: '/panier',
+  path: '/panier',
+  getParentRoute: () => BoutiqueRouteRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
@@ -136,6 +163,52 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const BoutiqueAdminRouteRoute = BoutiqueAdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => BoutiqueRouteRoute,
+} as any)
+const BoutiqueAdminRapportsRoute = BoutiqueAdminRapportsRouteImport.update({
+  id: '/rapports',
+  path: '/rapports',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
+const BoutiqueAdminPromoRoute = BoutiqueAdminPromoRouteImport.update({
+  id: '/promo',
+  path: '/promo',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
+const BoutiqueAdminProduitsRoute = BoutiqueAdminProduitsRouteImport.update({
+  id: '/produits',
+  path: '/produits',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
+const BoutiqueAdminPosRoute = BoutiqueAdminPosRouteImport.update({
+  id: '/pos',
+  path: '/pos',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
+const BoutiqueAdminParametresRoute = BoutiqueAdminParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
+const BoutiqueAdminFournisseursRoute =
+  BoutiqueAdminFournisseursRouteImport.update({
+    id: '/fournisseurs',
+    path: '/fournisseurs',
+    getParentRoute: () => BoutiqueAdminRouteRoute,
+  } as any)
+const BoutiqueAdminFacturesRoute = BoutiqueAdminFacturesRouteImport.update({
+  id: '/factures',
+  path: '/factures',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
+const BoutiqueAdminCommandesRoute = BoutiqueAdminCommandesRouteImport.update({
+  id: '/commandes',
+  path: '/commandes',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
 const AuthenticatedOrdersOrderIdRoute =
   AuthenticatedOrdersOrderIdRouteImport.update({
     id: '/$orderId',
@@ -145,6 +218,7 @@ const AuthenticatedOrdersOrderIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/boutique': typeof BoutiqueRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
@@ -157,14 +231,25 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/boutique/admin': typeof BoutiqueAdminRouteRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/orders': typeof AuthenticatedOrdersRouteWithChildren
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/boutique/panier': typeof BoutiquePanierRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/vendor/$slug': typeof VendorSlugRoute
+  '/boutique/': typeof BoutiqueIndexRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
+  '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
+  '/boutique/admin/factures': typeof BoutiqueAdminFacturesRoute
+  '/boutique/admin/fournisseurs': typeof BoutiqueAdminFournisseursRoute
+  '/boutique/admin/parametres': typeof BoutiqueAdminParametresRoute
+  '/boutique/admin/pos': typeof BoutiqueAdminPosRoute
+  '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
+  '/boutique/admin/promo': typeof BoutiqueAdminPromoRoute
+  '/boutique/admin/rapports': typeof BoutiqueAdminRapportsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -180,19 +265,31 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/boutique/admin': typeof BoutiqueAdminRouteRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/orders': typeof AuthenticatedOrdersRouteWithChildren
   '/parrainage': typeof AuthenticatedParrainageRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/boutique/panier': typeof BoutiquePanierRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/vendor/$slug': typeof VendorSlugRoute
+  '/boutique': typeof BoutiqueIndexRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
+  '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
+  '/boutique/admin/factures': typeof BoutiqueAdminFacturesRoute
+  '/boutique/admin/fournisseurs': typeof BoutiqueAdminFournisseursRoute
+  '/boutique/admin/parametres': typeof BoutiqueAdminParametresRoute
+  '/boutique/admin/pos': typeof BoutiqueAdminPosRoute
+  '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
+  '/boutique/admin/promo': typeof BoutiqueAdminPromoRoute
+  '/boutique/admin/rapports': typeof BoutiqueAdminRapportsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/boutique': typeof BoutiqueRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
@@ -205,19 +302,31 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/boutique/admin': typeof BoutiqueAdminRouteRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRouteWithChildren
   '/_authenticated/parrainage': typeof AuthenticatedParrainageRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/boutique/panier': typeof BoutiquePanierRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/vendor/$slug': typeof VendorSlugRoute
+  '/boutique/': typeof BoutiqueIndexRoute
   '/_authenticated/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
+  '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
+  '/boutique/admin/factures': typeof BoutiqueAdminFacturesRoute
+  '/boutique/admin/fournisseurs': typeof BoutiqueAdminFournisseursRoute
+  '/boutique/admin/parametres': typeof BoutiqueAdminParametresRoute
+  '/boutique/admin/pos': typeof BoutiqueAdminPosRoute
+  '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
+  '/boutique/admin/promo': typeof BoutiqueAdminPromoRoute
+  '/boutique/admin/rapports': typeof BoutiqueAdminRapportsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/boutique'
     | '/about'
     | '/aide'
     | '/auth'
@@ -230,14 +339,25 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/terms'
+    | '/boutique/admin'
     | '/dashboard'
     | '/orders'
     | '/parrainage'
     | '/profile'
+    | '/boutique/panier'
     | '/order/$productId'
     | '/product/$productId'
     | '/vendor/$slug'
+    | '/boutique/'
     | '/orders/$orderId'
+    | '/boutique/admin/commandes'
+    | '/boutique/admin/factures'
+    | '/boutique/admin/fournisseurs'
+    | '/boutique/admin/parametres'
+    | '/boutique/admin/pos'
+    | '/boutique/admin/produits'
+    | '/boutique/admin/promo'
+    | '/boutique/admin/rapports'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -253,18 +373,30 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/terms'
+    | '/boutique/admin'
     | '/dashboard'
     | '/orders'
     | '/parrainage'
     | '/profile'
+    | '/boutique/panier'
     | '/order/$productId'
     | '/product/$productId'
     | '/vendor/$slug'
+    | '/boutique'
     | '/orders/$orderId'
+    | '/boutique/admin/commandes'
+    | '/boutique/admin/factures'
+    | '/boutique/admin/fournisseurs'
+    | '/boutique/admin/parametres'
+    | '/boutique/admin/pos'
+    | '/boutique/admin/produits'
+    | '/boutique/admin/promo'
+    | '/boutique/admin/rapports'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/boutique'
     | '/about'
     | '/aide'
     | '/auth'
@@ -277,19 +409,31 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/terms'
+    | '/boutique/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/orders'
     | '/_authenticated/parrainage'
     | '/_authenticated/profile'
+    | '/boutique/panier'
     | '/order/$productId'
     | '/product/$productId'
     | '/vendor/$slug'
+    | '/boutique/'
     | '/_authenticated/orders/$orderId'
+    | '/boutique/admin/commandes'
+    | '/boutique/admin/factures'
+    | '/boutique/admin/fournisseurs'
+    | '/boutique/admin/parametres'
+    | '/boutique/admin/pos'
+    | '/boutique/admin/produits'
+    | '/boutique/admin/promo'
+    | '/boutique/admin/rapports'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  BoutiqueRouteRoute: typeof BoutiqueRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   AideRoute: typeof AideRoute
   AuthRoute: typeof AuthRoute
@@ -393,6 +537,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/boutique': {
+      id: '/boutique'
+      path: '/boutique'
+      fullPath: '/boutique'
+      preLoaderRoute: typeof BoutiqueRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -406,6 +557,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/boutique/': {
+      id: '/boutique/'
+      path: '/'
+      fullPath: '/boutique/'
+      preLoaderRoute: typeof BoutiqueIndexRouteImport
+      parentRoute: typeof BoutiqueRouteRoute
     }
     '/vendor/$slug': {
       id: '/vendor/$slug'
@@ -427,6 +585,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/order/$productId'
       preLoaderRoute: typeof OrderProductIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/boutique/panier': {
+      id: '/boutique/panier'
+      path: '/panier'
+      fullPath: '/boutique/panier'
+      preLoaderRoute: typeof BoutiquePanierRouteImport
+      parentRoute: typeof BoutiqueRouteRoute
     }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
@@ -455,6 +620,69 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/boutique/admin': {
+      id: '/boutique/admin'
+      path: '/admin'
+      fullPath: '/boutique/admin'
+      preLoaderRoute: typeof BoutiqueAdminRouteRouteImport
+      parentRoute: typeof BoutiqueRouteRoute
+    }
+    '/boutique/admin/rapports': {
+      id: '/boutique/admin/rapports'
+      path: '/rapports'
+      fullPath: '/boutique/admin/rapports'
+      preLoaderRoute: typeof BoutiqueAdminRapportsRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
+    '/boutique/admin/promo': {
+      id: '/boutique/admin/promo'
+      path: '/promo'
+      fullPath: '/boutique/admin/promo'
+      preLoaderRoute: typeof BoutiqueAdminPromoRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
+    '/boutique/admin/produits': {
+      id: '/boutique/admin/produits'
+      path: '/produits'
+      fullPath: '/boutique/admin/produits'
+      preLoaderRoute: typeof BoutiqueAdminProduitsRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
+    '/boutique/admin/pos': {
+      id: '/boutique/admin/pos'
+      path: '/pos'
+      fullPath: '/boutique/admin/pos'
+      preLoaderRoute: typeof BoutiqueAdminPosRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
+    '/boutique/admin/parametres': {
+      id: '/boutique/admin/parametres'
+      path: '/parametres'
+      fullPath: '/boutique/admin/parametres'
+      preLoaderRoute: typeof BoutiqueAdminParametresRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
+    '/boutique/admin/fournisseurs': {
+      id: '/boutique/admin/fournisseurs'
+      path: '/fournisseurs'
+      fullPath: '/boutique/admin/fournisseurs'
+      preLoaderRoute: typeof BoutiqueAdminFournisseursRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
+    '/boutique/admin/factures': {
+      id: '/boutique/admin/factures'
+      path: '/factures'
+      fullPath: '/boutique/admin/factures'
+      preLoaderRoute: typeof BoutiqueAdminFacturesRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
+    '/boutique/admin/commandes': {
+      id: '/boutique/admin/commandes'
+      path: '/commandes'
+      fullPath: '/boutique/admin/commandes'
+      preLoaderRoute: typeof BoutiqueAdminCommandesRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
     }
     '/_authenticated/orders/$orderId': {
       id: '/_authenticated/orders/$orderId'
@@ -494,9 +722,51 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface BoutiqueAdminRouteRouteChildren {
+  BoutiqueAdminCommandesRoute: typeof BoutiqueAdminCommandesRoute
+  BoutiqueAdminFacturesRoute: typeof BoutiqueAdminFacturesRoute
+  BoutiqueAdminFournisseursRoute: typeof BoutiqueAdminFournisseursRoute
+  BoutiqueAdminParametresRoute: typeof BoutiqueAdminParametresRoute
+  BoutiqueAdminPosRoute: typeof BoutiqueAdminPosRoute
+  BoutiqueAdminProduitsRoute: typeof BoutiqueAdminProduitsRoute
+  BoutiqueAdminPromoRoute: typeof BoutiqueAdminPromoRoute
+  BoutiqueAdminRapportsRoute: typeof BoutiqueAdminRapportsRoute
+}
+
+const BoutiqueAdminRouteRouteChildren: BoutiqueAdminRouteRouteChildren = {
+  BoutiqueAdminCommandesRoute: BoutiqueAdminCommandesRoute,
+  BoutiqueAdminFacturesRoute: BoutiqueAdminFacturesRoute,
+  BoutiqueAdminFournisseursRoute: BoutiqueAdminFournisseursRoute,
+  BoutiqueAdminParametresRoute: BoutiqueAdminParametresRoute,
+  BoutiqueAdminPosRoute: BoutiqueAdminPosRoute,
+  BoutiqueAdminProduitsRoute: BoutiqueAdminProduitsRoute,
+  BoutiqueAdminPromoRoute: BoutiqueAdminPromoRoute,
+  BoutiqueAdminRapportsRoute: BoutiqueAdminRapportsRoute,
+}
+
+const BoutiqueAdminRouteRouteWithChildren =
+  BoutiqueAdminRouteRoute._addFileChildren(BoutiqueAdminRouteRouteChildren)
+
+interface BoutiqueRouteRouteChildren {
+  BoutiqueAdminRouteRoute: typeof BoutiqueAdminRouteRouteWithChildren
+  BoutiquePanierRoute: typeof BoutiquePanierRoute
+  BoutiqueIndexRoute: typeof BoutiqueIndexRoute
+}
+
+const BoutiqueRouteRouteChildren: BoutiqueRouteRouteChildren = {
+  BoutiqueAdminRouteRoute: BoutiqueAdminRouteRouteWithChildren,
+  BoutiquePanierRoute: BoutiquePanierRoute,
+  BoutiqueIndexRoute: BoutiqueIndexRoute,
+}
+
+const BoutiqueRouteRouteWithChildren = BoutiqueRouteRoute._addFileChildren(
+  BoutiqueRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  BoutiqueRouteRoute: BoutiqueRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   AideRoute: AideRoute,
   AuthRoute: AuthRoute,

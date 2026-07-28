@@ -1,0 +1,169 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { assertBoutiqueStaff } from "@/lib/boutiques/auth.server";
+import { genererFacturePdf } from "@/lib/boutiques/facture-pdf.server";
+
+// Encaissement caisse (POS). Point d'entrée UNIQUE pour créer une vente, que
+// ce soit en ligne ou rejouée depuis la file d'attente offline (le
+// hors_ligne_id assure l'idempotence : rejouer deux fois la même vente après
+// une coupure réseau ne la double jamais).
+export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      boutique_id: z.string().uuid(),
+      hors_ligne_id: z.string().max(100).optional(),
+      client_id: z.string().uuid().optional(),
+      mode_paiement: z.enum(["cash", "mobile_money", "carte"]),
+      code_promo: z.string().max(40).optional(),
+      lignes: z.array(z.object({
+        produit_id: z.string().uuid(),
+        quantite: z.number().int().positive().max(10000),
+      })).min(1).max(200),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
+
+    // Idempotence : une vente déjà enregistrée avec ce hors_ligne_id (accusé de
+    // réception perdu en réseau instable, la caisse retente) est renvoyée
+    // telle quelle — jamais recréée, jamais un second décrément de stock.
+    if (data.hors_ligne_id) {
+      const { data: existante } = await context.supabase
+        .from("ventes")
+        .select("id,numero,total_usd")
+        .eq("boutique_id", data.boutique_id)
+        .eq("hors_ligne_id", data.hors_ligne_id)
+        .maybeSingle();
+      if (existante) return { vente: existante, deja_traitee: true };
+    }
+
+    // Le prix vient TOUJOURS du catalogue au moment de l'encaissement, jamais
+    // de ce que le client a soumis — un panier local peut dater d'avant un
+    // changement de prix survenu pendant une coupure réseau.
+    const produitIds = Array.from(new Set(data.lignes.map((l) => l.produit_id)));
+    const { data: produits, error: prodErr } = await context.supabase
+      .from("produits")
+      .select("id,prix_usd")
+      .eq("boutique_id", data.boutique_id)
+      .in("id", produitIds);
+    if (prodErr) throw new Error(prodErr.message);
+    const parId = new Map((produits ?? []).map((p) => [p.id, p]));
+
+    let sousTotal = 0;
+    const lignesCalc = data.lignes.map((l) => {
+      const p = parId.get(l.produit_id);
+      if (!p) throw new Error(`Produit introuvable dans cette boutique : ${l.produit_id}`);
+      const total_ligne_usd = Math.round(p.prix_usd * l.quantite * 100) / 100;
+      sousTotal += total_ligne_usd;
+      return { produit_id: l.produit_id, quantite: l.quantite, prix_unitaire_usd: p.prix_usd, total_ligne_usd };
+    });
+    sousTotal = Math.round(sousTotal * 100) / 100;
+
+    let remise = 0;
+    let codePromoId: string | null = null;
+    if (data.code_promo) {
+      const { data: validationRows, error: promoErr } = await context.supabase.rpc("fn_valider_code_promo", {
+        p_boutique_id: data.boutique_id,
+        p_code: data.code_promo,
+        p_montant_usd: sousTotal,
+      });
+      if (promoErr) throw new Error(promoErr.message);
+      const res = validationRows?.[0];
+      if (!res?.valide) throw new Error(res?.motif ?? "Code promo invalide");
+      remise = Number(res.remise_usd);
+      codePromoId = res.code_promo_id;
+    }
+
+    const total = Math.round((sousTotal - remise) * 100) / 100;
+
+    const { data: vente, error: venteErr } = await context.supabase
+      .from("ventes")
+      .insert({
+        boutique_id: data.boutique_id,
+        client_id: data.client_id ?? null,
+        caissier_id: context.userId,
+        mode_paiement: data.mode_paiement,
+        sous_total_usd: sousTotal,
+        code_promo_id: codePromoId,
+        remise_usd: remise,
+        total_usd: total,
+        hors_ligne_id: data.hors_ligne_id ?? null,
+      })
+      .select("id,numero,total_usd")
+      .single();
+    if (venteErr) throw new Error(venteErr.message);
+
+    // Déclenche automatiquement le décrément de stock (trigger sur
+    // vente_lignes, cf. migration 33) — un seul chemin de code, partagé avec
+    // l'e-commerce.
+    const { error: lignesErr } = await context.supabase
+      .from("vente_lignes")
+      .insert(lignesCalc.map((l) => ({ ...l, vente_id: vente.id })));
+    if (lignesErr) throw new Error(lignesErr.message);
+
+    if (codePromoId) {
+      // fn_incrementer_usage_code_promo est restreinte à service_role
+      // (migration 40, pour empêcher un client d'épuiser le quota d'un code
+      // en boucle) — on l'appelle donc via supabaseAdmin, jamais
+      // context.supabase. L'autorisation métier a déjà été vérifiée plus
+      // haut (assertBoutiqueStaff) : ce serverFn est un contexte de confiance.
+      await supabaseAdmin.rpc("fn_incrementer_usage_code_promo", { p_code_promo_id: codePromoId });
+    }
+
+    // Facture auto-créée par le trigger DB (tg_ventes_generer_facture, migration
+    // 33) dès l'insert de la vente — il ne reste qu'à en générer le PDF. Best
+    // effort : un souci de rendu/stockage ne doit jamais faire échouer la vente
+    // déjà encaissée (la caisse doit rester utilisable même si le stockage PDF
+    // a un incident transitoire ; le PDF peut être régénéré plus tard).
+    const { data: factureRow } = await context.supabase
+      .from("factures")
+      .select("id")
+      .eq("vente_id", vente.id)
+      .maybeSingle();
+    if (factureRow) {
+      genererFacturePdf(factureRow.id).catch((e) => {
+        console.error("[boutiqueEncaisserVente] génération PDF facture échouée:", e);
+      });
+    }
+
+    return { vente, deja_traitee: false };
+  });
+
+// Recherche produit par qr_code_data (scan douchette/caméra) OU recherche
+// manuelle par nom — une seule fonction, le POS n'a pas besoin de savoir
+// comment le produit a été identifié.
+export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      boutique_id: z.string().uuid(),
+      qr_code_data: z.string().max(200).optional(),
+      recherche: z.string().max(120).optional(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
+    if (data.qr_code_data) {
+      const { data: produit, error } = await context.supabase
+        .from("produits")
+        .select("id,nom,prix_usd,quantite,image_url")
+        .eq("boutique_id", data.boutique_id)
+        .eq("qr_code_data", data.qr_code_data)
+        .eq("actif", true)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return { produits: produit ? [produit] : [] };
+    }
+    const { data: rows, error } = await context.supabase
+      .from("produits")
+      .select("id,nom,prix_usd,quantite,image_url")
+      .eq("boutique_id", data.boutique_id)
+      .eq("actif", true)
+      .ilike("nom", `%${data.recherche?.trim() ?? ""}%`)
+      .limit(20);
+    if (error) throw new Error(error.message);
+    return { produits: rows ?? [] };
+  });
