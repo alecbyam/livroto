@@ -37,12 +37,14 @@ import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import {
   boutiqueListerProduits,
   boutiqueCreerProduit,
+  boutiqueModifierProduit,
   boutiqueAjusterStock,
   boutiqueProduitsPourPlancheQr,
 } from "@/lib/boutiques/produits.functions";
 import { stockOfflineQueue, isOnline } from "@/lib/boutiques/stock-offline-queue";
 import { StockOfflineBanner } from "@/components/boutiques/StockOfflineBanner";
 import { echapperHtml } from "@/lib/boutiques/html-escape";
+import { GestionnairePhotosProduit } from "@/components/boutiques/GestionnairePhotosProduit";
 
 export const Route = createFileRoute("/boutique/admin/produits")({
   component: ProduitsAdminPage,
@@ -53,6 +55,11 @@ function ProduitsAdminPage() {
   const qc = useQueryClient();
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [ouvrirCreation, setOuvrirCreation] = useState(false);
+  const [produitPhotos, setProduitPhotos] = useState<{
+    id: string;
+    nom: string;
+    images: string[];
+  } | null>(null);
   // Force le recalcul de l'affichage "optimiste" (stock serveur + ajustements
   // en attente localement) après chaque ajout/synchro de la file offline —
   // stockOfflineQueue lit localStorage directement, ça ne déclenche pas de
@@ -72,6 +79,17 @@ function ProduitsAdminPage() {
       toast.success("Produit créé, QR généré.");
       qc.invalidateQueries({ queryKey: ["boutique-admin-produits", boutique.id] });
       setOuvrirCreation(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const modifierFn = useServerFn(boutiqueModifierProduit);
+  const modifierPhotos = useMutation({
+    mutationFn: (images: string[]) =>
+      modifierFn({ data: { boutique_id: boutique.id, produit_id: produitPhotos!.id, images } }),
+    onSuccess: (_r, images) => {
+      setProduitPhotos((p) => (p ? { ...p, images } : p));
+      qc.invalidateQueries({ queryKey: ["boutique-admin-produits", boutique.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -169,6 +187,7 @@ function ProduitsAdminPage() {
                 <DialogTitle>Nouveau produit</DialogTitle>
               </DialogHeader>
               <FormulaireProduit
+                boutiqueId={boutique.id}
                 enCours={creer.isPending}
                 onSoumettre={(valeurs) =>
                   creer.mutate({ data: { boutique_id: boutique.id, ...valeurs } })
@@ -195,6 +214,7 @@ function ProduitsAdminPage() {
             <TableRow>
               <TableHead />
               <TableHead>QR</TableHead>
+              <TableHead>Photos</TableHead>
               <TableHead>Nom</TableHead>
               <TableHead>Prix</TableHead>
               <TableHead>Stock</TableHead>
@@ -224,6 +244,24 @@ function ProduitsAdminPage() {
                     ) : (
                       <span className="text-xs text-muted-foreground">génération...</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProduitPhotos({ id: p.id, nom: p.nom, images: p.images ?? [] })
+                      }
+                      className="grid h-12 w-12 place-items-center overflow-hidden rounded-lg border hover:border-primary/50"
+                      title="Gérer les photos"
+                    >
+                      {p.images?.[0] ? (
+                        <img src={p.images[0]} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">
+                          {p.images?.length ?? 0}/8
+                        </span>
+                      )}
+                    </button>
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">{p.nom}</div>
@@ -263,14 +301,32 @@ function ProduitsAdminPage() {
           </TableBody>
         </Table>
       )}
+
+      <Dialog open={!!produitPhotos} onOpenChange={(open) => !open && setProduitPhotos(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Photos — {produitPhotos?.nom}</DialogTitle>
+          </DialogHeader>
+          {produitPhotos && (
+            <GestionnairePhotosProduit
+              boutiqueId={boutique.id}
+              dossierId={produitPhotos.id}
+              images={produitPhotos.images}
+              onChange={(images) => modifierPhotos.mutate(images)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function FormulaireProduit({
+  boutiqueId,
   onSoumettre,
   enCours,
 }: {
+  boutiqueId: string;
   onSoumettre: (v: {
     nom: string;
     categorie: "vetement" | "accessoire";
@@ -280,6 +336,7 @@ function FormulaireProduit({
     quantite: number;
     seuil_alerte: number;
     description?: string;
+    images?: string[];
   }) => void;
   enCours: boolean;
 }) {
@@ -291,6 +348,11 @@ function FormulaireProduit({
   const [quantite, setQuantite] = useState("0");
   const [seuil, setSeuil] = useState("3");
   const [description, setDescription] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  // Dossier de stockage stable pour toute la durée d'ouverture du formulaire
+  // (le produit n'existe pas encore en base au moment de l'upload) — voir
+  // GestionnairePhotosProduit / migration 47.
+  const [dossierId] = useState(() => crypto.randomUUID());
 
   return (
     <form
@@ -306,9 +368,21 @@ function FormulaireProduit({
           quantite: Number(quantite),
           seuil_alerte: Number(seuil),
           description: description || undefined,
+          images: images.length > 0 ? images : undefined,
         });
       }}
     >
+      <div>
+        <Label>Photos (jusqu'à 8)</Label>
+        <div className="mt-1.5">
+          <GestionnairePhotosProduit
+            boutiqueId={boutiqueId}
+            dossierId={dossierId}
+            images={images}
+            onChange={setImages}
+          />
+        </div>
+      </div>
       <div>
         <Label htmlFor="nom">Nom</Label>
         <Input

@@ -74,7 +74,11 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         quantite: z.number().int().min(0).max(1000000).default(0),
         seuil_alerte: z.number().int().min(0).max(100000).default(3),
         description: z.string().max(1000).optional(),
-        image_url: z.string().url().max(1000).optional(),
+        // Jusqu'à 8 photos (l'utilisateur en veut au moins 5) ; images[0]
+        // devient automatiquement image_url via un trigger DB (migration 47)
+        // — tous les endroits qui lisent encore image_url (grille caisse,
+        // vitrine, panier) continuent de fonctionner sans rien changer.
+        images: z.array(z.string().url().max(1000)).max(8).optional(),
       })
       .parse(input),
   )
@@ -93,7 +97,7 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         quantite: rest.quantite,
         seuil_alerte: rest.seuil_alerte,
         description: rest.description ?? null,
-        image_url: rest.image_url ?? null,
+        images: rest.images ?? [],
       })
       .select()
       .single();
@@ -148,7 +152,7 @@ export const boutiqueModifierProduit = createServerFn({ method: "POST" })
         prix_usd: z.number().min(0).max(100000).optional(),
         seuil_alerte: z.number().int().min(0).max(100000).optional(),
         description: z.string().max(1000).nullable().optional(),
-        image_url: z.string().url().max(1000).nullable().optional(),
+        images: z.array(z.string().url().max(1000)).max(8).optional(),
         actif: z.boolean().optional(),
       })
       .parse(input),
