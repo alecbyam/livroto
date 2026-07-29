@@ -45,6 +45,10 @@ import { stockOfflineQueue, isOnline } from "@/lib/boutiques/stock-offline-queue
 import { StockOfflineBanner } from "@/components/boutiques/StockOfflineBanner";
 import { echapperHtml } from "@/lib/boutiques/html-escape";
 import { GestionnairePhotosProduit } from "@/components/boutiques/GestionnairePhotosProduit";
+import {
+  boutiqueListerSousCategories,
+  boutiqueCreerSousCategorie,
+} from "@/lib/boutiques/sous-categories.functions";
 
 export const Route = createFileRoute("/boutique/admin/produits")({
   component: ProduitsAdminPage,
@@ -266,10 +270,24 @@ function ProduitsAdminPage() {
                   <TableCell>
                     <div className="font-medium">{p.nom}</div>
                     <div className="text-xs text-muted-foreground">
-                      {[p.taille, p.couleur].filter(Boolean).join(" · ")}
+                      {[p.sous_categories?.nom, p.taille, p.couleur].filter(Boolean).join(" · ")}
                     </div>
                   </TableCell>
-                  <TableCell>{p.prix_usd} $</TableCell>
+                  <TableCell>
+                    <div>{p.prix_usd} $</div>
+                    {p.prix_achat_usd != null && (
+                      <div className="text-xs text-muted-foreground">
+                        achat {p.prix_achat_usd} $ · marge{" "}
+                        <span
+                          className={
+                            p.prix_usd - p.prix_achat_usd >= 0 ? "text-primary" : "text-destructive"
+                          }
+                        >
+                          {(p.prix_usd - p.prix_achat_usd).toFixed(2)} $
+                        </span>
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {p.stock_bas ? (
                       <Badge variant="destructive">{quantiteAffichee} (stock bas)</Badge>
@@ -330,9 +348,11 @@ function FormulaireProduit({
   onSoumettre: (v: {
     nom: string;
     categorie: "vetement" | "accessoire";
+    sous_categorie_id?: string;
     taille?: string;
     couleur?: string;
     prix_usd: number;
+    prix_achat_usd?: number;
     quantite: number;
     seuil_alerte: number;
     description?: string;
@@ -342,9 +362,11 @@ function FormulaireProduit({
 }) {
   const [nom, setNom] = useState("");
   const [categorie, setCategorie] = useState<"vetement" | "accessoire">("vetement");
+  const [sousCategorieId, setSousCategorieId] = useState("");
   const [taille, setTaille] = useState("");
   const [couleur, setCouleur] = useState("");
   const [prix, setPrix] = useState("");
+  const [prixAchat, setPrixAchat] = useState("");
   const [quantite, setQuantite] = useState("0");
   const [seuil, setSeuil] = useState("3");
   const [description, setDescription] = useState("");
@@ -362,9 +384,11 @@ function FormulaireProduit({
         onSoumettre({
           nom,
           categorie,
+          sous_categorie_id: sousCategorieId || undefined,
           taille: taille || undefined,
           couleur: couleur || undefined,
           prix_usd: Number(prix),
+          prix_achat_usd: prixAchat ? Number(prixAchat) : undefined,
           quantite: Number(quantite),
           seuil_alerte: Number(seuil),
           description: description || undefined,
@@ -398,7 +422,10 @@ function FormulaireProduit({
           <Label>Catégorie</Label>
           <Select
             value={categorie}
-            onValueChange={(v) => setCategorie(v as "vetement" | "accessoire")}
+            onValueChange={(v) => {
+              setCategorie(v as "vetement" | "accessoire");
+              setSousCategorieId(""); // les sous-catégories dépendent de la catégorie
+            }}
           >
             <SelectTrigger>
               <SelectValue />
@@ -410,7 +437,18 @@ function FormulaireProduit({
           </Select>
         </div>
         <div>
-          <Label htmlFor="prix">Prix ($)</Label>
+          <Label>Sous-catégorie</Label>
+          <SelecteurSousCategorie
+            boutiqueId={boutiqueId}
+            categorie={categorie}
+            value={sousCategorieId}
+            onChange={setSousCategorieId}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="prix">Prix de vente ($)</Label>
           <Input
             id="prix"
             type="number"
@@ -419,6 +457,18 @@ function FormulaireProduit({
             value={prix}
             onChange={(e) => setPrix(e.target.value)}
             required
+          />
+        </div>
+        <div>
+          <Label htmlFor="prix-achat">Prix d'achat ($)</Label>
+          <Input
+            id="prix-achat"
+            type="number"
+            step="0.01"
+            min="0"
+            value={prixAchat}
+            onChange={(e) => setPrixAchat(e.target.value)}
+            placeholder="Optionnel"
           />
         </div>
       </div>
@@ -468,5 +518,104 @@ function FormulaireProduit({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+// Sélecteur de sous-catégorie avec création à la volée — pas de page de
+// gestion séparée, la liste se construit organiquement en créant des
+// produits (KISS). Recharge la liste dès que `categorie` change côté parent.
+const CREER_NOUVELLE = "__creer__";
+
+function SelecteurSousCategorie({
+  boutiqueId,
+  categorie,
+  value,
+  onChange,
+}: {
+  boutiqueId: string;
+  categorie: "vetement" | "accessoire";
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const qc = useQueryClient();
+  const listerFn = useServerFn(boutiqueListerSousCategories);
+  const creerFn = useServerFn(boutiqueCreerSousCategorie);
+  const [ouvrirCreation, setOuvrirCreation] = useState(false);
+  const [nouveauNom, setNouveauNom] = useState("");
+
+  const { data } = useQuery({
+    queryKey: ["boutique-sous-categories", boutiqueId, categorie],
+    queryFn: () => listerFn({ data: { boutique_id: boutiqueId, categorie } }),
+  });
+  const sousCategories = data?.sousCategories ?? [];
+
+  const creer = useMutation({
+    mutationFn: () =>
+      creerFn({ data: { boutique_id: boutiqueId, categorie, nom: nouveauNom.trim() } }),
+    onSuccess: ({ sousCategorie }) => {
+      qc.invalidateQueries({ queryKey: ["boutique-sous-categories", boutiqueId, categorie] });
+      onChange(sousCategorie.id);
+      setOuvrirCreation(false);
+      setNouveauNom("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (ouvrirCreation) {
+    // Une <div>, pas un <form> : ce composant vit À L'INTÉRIEUR du <form>
+    // du produit (FormulaireProduit) — un <form> imbriqué est invalide en
+    // HTML et fait planter la soumission (le navigateur navigue "en dur" au
+    // lieu de déclencher onSubmit React, perdant même le ?boutique=... de
+    // l'URL). type="button" partout + Entrée gérée manuellement.
+    const soumettre = () => {
+      if (nouveauNom.trim() && !creer.isPending) creer.mutate();
+    };
+    return (
+      <div className="flex gap-1.5">
+        <Input
+          autoFocus
+          value={nouveauNom}
+          onChange={(e) => setNouveauNom(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              soumettre();
+            }
+          }}
+          placeholder="Ex. Chemises"
+          maxLength={60}
+        />
+        <Button
+          type="button"
+          size="sm"
+          disabled={creer.isPending || !nouveauNom.trim()}
+          onClick={soumettre}
+        >
+          Créer
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setOuvrirCreation(false)}>
+          Annuler
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      value={value || undefined}
+      onValueChange={(v) => (v === CREER_NOUVELLE ? setOuvrirCreation(true) : onChange(v))}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Aucune (optionnel)" />
+      </SelectTrigger>
+      <SelectContent>
+        {sousCategories.map((sc: { id: string; nom: string }) => (
+          <SelectItem key={sc.id} value={sc.id}>
+            {sc.nom}
+          </SelectItem>
+        ))}
+        <SelectItem value={CREER_NOUVELLE}>+ Nouvelle sous-catégorie…</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

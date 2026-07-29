@@ -44,7 +44,7 @@ export const boutiqueListerProduits = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id);
     let q = context.supabase
       .from("produits")
-      .select("*", { count: "exact" })
+      .select("*,sous_categories(id,nom)", { count: "exact" })
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true);
     if (data.recherche?.trim()) q = q.ilike("nom", `%${data.recherche.trim()}%`);
@@ -68,9 +68,15 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         boutique_id: z.string().uuid(),
         nom: z.string().min(2).max(120),
         categorie: z.enum(["vetement", "accessoire"]).default("vetement"),
+        sous_categorie_id: z.string().uuid().optional(),
         taille: z.string().max(30).optional(),
         couleur: z.string().max(40).optional(),
         prix_usd: z.number().min(0).max(100000),
+        // Coût d'achat unitaire — sert à calculer une marge (jusqu'ici
+        // seul le prix de vente existait sur le produit). Optionnel : les
+        // produits déjà créés n'en ont pas, et un vendeur peut ne pas
+        // connaître le coût exact au moment de la saisie.
+        prix_achat_usd: z.number().min(0).max(100000).optional(),
         quantite: z.number().int().min(0).max(1000000).default(0),
         seuil_alerte: z.number().int().min(0).max(100000).default(3),
         description: z.string().max(1000).optional(),
@@ -91,9 +97,11 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         boutique_id,
         nom: rest.nom,
         categorie: rest.categorie,
+        sous_categorie_id: rest.sous_categorie_id ?? null,
         taille: rest.taille ?? null,
         couleur: rest.couleur ?? null,
         prix_usd: rest.prix_usd,
+        prix_achat_usd: rest.prix_achat_usd ?? null,
         quantite: rest.quantite,
         seuil_alerte: rest.seuil_alerte,
         description: rest.description ?? null,
@@ -147,9 +155,11 @@ export const boutiqueModifierProduit = createServerFn({ method: "POST" })
         produit_id: z.string().uuid(),
         nom: z.string().min(2).max(120).optional(),
         categorie: z.enum(["vetement", "accessoire"]).optional(),
+        sous_categorie_id: z.string().uuid().nullable().optional(),
         taille: z.string().max(30).nullable().optional(),
         couleur: z.string().max(40).nullable().optional(),
         prix_usd: z.number().min(0).max(100000).optional(),
+        prix_achat_usd: z.number().min(0).max(100000).nullable().optional(),
         seuil_alerte: z.number().int().min(0).max(100000).optional(),
         description: z.string().max(1000).nullable().optional(),
         images: z.array(z.string().url().max(1000)).max(8).optional(),
