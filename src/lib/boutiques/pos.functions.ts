@@ -12,17 +12,24 @@ import { genererFacturePdf } from "@/lib/boutiques/facture-pdf.server";
 export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      boutique_id: z.string().uuid(),
-      hors_ligne_id: z.string().max(100).optional(),
-      client_id: z.string().uuid().optional(),
-      mode_paiement: z.enum(["cash", "mobile_money", "carte"]),
-      code_promo: z.string().max(40).optional(),
-      lignes: z.array(z.object({
-        produit_id: z.string().uuid(),
-        quantite: z.number().int().positive().max(10000),
-      })).min(1).max(200),
-    }).parse(input),
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        hors_ligne_id: z.string().max(100).optional(),
+        client_id: z.string().uuid().optional(),
+        mode_paiement: z.enum(["cash", "mobile_money", "carte"]),
+        code_promo: z.string().max(40).optional(),
+        lignes: z
+          .array(
+            z.object({
+              produit_id: z.string().uuid(),
+              quantite: z.number().int().positive().max(10000),
+            }),
+          )
+          .min(1)
+          .max(200),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
@@ -58,18 +65,26 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
       if (!p) throw new Error(`Produit introuvable dans cette boutique : ${l.produit_id}`);
       const total_ligne_usd = Math.round(p.prix_usd * l.quantite * 100) / 100;
       sousTotal += total_ligne_usd;
-      return { produit_id: l.produit_id, quantite: l.quantite, prix_unitaire_usd: p.prix_usd, total_ligne_usd };
+      return {
+        produit_id: l.produit_id,
+        quantite: l.quantite,
+        prix_unitaire_usd: p.prix_usd,
+        total_ligne_usd,
+      };
     });
     sousTotal = Math.round(sousTotal * 100) / 100;
 
     let remise = 0;
     let codePromoId: string | null = null;
     if (data.code_promo) {
-      const { data: validationRows, error: promoErr } = await context.supabase.rpc("fn_valider_code_promo", {
-        p_boutique_id: data.boutique_id,
-        p_code: data.code_promo,
-        p_montant_usd: sousTotal,
-      });
+      const { data: validationRows, error: promoErr } = await context.supabase.rpc(
+        "fn_valider_code_promo",
+        {
+          p_boutique_id: data.boutique_id,
+          p_code: data.code_promo,
+          p_montant_usd: sousTotal,
+        },
+      );
       if (promoErr) throw new Error(promoErr.message);
       const res = validationRows?.[0];
       if (!res?.valide) throw new Error(res?.motif ?? "Code promo invalide");
@@ -132,17 +147,40 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
     return { vente, deja_traitee: false };
   });
 
+// Grille produits de la caisse (inspirée Odoo POS) : tous les produits actifs
+// d'un coup, avec de quoi afficher une vraie vignette (image/catégorie/taille/
+// couleur/stock) — le staff tape directement sur un article au lieu de taper
+// une recherche à chaque vente. Catalogue d'une seule boutique : pas besoin de
+// pagination, une limite haute suffit tant que ça reste une petite boutique.
+export const boutiqueListerProduitsPos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ boutique_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
+    const { data: rows, error } = await context.supabase
+      .from("produits")
+      .select("id,nom,prix_usd,quantite,image_url,categorie,taille,couleur")
+      .eq("boutique_id", data.boutique_id)
+      .eq("actif", true)
+      .order("nom", { ascending: true })
+      .limit(300);
+    if (error) throw new Error(error.message);
+    return { produits: rows ?? [] };
+  });
+
 // Recherche produit par qr_code_data (scan douchette/caméra) OU recherche
 // manuelle par nom — une seule fonction, le POS n'a pas besoin de savoir
 // comment le produit a été identifié.
 export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      boutique_id: z.string().uuid(),
-      qr_code_data: z.string().max(200).optional(),
-      recherche: z.string().max(120).optional(),
-    }).parse(input),
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        qr_code_data: z.string().max(200).optional(),
+        recherche: z.string().max(120).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);

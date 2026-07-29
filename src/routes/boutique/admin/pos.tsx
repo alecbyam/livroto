@@ -1,16 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Minus, Plus, ScanLine, Trash2 } from "lucide-react";
+import { Camera, Minus, Plus, ScanLine, Search, Shirt, ShoppingBag, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
-import { boutiqueEncaisserVente, boutiqueRechercherProduitPos } from "@/lib/boutiques/pos.functions";
+import {
+  boutiqueEncaisserVente,
+  boutiqueListerProduitsPos,
+  boutiqueRechercherProduitPos,
+} from "@/lib/boutiques/pos.functions";
 import { posOfflineQueue, isOnline } from "@/lib/boutiques/pos-offline-queue";
 import { PosOfflineBanner } from "@/components/boutiques/PosOfflineBanner";
 import { ConfigImpressionDialog } from "@/components/boutiques/ConfigImpressionDialog";
@@ -20,17 +31,41 @@ export const Route = createFileRoute("/boutique/admin/pos")({
   component: PosPage,
 });
 
+type ProduitGrille = {
+  id: string;
+  nom: string;
+  prix_usd: number;
+  quantite: number;
+  image_url: string | null;
+  categorie: "vetement" | "accessoire";
+  taille: string | null;
+  couleur: string | null;
+};
 type LigneCaisse = { produit_id: string; nom: string; prix_usd: number; quantite: number };
+
+const CATEGORIES = [
+  { id: "tous", label: "Tous" },
+  { id: "vetement", label: "Vêtements" },
+  { id: "accessoire", label: "Accessoires" },
+] as const;
 
 function PosPage() {
   const boutique = useBoutique();
+  const qc = useQueryClient();
+  const listerFn = useServerFn(boutiqueListerProduitsPos);
   const rechercherFn = useServerFn(boutiqueRechercherProduitPos);
   const encaisserFn = useServerFn(boutiqueEncaisserVente);
 
+  const { data, isLoading } = useQuery({
+    queryKey: ["boutique-pos-produits", boutique.id],
+    queryFn: () => listerFn({ data: { boutique_id: boutique.id } }),
+  });
+  const produits = (data?.produits ?? []) as ProduitGrille[];
+
   const [cart, setCart] = useState<LigneCaisse[]>([]);
   const [scan, setScan] = useState("");
-  const [recherche, setRecherche] = useState("");
-  const [resultats, setResultats] = useState<Array<{ id: string; nom: string; prix_usd: number; quantite: number }>>([]);
+  const [filtre, setFiltre] = useState("");
+  const [categorie, setCategorie] = useState<(typeof CATEGORIES)[number]["id"]>("tous");
   const [modePaiement, setModePaiement] = useState<"cash" | "mobile_money" | "carte">("cash");
   const [codePromo, setCodePromo] = useState("");
   const [enCours, setEnCours] = useState(false);
@@ -41,6 +76,21 @@ function PosPage() {
   useEffect(() => {
     scanInputRef.current?.focus();
   }, []);
+
+  // Grille filtrée côté client : catalogue d'une seule boutique, pas besoin
+  // d'un aller-retour serveur à chaque frappe — tape et ça filtre, instantané.
+  const produitsFiltres = useMemo(() => {
+    const q = filtre.trim().toLowerCase();
+    return produits.filter((p) => {
+      if (categorie !== "tous" && p.categorie !== categorie) return false;
+      if (!q) return true;
+      return (
+        p.nom.toLowerCase().includes(q) ||
+        p.taille?.toLowerCase().includes(q) ||
+        p.couleur?.toLowerCase().includes(q)
+      );
+    });
+  }, [produits, categorie, filtre]);
 
   function ajouterAuPanier(p: { id: string; nom: string; prix_usd: number }) {
     setCart((prev) => {
@@ -61,9 +111,14 @@ function PosPage() {
     setScan("");
     if (!valeur) return;
     try {
-      const { produits } = await rechercherFn({ data: { boutique_id: boutique.id, qr_code_data: valeur } });
-      if (produits.length === 0) { toast.error("Produit introuvable pour ce QR."); return; }
-      ajouterAuPanier(produits[0]);
+      const { produits: trouves } = await rechercherFn({
+        data: { boutique_id: boutique.id, qr_code_data: valeur },
+      });
+      if (trouves.length === 0) {
+        toast.error("Produit introuvable pour ce QR.");
+        return;
+      }
+      ajouterAuPanier(trouves[0]);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -71,23 +126,21 @@ function PosPage() {
     }
   }
 
-  async function rechercher(q: string) {
-    setRecherche(q);
-    if (q.trim().length < 2) { setResultats([]); return; }
-    try {
-      const { produits } = await rechercherFn({ data: { boutique_id: boutique.id, recherche: q } });
-      setResultats(produits);
-    } catch { /* recherche best-effort, pas bloquant */ }
-  }
-
   // Scan caméra : progressive enhancement via l'API native BarcodeDetector
   // (Chrome/Edge/Android). Pas de dépendance ajoutée pour ça — si l'API est
-  // absente (Safari, vieux navigateurs), on retombe sur douchette/recherche.
+  // absente (Safari, vieux navigateurs), on retombe sur douchette/grille.
   async function demarrerScanCamera() {
     const BD = (window as any).BarcodeDetector;
-    if (!BD) { toast.error("Scan caméra non supporté sur ce navigateur — utilise la douchette ou la recherche."); return; }
+    if (!BD) {
+      toast.error(
+        "Scan caméra non supporté sur ce navigateur — utilise la douchette ou la grille.",
+      );
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCamActive(true);
       const detector = new BD({ formats: ["qr_code"] });
@@ -100,12 +153,16 @@ function PosPage() {
           const codes = await detector.detect(videoRef.current);
           if (codes.length > 0) {
             arreterScanCamera(stream);
-            const { produits } = await rechercherFn({ data: { boutique_id: boutique.id, qr_code_data: codes[0].rawValue } });
-            if (produits.length === 0) toast.error("Produit introuvable pour ce QR.");
-            else ajouterAuPanier(produits[0]);
+            const { produits: trouves } = await rechercherFn({
+              data: { boutique_id: boutique.id, qr_code_data: codes[0].rawValue },
+            });
+            if (trouves.length === 0) toast.error("Produit introuvable pour ce QR.");
+            else ajouterAuPanier(trouves[0]);
             return;
           }
-        } catch { /* frame illisible, on continue */ }
+        } catch {
+          /* frame illisible, on continue */
+        }
         requestAnimationFrame(boucle);
       };
       requestAnimationFrame(boucle);
@@ -116,7 +173,9 @@ function PosPage() {
 
   function arreterScanCamera(stream?: MediaStream) {
     setCamActive(false);
-    (stream ?? (videoRef.current?.srcObject as MediaStream | null))?.getTracks().forEach((t) => t.stop());
+    (stream ?? (videoRef.current?.srcObject as MediaStream | null))
+      ?.getTracks()
+      .forEach((t) => t.stop());
     if (videoRef.current) videoRef.current.srcObject = null;
   }
 
@@ -131,7 +190,11 @@ function PosPage() {
       boutique: { nom: boutique.nom, adresse: boutique.adresse, telephone: boutique.telephone },
       numero,
       date: new Date(),
-      lignes: lignes.map((l) => ({ nom: l.nom, quantite: l.quantite, prix_unitaire_usd: l.prix_usd })),
+      lignes: lignes.map((l) => ({
+        nom: l.nom,
+        quantite: l.quantite,
+        prix_unitaire_usd: l.prix_usd,
+      })),
       sous_total_usd: st,
       remise_usd: Math.max(0, Math.round((st - totalUsd) * 100) / 100),
       total_usd: totalUsd,
@@ -141,7 +204,10 @@ function PosPage() {
   }
 
   async function encaisser() {
-    if (cart.length === 0) { toast.error("Le panier est vide."); return; }
+    if (cart.length === 0) {
+      toast.error("Le panier est vide.");
+      return;
+    }
     setEnCours(true);
     const horsLigneId = crypto.randomUUID();
     const payload = {
@@ -161,7 +227,12 @@ function PosPage() {
         boutique_id: boutique.id,
         mode_paiement: modePaiement,
         code_promo: codePromo.trim() || null,
-        lignes: cart.map((l) => ({ produit_id: l.produit_id, nom: l.nom, quantite: l.quantite, prix_unitaire_usd: l.prix_usd })),
+        lignes: cart.map((l) => ({
+          produit_id: l.produit_id,
+          nom: l.nom,
+          quantite: l.quantite,
+          prix_unitaire_usd: l.prix_usd,
+        })),
       });
       toast.success("Hors ligne : vente enregistrée localement, sera envoyée à la reconnexion.");
       // Reçu sans numéro (attribué à la synchro) ni remise promo (validée serveur).
@@ -178,6 +249,7 @@ function PosPage() {
       imprimerRecuVente(lignesVendues, vente.numero, Number(vente.total_usd));
       setCart([]);
       setCodePromo("");
+      qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
     } catch (err) {
       // Échec réseau en cours de route (pas juste "hors ligne" détecté à
       // l'avance) : on ne perd pas la vente, on la met en file elle aussi.
@@ -187,9 +259,16 @@ function PosPage() {
         boutique_id: boutique.id,
         mode_paiement: modePaiement,
         code_promo: codePromo.trim() || null,
-        lignes: cart.map((l) => ({ produit_id: l.produit_id, nom: l.nom, quantite: l.quantite, prix_unitaire_usd: l.prix_usd })),
+        lignes: cart.map((l) => ({
+          produit_id: l.produit_id,
+          nom: l.nom,
+          quantite: l.quantite,
+          prix_unitaire_usd: l.prix_usd,
+        })),
       });
-      toast.error(`Échec d'envoi (${(err as Error).message}) — vente mise en attente, sera réessayée.`);
+      toast.error(
+        `Échec d'envoi (${(err as Error).message}) — vente mise en attente, sera réessayée.`,
+      );
       imprimerRecuVente(lignesVendues, null, sousTotal);
       setCart([]);
       setCodePromo("");
@@ -199,17 +278,26 @@ function PosPage() {
   }
 
   return (
-    <div className="container mx-auto grid gap-6 px-4 py-8 md:grid-cols-[1fr_360px]">
+    <div className="container mx-auto grid gap-6 px-4 py-8 lg:grid-cols-[1fr_360px]">
       <div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold">Caisse — {boutique.nom}</h1>
           <ConfigImpressionDialog
-            boutique={{ nom: boutique.nom, adresse: boutique.adresse, telephone: boutique.telephone, devise: boutique.devise }}
+            boutique={{
+              nom: boutique.nom,
+              adresse: boutique.adresse,
+              telephone: boutique.telephone,
+              devise: boutique.devise,
+            }}
           />
         </div>
 
-        <div className="mt-4"><PosOfflineBanner /></div>
+        <div className="mt-4">
+          <PosOfflineBanner />
+        </div>
 
+        {/* Scan douchette / caméra — reste le chemin le plus rapide pour un
+            article déjà étiqueté QR. */}
         <div className="mt-4 flex flex-wrap gap-2">
           <form onSubmit={onScanSubmit} className="flex flex-1 gap-2">
             <Input
@@ -219,9 +307,15 @@ function PosPage() {
               placeholder="Scanner le QR (douchette) ou coller le code..."
               className="flex-1"
             />
-            <Button type="submit" variant="outline"><ScanLine className="h-4 w-4" /></Button>
+            <Button type="submit" variant="outline">
+              <ScanLine className="h-4 w-4" />
+            </Button>
           </form>
-          <Button type="button" variant="outline" onClick={() => (camActive ? arreterScanCamera() : demarrerScanCamera())}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => (camActive ? arreterScanCamera() : demarrerScanCamera())}
+          >
             <Camera className="h-4 w-4" />
           </Button>
         </div>
@@ -232,58 +326,193 @@ function PosPage() {
           </div>
         )}
 
-        <div className="mt-4">
-          <Label>Recherche manuelle</Label>
-          <Input value={recherche} onChange={(e) => rechercher(e.target.value)} placeholder="Nom du produit..." />
-          {resultats.length > 0 && (
-            <div className="mt-2 divide-y rounded-lg border">
-              {resultats.map((p) => (
+        {/* Grille produits façon Odoo POS : on tape directement sur l'article
+            au lieu de taper une recherche à chaque vente. */}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filtre}
+              onChange={(e) => setFiltre(e.target.value)}
+              placeholder="Filtrer par nom, taille, couleur..."
+              className="pl-9"
+            />
+            {filtre && (
+              <button
+                type="button"
+                onClick={() => setFiltre("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex gap-1.5">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCategorie(c.id)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  categorie === c.id
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="aspect-square animate-pulse rounded-xl bg-muted" />
+            ))}
+          </div>
+        ) : produitsFiltres.length === 0 ? (
+          <p className="mt-6 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+            Aucun produit ne correspond.
+          </p>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {produitsFiltres.map((p) => {
+              const enRupture = p.quantite <= 0;
+              const Icone = p.categorie === "vetement" ? Shirt : ShoppingBag;
+              return (
                 <button
                   key={p.id}
-                  className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
-                  onClick={() => { ajouterAuPanier(p); setRecherche(""); setResultats([]); }}
+                  type="button"
+                  disabled={enRupture}
+                  onClick={() => ajouterAuPanier(p)}
+                  className={`group flex flex-col overflow-hidden rounded-xl border bg-card text-left transition ${
+                    enRupture
+                      ? "cursor-not-allowed opacity-50"
+                      : "hover:border-primary/50 hover:shadow-md active:scale-[0.98]"
+                  }`}
                 >
-                  <span>{p.nom}</span>
-                  <span className="text-muted-foreground">{p.prix_usd} $ · stock {p.quantite}</span>
+                  <div className="relative aspect-square w-full bg-muted">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.nom} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center bg-muted">
+                        <Icone className="h-8 w-8 text-muted-foreground/60" />
+                      </div>
+                    )}
+                    {enRupture && (
+                      <span className="absolute inset-x-0 top-0 bg-destructive/90 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-white">
+                        Rupture
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-0.5 p-2">
+                    <p className="line-clamp-2 text-xs font-medium leading-tight">{p.nom}</p>
+                    {(p.taille || p.couleur) && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {[p.taille, p.couleur].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                    <div className="mt-auto flex items-center justify-between pt-1">
+                      <span className="text-sm font-bold">{p.prix_usd} $</span>
+                      {!enRupture && p.quantite <= 3 && (
+                        <span className="text-[10px] font-semibold text-amber-600">
+                          {p.quantite} rest.
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="h-fit rounded-xl border p-4 lg:sticky lg:top-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Panier</h2>
+          {cart.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCart([])}
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Vider
+            </button>
           )}
         </div>
 
-        <div className="mt-6 divide-y rounded-xl border">
+        <div className="mt-2 max-h-[40vh] divide-y overflow-y-auto rounded-lg border">
           {cart.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">Panier vide — scanne ou recherche un produit.</p>
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              Panier vide — tape un article dans la grille ou scanne un QR.
+            </p>
           ) : (
             cart.map((l) => (
-              <div key={l.produit_id} className="flex items-center gap-3 p-3">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{l.nom}</p>
+              <div key={l.produit_id} className="flex items-center gap-2 p-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{l.nom}</p>
                   <p className="text-xs text-muted-foreground">{l.prix_usd} $ / unité</p>
                 </div>
-                <Button size="icon" variant="outline" onClick={() =>
-                  setCart((prev) => prev.map((x) => x.produit_id === l.produit_id ? { ...x, quantite: Math.max(1, x.quantite - 1) } : x))
-                }><Minus className="h-3 w-3" /></Button>
-                <span className="w-6 text-center text-sm">{l.quantite}</span>
-                <Button size="icon" variant="outline" onClick={() =>
-                  setCart((prev) => prev.map((x) => x.produit_id === l.produit_id ? { ...x, quantite: x.quantite + 1 } : x))
-                }><Plus className="h-3 w-3" /></Button>
-                <span className="w-16 text-right text-sm font-medium">{(l.prix_usd * l.quantite).toFixed(2)} $</span>
-                <Button size="icon" variant="ghost" onClick={() => setCart((prev) => prev.filter((x) => x.produit_id !== l.produit_id))}>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() =>
+                    setCart((prev) =>
+                      prev.map((x) =>
+                        x.produit_id === l.produit_id
+                          ? { ...x, quantite: Math.max(1, x.quantite - 1) }
+                          : x,
+                      ),
+                    )
+                  }
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-5 shrink-0 text-center text-sm">{l.quantite}</span>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() =>
+                    setCart((prev) =>
+                      prev.map((x) =>
+                        x.produit_id === l.produit_id ? { ...x, quantite: x.quantite + 1 } : x,
+                      ),
+                    )
+                  }
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+                <span className="w-14 shrink-0 text-right text-sm font-medium">
+                  {(l.prix_usd * l.quantite).toFixed(2)} $
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() =>
+                    setCart((prev) => prev.filter((x) => x.produit_id !== l.produit_id))
+                  }
+                >
                   <Trash2 className="h-3 w-3 text-destructive" />
                 </Button>
               </div>
             ))
           )}
         </div>
-      </div>
 
-      <div className="h-fit rounded-xl border p-4">
-        <h2 className="font-semibold">Paiement</h2>
-        <div className="mt-3">
+        <div className="mt-4">
           <Label>Mode de paiement</Label>
-          <Select value={modePaiement} onValueChange={(v) => setModePaiement(v as typeof modePaiement)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select
+            value={modePaiement}
+            onValueChange={(v) => setModePaiement(v as typeof modePaiement)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="cash">Cash</SelectItem>
               <SelectItem value="mobile_money">Mobile Money</SelectItem>
@@ -293,14 +522,25 @@ function PosPage() {
         </div>
         <div className="mt-3">
           <Label>Code promo</Label>
-          <Input value={codePromo} onChange={(e) => setCodePromo(e.target.value)} placeholder="Optionnel" />
+          <Input
+            value={codePromo}
+            onChange={(e) => setCodePromo(e.target.value)}
+            placeholder="Optionnel"
+          />
         </div>
         <div className="mt-4 flex items-center justify-between text-lg font-bold">
           <span>Sous-total</span>
           <span>{sousTotal.toFixed(2)} $</span>
         </div>
-        <p className="text-xs text-muted-foreground">La remise du code promo est calculée à l'encaissement.</p>
-        <Button className="mt-4 w-full" size="lg" disabled={enCours || cart.length === 0} onClick={encaisser}>
+        <p className="text-xs text-muted-foreground">
+          La remise du code promo est calculée à l'encaissement.
+        </p>
+        <Button
+          className="mt-4 w-full"
+          size="lg"
+          disabled={enCours || cart.length === 0}
+          onClick={encaisser}
+        >
           {enCours ? "Encaissement..." : "Encaisser"}
         </Button>
       </div>
