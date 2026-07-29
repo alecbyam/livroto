@@ -16,6 +16,7 @@ import {
   Settings,
   Store,
   LogOut,
+  Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,7 @@ const SECTIONS = [
   { to: "/boutique/admin/factures", label: "Factures", icon: Receipt },
   { to: "/boutique/admin/promo", label: "Promotions", icon: Tag },
   { to: "/boutique/admin/rapports", label: "Rapports", icon: BarChart3 },
+  { to: "/boutique/admin/equipe", label: "Équipe", icon: Users },
   { to: "/boutique/admin/parametres", label: "Paramètres", icon: Settings },
 ] as const;
 
