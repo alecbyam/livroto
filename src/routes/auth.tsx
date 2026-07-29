@@ -140,6 +140,20 @@ async function postLoginRedirect(navigate: ReturnType<typeof useNavigate>) {
     navigate({ to: "/dashboard", search: { tab: "vendor" } as any });
     return;
   }
+  // Staff d'une boutique marque blanche (ex. Hugo Collection) sans rôle
+  // Livroto par ailleurs : sa gestion est à part entière, on ne le fait
+  // jamais atterrir sur le marketplace Livroto (catalogue, dashboard...).
+  const { data: boutiqueStaff } = await supabase
+    .from("boutique_users")
+    .select("boutiques(slug)")
+    .eq("user_id", u.user.id)
+    .limit(1)
+    .maybeSingle();
+  const slug = (boutiqueStaff as any)?.boutiques?.slug;
+  if (slug) {
+    navigate({ to: "/boutique/admin/produits", search: { boutique: slug } as any });
+    return;
+  }
   navigate({ to: "/catalog" });
 }
 
