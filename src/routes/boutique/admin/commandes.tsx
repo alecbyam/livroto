@@ -5,11 +5,25 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
-import { boutiqueListerCommandesEcommerce, boutiqueChangerStatutCommande } from "@/lib/boutiques/ecommerce.functions";
-import { boutiqueObtenirOuCreerLivraison, boutiqueMettreAJourLivraison, boutiqueListerLivreursDisponibles } from "@/lib/boutiques/livraisons.functions";
+import {
+  boutiqueListerCommandesEcommerce,
+  boutiqueChangerStatutCommande,
+} from "@/lib/boutiques/ecommerce.functions";
+import {
+  boutiqueObtenirOuCreerLivraison,
+  boutiqueMettreAJourLivraison,
+  boutiqueListerLivreursDisponibles,
+} from "@/lib/boutiques/livraisons.functions";
+import { echapperHtml } from "@/lib/boutiques/html-escape";
 
 export const Route = createFileRoute("/boutique/admin/commandes")({
   component: CommandesAdminPage,
@@ -17,13 +31,28 @@ export const Route = createFileRoute("/boutique/admin/commandes")({
 
 const STATUTS = ["en_attente", "confirmee", "expediee", "livree", "annulee"] as const;
 const STATUT_LABEL: Record<string, string> = {
-  en_attente: "En attente", confirmee: "Confirmée", expediee: "Expédiée", livree: "Livrée", annulee: "Annulée",
+  en_attente: "En attente",
+  confirmee: "Confirmée",
+  expediee: "Expédiée",
+  livree: "Livrée",
+  annulee: "Annulée",
 };
 
-const STATUT_LIVRAISON = ["en_attente", "prise_en_charge", "en_transit", "livree", "echec", "retournee"] as const;
+const STATUT_LIVRAISON = [
+  "en_attente",
+  "prise_en_charge",
+  "en_transit",
+  "livree",
+  "echec",
+  "retournee",
+] as const;
 const STATUT_LIVRAISON_LABEL: Record<string, string> = {
-  en_attente: "En attente", prise_en_charge: "Prise en charge", en_transit: "En transit",
-  livree: "Livrée", echec: "Échec", retournee: "Retournée",
+  en_attente: "En attente",
+  prise_en_charge: "Prise en charge",
+  en_transit: "En transit",
+  livree: "Livrée",
+  echec: "Échec",
+  retournee: "Retournée",
 };
 
 // Pas de transporteur externe : soit JuntoX livre via le réseau de livreurs
@@ -45,7 +74,10 @@ function LivraisonInline({ boutiqueId, commandeId }: { boutiqueId: string; comma
   const majFn = useServerFn(boutiqueMettreAJourLivraison);
   const maj = useMutation({
     mutationFn: majFn,
-    onSuccess: () => { toast.success("Livraison mise à jour."); qc.invalidateQueries({ queryKey: ["boutique-livraison", commandeId] }); },
+    onSuccess: () => {
+      toast.success("Livraison mise à jour.");
+      qc.invalidateQueries({ queryKey: ["boutique-livraison", commandeId] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -55,9 +87,20 @@ function LivraisonInline({ boutiqueId, commandeId }: { boutiqueId: string; comma
     <div className="flex items-center gap-2">
       <Select
         value={l.mode_livraison}
-        onValueChange={(v) => maj.mutate({ data: { boutique_id: boutiqueId, livraison_id: l.id, statut_livraison: l.statut_livraison, mode_livraison: v as "juntox_livroto" | "boutique" } })}
+        onValueChange={(v) =>
+          maj.mutate({
+            data: {
+              boutique_id: boutiqueId,
+              livraison_id: l.id,
+              statut_livraison: l.statut_livraison,
+              mode_livraison: v as "juntox_livroto" | "boutique",
+            },
+          })
+        }
       >
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-36">
+          <SelectValue />
+        </SelectTrigger>
         <SelectContent>
           <SelectItem value="boutique">Livré par la boutique</SelectItem>
           <SelectItem value="juntox_livroto">Livré par JuntoX (Livroto)</SelectItem>
@@ -67,12 +110,25 @@ function LivraisonInline({ boutiqueId, commandeId }: { boutiqueId: string; comma
       {l.mode_livraison === "juntox_livroto" && (
         <Select
           value={l.rider_id ?? ""}
-          onValueChange={(v) => maj.mutate({ data: { boutique_id: boutiqueId, livraison_id: l.id, statut_livraison: l.statut_livraison, rider_id: v } })}
+          onValueChange={(v) =>
+            maj.mutate({
+              data: {
+                boutique_id: boutiqueId,
+                livraison_id: l.id,
+                statut_livraison: l.statut_livraison,
+                rider_id: v,
+              },
+            })
+          }
         >
-          <SelectTrigger className="w-40"><SelectValue placeholder="Assigner un livreur" /></SelectTrigger>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Assigner un livreur" />
+          </SelectTrigger>
           <SelectContent>
             {(livreursData?.livreurs ?? []).map((r: any) => (
-              <SelectItem key={r.id} value={r.id}>{r.full_name}</SelectItem>
+              <SelectItem key={r.id} value={r.id}>
+                {r.full_name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -80,11 +136,25 @@ function LivraisonInline({ boutiqueId, commandeId }: { boutiqueId: string; comma
 
       <Select
         value={l.statut_livraison}
-        onValueChange={(v) => maj.mutate({ data: { boutique_id: boutiqueId, livraison_id: l.id, statut_livraison: v as typeof STATUT_LIVRAISON[number] } })}
+        onValueChange={(v) =>
+          maj.mutate({
+            data: {
+              boutique_id: boutiqueId,
+              livraison_id: l.id,
+              statut_livraison: v as (typeof STATUT_LIVRAISON)[number],
+            },
+          })
+        }
       >
-        <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-44">
+          <SelectValue />
+        </SelectTrigger>
         <SelectContent>
-          {STATUT_LIVRAISON.map((s) => <SelectItem key={s} value={s}>Livraison : {STATUT_LIVRAISON_LABEL[s]}</SelectItem>)}
+          {STATUT_LIVRAISON.map((s) => (
+            <SelectItem key={s} value={s}>
+              Livraison : {STATUT_LIVRAISON_LABEL[s]}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
@@ -104,26 +174,34 @@ function CommandesAdminPage() {
   const changerStatutFn = useServerFn(boutiqueChangerStatutCommande);
   const changerStatut = useMutation({
     mutationFn: changerStatutFn,
-    onSuccess: () => { toast.success("Statut mis à jour."); qc.invalidateQueries({ queryKey: ["boutique-admin-commandes", boutique.id] }); },
+    onSuccess: () => {
+      toast.success("Statut mis à jour.");
+      qc.invalidateQueries({ queryKey: ["boutique-admin-commandes", boutique.id] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   function imprimerBonLivraison(commande: any) {
     const w = window.open("", "_blank");
     if (!w) return;
+    // Toutes les valeurs ci-dessous (nom/téléphone/adresse client, mode de
+    // paiement) viennent d'un checkout INVITÉ (aucun compte, texte libre côté
+    // client) — échappées avant interpolation pour ne pas exécuter du HTML/JS
+    // injecté dans la session du staff au moment de l'impression.
+    const e = echapperHtml;
     w.document.write(`
-      <html><head><title>Bon de livraison ${commande.numero}</title>
+      <html><head><title>Bon de livraison ${e(commande.numero)}</title>
       <style>body{font-family:sans-serif;padding:24px} table{width:100%;border-collapse:collapse} td,th{border:1px solid #ccc;padding:6px;text-align:left}</style>
       </head><body>
-      <h1>Bon de livraison — ${boutique.nom}</h1>
-      <p><b>Commande :</b> ${commande.numero}</p>
-      <p><b>Client :</b> ${commande.clients_boutique?.nom ?? ""} — ${commande.clients_boutique?.telephone ?? ""}</p>
-      <p><b>Adresse :</b> ${commande.adresse_livraison}</p>
-      <p><b>Paiement :</b> ${commande.mode_paiement}</p>
+      <h1>Bon de livraison — ${e(boutique.nom)}</h1>
+      <p><b>Commande :</b> ${e(commande.numero)}</p>
+      <p><b>Client :</b> ${e(commande.clients_boutique?.nom ?? "")} — ${e(commande.clients_boutique?.telephone ?? "")}</p>
+      <p><b>Adresse :</b> ${e(commande.adresse_livraison)}</p>
+      <p><b>Paiement :</b> ${e(commande.mode_paiement)}</p>
       <table><thead><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr></thead><tbody>
-      ${(commande.lignes ?? []).map((l: any) => `<tr><td>${l.produits?.nom ?? ""}</td><td>${l.quantite}</td><td>${l.prix_unitaire_usd} $</td><td>${l.total_ligne_usd} $</td></tr>`).join("")}
+      ${(commande.lignes ?? []).map((l: any) => `<tr><td>${e(l.produits?.nom ?? "")}</td><td>${e(l.quantite)}</td><td>${e(l.prix_unitaire_usd)} $</td><td>${e(l.total_ligne_usd)} $</td></tr>`).join("")}
       </tbody></table>
-      <p style="text-align:right;font-weight:bold;margin-top:12px">Total : ${commande.total_usd} $</p>
+      <p style="text-align:right;font-weight:bold;margin-top:12px">Total : ${e(commande.total_usd)} $</p>
       <script>window.onload = () => window.print();</script>
       </body></html>
     `);
@@ -142,31 +220,63 @@ function CommandesAdminPage() {
             <div key={c.id} className="rounded-xl border p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold">{c.numero} — {c.clients_boutique?.nom} ({c.clients_boutique?.telephone})</p>
-                  <p className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString("fr-FR")} — {c.adresse_livraison}</p>
+                  <p className="font-semibold">
+                    {c.numero} — {c.clients_boutique?.nom} ({c.clients_boutique?.telephone})
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(c.created_at).toLocaleString("fr-FR")} — {c.adresse_livraison}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{c.total_usd} $ · {c.mode_paiement}</Badge>
-                  <Select value={c.statut} onValueChange={(v) => changerStatut.mutate({ data: { boutique_id: boutique.id, commande_id: c.id, statut: v as typeof STATUTS[number] } })}>
-                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                  <Badge variant="outline">
+                    {c.total_usd} $ · {c.mode_paiement}
+                  </Badge>
+                  <Select
+                    value={c.statut}
+                    onValueChange={(v) =>
+                      changerStatut.mutate({
+                        data: {
+                          boutique_id: boutique.id,
+                          commande_id: c.id,
+                          statut: v as (typeof STATUTS)[number],
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {STATUTS.map((s) => <SelectItem key={s} value={s}>{STATUT_LABEL[s]}</SelectItem>)}
+                      {STATUTS.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {STATUT_LABEL[s]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  <Button size="sm" variant="outline" onClick={() => imprimerBonLivraison(c)}>Bon de livraison</Button>
-                  {(c.statut === "confirmee" || c.statut === "expediee" || c.statut === "livree") && (
+                  <Button size="sm" variant="outline" onClick={() => imprimerBonLivraison(c)}>
+                    Bon de livraison
+                  </Button>
+                  {(c.statut === "confirmee" ||
+                    c.statut === "expediee" ||
+                    c.statut === "livree") && (
                     <LivraisonInline boutiqueId={boutique.id} commandeId={c.id} />
                   )}
                 </div>
               </div>
               <div className="mt-2 text-sm text-muted-foreground">
                 {(c.lignes ?? []).map((l: any, i: number) => (
-                  <span key={i}>{l.produits?.nom} x{l.quantite}{i < c.lignes.length - 1 ? ", " : ""}</span>
+                  <span key={i}>
+                    {l.produits?.nom} x{l.quantite}
+                    {i < c.lignes.length - 1 ? ", " : ""}
+                  </span>
                 ))}
               </div>
             </div>
           ))}
-          {(data?.rows ?? []).length === 0 && <p className="text-sm text-muted-foreground">Aucune commande.</p>}
+          {(data?.rows ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Aucune commande.</p>
+          )}
         </div>
       )}
     </div>

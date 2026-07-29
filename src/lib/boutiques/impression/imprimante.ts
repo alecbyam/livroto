@@ -21,6 +21,7 @@
 //                  couvre le format A4. C'est aussi le fallback universel.
 // ============================================================================
 import { construireRecu, type DonneesRecu, type LargeurPapier } from "./escpos";
+import { echapperHtml } from "@/lib/boutiques/html-escape";
 
 export type ConfigImpression = {
   type: "escpos" | "navigateur";
@@ -30,7 +31,11 @@ export type ConfigImpression = {
 
 const KEY = "livroto.boutique.impression.config";
 
-export const CONFIG_DEFAUT: ConfigImpression = { type: "navigateur", connexion: "bluetooth", largeur: 58 };
+export const CONFIG_DEFAUT: ConfigImpression = {
+  type: "navigateur",
+  connexion: "bluetooth",
+  largeur: 58,
+};
 
 export function chargerConfigImpression(): ConfigImpression {
   if (typeof window === "undefined") return CONFIG_DEFAUT;
@@ -44,7 +49,9 @@ export function chargerConfigImpression(): ConfigImpression {
 
 export function enregistrerConfigImpression(config: ConfigImpression): void {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(config)); } catch {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify(config));
+  } catch {}
 }
 
 // ---------------------------------------------------------------------------
@@ -69,11 +76,16 @@ async function envoyerViaUsb(octets: Uint8Array): Promise<void> {
   for (const iface of peripherique.configuration.interfaces) {
     for (const alt of iface.alternates) {
       const ep = alt.endpoints.find((e: any) => e.direction === "out");
-      if (ep) { numInterface = iface.interfaceNumber; numEndpoint = ep.endpointNumber; break; }
+      if (ep) {
+        numInterface = iface.interfaceNumber;
+        numEndpoint = ep.endpointNumber;
+        break;
+      }
     }
     if (numInterface >= 0) break;
   }
-  if (numInterface < 0) throw new Error("Aucune sortie d'impression trouvée sur ce périphérique USB.");
+  if (numInterface < 0)
+    throw new Error("Aucune sortie d'impression trouvée sur ce périphérique USB.");
 
   await peripherique.claimInterface(numInterface);
   try {
@@ -98,7 +110,10 @@ const SERVICES_IMPRIMANTE = [
 
 async function envoyerViaBluetooth(octets: Uint8Array): Promise<void> {
   const bluetooth = (navigator as any).bluetooth;
-  if (!bluetooth) throw new Error("Web Bluetooth non supporté par ce navigateur (utilise Chrome ou Edge, ou Android).");
+  if (!bluetooth)
+    throw new Error(
+      "Web Bluetooth non supporté par ce navigateur (utilise Chrome ou Edge, ou Android).",
+    );
 
   const peripherique = await bluetooth.requestDevice({
     acceptAllDevices: true,
@@ -111,9 +126,13 @@ async function envoyerViaBluetooth(octets: Uint8Array): Promise<void> {
     try {
       const service = await serveur.getPrimaryService(uuidService);
       const caracteristiques = await service.getCharacteristics();
-      caracteristique = caracteristiques.find((c: any) => c.properties.write || c.properties.writeWithoutResponse);
+      caracteristique = caracteristiques.find(
+        (c: any) => c.properties.write || c.properties.writeWithoutResponse,
+      );
       if (caracteristique) break;
-    } catch { /* service absent sur ce modèle, on essaie le suivant */ }
+    } catch {
+      /* service absent sur ce modèle, on essaie le suivant */
+    }
   }
   if (!caracteristique) {
     serveur.disconnect();
@@ -145,10 +164,14 @@ function imprimerViaNavigateur(donnees: DonneesRecu, largeur: LargeurPapier | "A
   if (!w) throw new Error("Fenêtre d'impression bloquée par le navigateur.");
   const largeurCss = largeur === "A4" ? "210mm" : `${largeur}mm`;
   const paiement: Record<string, string> = {
-    cash: "Cash", mobile_money: "Mobile Money", carte: "Carte", paiement_livraison: "À la livraison",
+    cash: "Cash",
+    mobile_money: "Mobile Money",
+    carte: "Carte",
+    paiement_livraison: "À la livraison",
   };
+  const e = echapperHtml;
   w.document.write(`
-    <html><head><title>Reçu ${donnees.numero ?? ""}</title>
+    <html><head><title>Reçu ${e(donnees.numero ?? "")}</title>
     <style>
       @page { size: ${largeur === "A4" ? "A4" : `${largeurCss} auto`}; margin: ${largeur === "A4" ? "20mm" : "2mm"}; }
       body { font-family: ${largeur === "A4" ? "sans-serif" : "monospace"}; width: ${largeur === "A4" ? "auto" : largeurCss}; font-size: ${largeur === "A4" ? "12pt" : "9pt"}; }
@@ -161,22 +184,22 @@ function imprimerViaNavigateur(donnees: DonneesRecu, largeur: LargeurPapier | "A
       .total { font-weight: bold; font-size: ${largeur === "A4" ? "14pt" : "10pt"}; }
     </style></head><body>
     <div class="centre">
-      <div class="titre">${donnees.boutique.nom}</div>
-      ${donnees.boutique.adresse ? `<div>${donnees.boutique.adresse}</div>` : ""}
-      ${donnees.boutique.telephone ? `<div>${donnees.boutique.telephone}</div>` : ""}
+      <div class="titre">${e(donnees.boutique.nom)}</div>
+      ${donnees.boutique.adresse ? `<div>${e(donnees.boutique.adresse)}</div>` : ""}
+      ${donnees.boutique.telephone ? `<div>${e(donnees.boutique.telephone)}</div>` : ""}
     </div>
-    <div>${donnees.numero ? `Reçu ${donnees.numero}` : "Reçu (hors ligne — à synchroniser)"}</div>
+    <div>${donnees.numero ? `Reçu ${e(donnees.numero)}` : "Reçu (hors ligne — à synchroniser)"}</div>
     <div>${donnees.date.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</div>
     <hr/>
     <table>
-      ${donnees.lignes.map((l) => `<tr><td>${l.nom}<br/>&nbsp;&nbsp;${l.quantite} × ${l.prix_unitaire_usd.toFixed(2)}</td><td>${(l.prix_unitaire_usd * l.quantite).toFixed(2)}</td></tr>`).join("")}
+      ${donnees.lignes.map((l) => `<tr><td>${e(l.nom)}<br/>&nbsp;&nbsp;${l.quantite} × ${l.prix_unitaire_usd.toFixed(2)}</td><td>${(l.prix_unitaire_usd * l.quantite).toFixed(2)}</td></tr>`).join("")}
     </table>
     <hr/>
     <table>
       <tr><td>Sous-total</td><td>${donnees.sous_total_usd.toFixed(2)} ${donnees.devise}</td></tr>
       ${donnees.remise_usd > 0 ? `<tr><td>Remise</td><td>-${donnees.remise_usd.toFixed(2)} ${donnees.devise}</td></tr>` : ""}
       <tr class="total"><td>TOTAL</td><td>${donnees.total_usd.toFixed(2)} ${donnees.devise}</td></tr>
-      <tr><td>Paiement</td><td>${paiement[donnees.mode_paiement] ?? donnees.mode_paiement}</td></tr>
+      <tr><td>Paiement</td><td>${e(paiement[donnees.mode_paiement] ?? donnees.mode_paiement)}</td></tr>
     </table>
     <p class="centre">Merci de votre visite !</p>
     <script>window.onload = () => { window.print(); }</script>

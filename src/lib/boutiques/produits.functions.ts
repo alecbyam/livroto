@@ -31,12 +31,14 @@ async function genererEtStockerQr(produitId: string, boutiqueId: string, qrCodeD
 export const boutiqueListerProduits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      boutique_id: z.string().uuid(),
-      offset: z.number().int().min(0).default(0),
-      recherche: z.string().max(120).optional(),
-      stock_bas_uniquement: z.boolean().default(false),
-    }).parse(input),
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        offset: z.number().int().min(0).default(0),
+        recherche: z.string().max(120).optional(),
+        stock_bas_uniquement: z.boolean().default(false),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id);
@@ -47,7 +49,11 @@ export const boutiqueListerProduits = createServerFn({ method: "POST" })
       .eq("actif", true);
     if (data.recherche?.trim()) q = q.ilike("nom", `%${data.recherche.trim()}%`);
     if (data.stock_bas_uniquement) q = q.eq("stock_bas", true);
-    const { data: rows, error, count } = await q
+    const {
+      data: rows,
+      error,
+      count,
+    } = await q
       .order("created_at", { ascending: false })
       .range(data.offset, data.offset + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
@@ -57,18 +63,20 @@ export const boutiqueListerProduits = createServerFn({ method: "POST" })
 export const boutiqueCreerProduit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      boutique_id: z.string().uuid(),
-      nom: z.string().min(2).max(120),
-      categorie: z.enum(["vetement", "accessoire"]).default("vetement"),
-      taille: z.string().max(30).optional(),
-      couleur: z.string().max(40).optional(),
-      prix_usd: z.number().min(0).max(100000),
-      quantite: z.number().int().min(0).max(1000000).default(0),
-      seuil_alerte: z.number().int().min(0).max(100000).default(3),
-      description: z.string().max(1000).optional(),
-      image_url: z.string().url().max(1000).optional(),
-    }).parse(input),
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        nom: z.string().min(2).max(120),
+        categorie: z.enum(["vetement", "accessoire"]).default("vetement"),
+        taille: z.string().max(30).optional(),
+        couleur: z.string().max(40).optional(),
+        prix_usd: z.number().min(0).max(100000),
+        quantite: z.number().int().min(0).max(1000000).default(0),
+        seuil_alerte: z.number().int().min(0).max(100000).default(3),
+        description: z.string().max(1000).optional(),
+        image_url: z.string().url().max(1000).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur"]);
@@ -106,7 +114,9 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
 
 export const boutiqueRegenererQr = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ boutique_id: z.string().uuid(), produit_id: z.string().uuid() }).parse(input))
+  .inputValidator((input) =>
+    z.object({ boutique_id: z.string().uuid(), produit_id: z.string().uuid() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur"]);
     const { data: produit, error } = await context.supabase
@@ -116,26 +126,32 @@ export const boutiqueRegenererQr = createServerFn({ method: "POST" })
       .eq("boutique_id", data.boutique_id)
       .single();
     if (error) throw new Error(error.message);
-    const qr_code_url = await genererEtStockerQr(produit.id, produit.boutique_id, produit.qr_code_data as string);
+    const qr_code_url = await genererEtStockerQr(
+      produit.id,
+      produit.boutique_id,
+      produit.qr_code_data as string,
+    );
     return { qr_code_url };
   });
 
 export const boutiqueModifierProduit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      boutique_id: z.string().uuid(),
-      produit_id: z.string().uuid(),
-      nom: z.string().min(2).max(120).optional(),
-      categorie: z.enum(["vetement", "accessoire"]).optional(),
-      taille: z.string().max(30).nullable().optional(),
-      couleur: z.string().max(40).nullable().optional(),
-      prix_usd: z.number().min(0).max(100000).optional(),
-      seuil_alerte: z.number().int().min(0).max(100000).optional(),
-      description: z.string().max(1000).nullable().optional(),
-      image_url: z.string().url().max(1000).nullable().optional(),
-      actif: z.boolean().optional(),
-    }).parse(input),
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        produit_id: z.string().uuid(),
+        nom: z.string().min(2).max(120).optional(),
+        categorie: z.enum(["vetement", "accessoire"]).optional(),
+        taille: z.string().max(30).nullable().optional(),
+        couleur: z.string().max(40).nullable().optional(),
+        prix_usd: z.number().min(0).max(100000).optional(),
+        seuil_alerte: z.number().int().min(0).max(100000).optional(),
+        description: z.string().max(1000).nullable().optional(),
+        image_url: z.string().url().max(1000).nullable().optional(),
+        actif: z.boolean().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur"]);
@@ -154,7 +170,9 @@ export const boutiqueModifierProduit = createServerFn({ method: "POST" })
 
 export const boutiqueSupprimerProduit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ boutique_id: z.string().uuid(), produit_id: z.string().uuid() }).parse(input))
+  .inputValidator((input) =>
+    z.object({ boutique_id: z.string().uuid(), produit_id: z.string().uuid() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin"]);
     const { error } = await context.supabase
@@ -172,23 +190,46 @@ export const boutiqueSupprimerProduit = createServerFn({ method: "POST" })
 export const boutiqueAjusterStock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      boutique_id: z.string().uuid(),
-      produit_id: z.string().uuid(),
-      type: z.enum(["entree", "sortie", "ajustement"]),
-      quantite_delta: z.number().int().refine((v) => v !== 0, "La quantité ne peut pas être 0"),
-      motif: z.string().max(300).optional(),
-    }).parse(input),
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        produit_id: z.string().uuid(),
+        type: z.enum(["entree", "sortie", "ajustement"]),
+        quantite_delta: z
+          .number()
+          .int()
+          .refine((v) => v !== 0, "La quantité ne peut pas être 0"),
+        motif: z.string().max(300).optional(),
+        // Id généré côté client (file d'attente offline) : rejouer le même
+        // ajustement après un échec réseau (accusé de réception perdu) ne doit
+        // jamais appliquer le delta une 2e fois — même principe que
+        // hors_ligne_id sur boutiqueEncaisserVente.
+        hors_ligne_id: z.string().uuid().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur"]);
-    const delta = data.type === "sortie" ? -Math.abs(data.quantite_delta) : Math.abs(data.quantite_delta);
+
+    if (data.hors_ligne_id) {
+      const { data: existant } = await context.supabase
+        .from("stock_movements")
+        .select("*")
+        .eq("boutique_id", data.boutique_id)
+        .eq("reference_type", "ajustement_manuel")
+        .eq("reference_id", data.hors_ligne_id)
+        .maybeSingle();
+      if (existant) return { mouvement: existant, deja_traite: true };
+    }
+
+    const delta =
+      data.type === "sortie" ? -Math.abs(data.quantite_delta) : Math.abs(data.quantite_delta);
     const { data: mouvement, error } = await context.supabase.rpc("fn_mouvement_stock", {
       p_produit_id: data.produit_id,
       p_type: data.type,
       p_quantite_delta: data.type === "ajustement" ? data.quantite_delta : delta,
-      p_reference_type: undefined,
-      p_reference_id: undefined,
+      p_reference_type: data.hors_ligne_id ? "ajustement_manuel" : undefined,
+      p_reference_id: data.hors_ligne_id,
       p_motif: data.motif,
     });
     if (error) throw new Error(error.message);
@@ -201,10 +242,12 @@ export const boutiqueAjusterStock = createServerFn({ method: "POST" })
 export const boutiqueProduitsPourPlancheQr = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      boutique_id: z.string().uuid(),
-      produit_ids: z.array(z.string().uuid()).min(1).max(200),
-    }).parse(input),
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        produit_ids: z.array(z.string().uuid()).min(1).max(200),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id);
