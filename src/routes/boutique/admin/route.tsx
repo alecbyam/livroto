@@ -17,18 +17,21 @@ import { BoutiqueAdminLayout } from "@/components/boutiques/BoutiqueAdminLayout"
 export const Route = createFileRoute("/boutique/admin")({
   ssr: false,
   beforeLoad: async ({ context }) => {
-    const boutique = (context as { boutique: { id: string } }).boutique;
+    const boutique = (context as { boutique: { id: string; slug: string } }).boutique;
+    // Jamais /auth (Livroto) ici : un admin de boutique doit rester dans SA
+    // gestion, même quand sa session a expiré.
+    const connexion = { to: "/boutique/connexion" as const, search: { boutique: boutique.slug } };
 
     try {
       const { data, error } = await supabase.auth.getSession();
       if (!data.session) {
         if (!(error && hasStoredSupabaseSession())) {
-          throw redirect({ to: "/auth" });
+          throw redirect(connexion);
         }
       }
     } catch (e) {
       if (e && typeof e === "object" && "isRedirect" in e) throw e;
-      if (!hasStoredSupabaseSession()) throw redirect({ to: "/auth" });
+      if (!hasStoredSupabaseSession()) throw redirect(connexion);
     }
 
     const { data: estStaff } = await supabase.rpc("is_boutique_staff", {
