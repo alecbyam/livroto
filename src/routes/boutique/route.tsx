@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
 import { resolveBoutiqueTenantFn } from "@/lib/boutiques/tenant.functions";
 import { BoutiqueProvider } from "@/lib/boutiques/BoutiqueProvider";
@@ -93,6 +94,49 @@ function BoutiqueIntrouvable() {
   );
 }
 
+// Applique la marque de la boutique (boutiques.theme = {primary, accent}) à
+// TOUT l'espace boutique — vitrine ET admin. Un seul point d'injection ici
+// (ancêtre commun de tout /boutique/*) suffit à reteinter toute l'UI — aucun
+// composant individuel n'a besoin d'être touché. Sans thème configuré
+// (`theme` vide), on ne pose aucune variable et le vert par défaut Livroto
+// s'applique tel quel.
+//
+// ⚠️ Piège CSS découvert en testant dans un vrai navigateur (pas en lisant le
+// code) : une custom property comme `--primary: var(--brand);` se RÉSOUT une
+// seule fois, à l'endroit où elle est déclarée (ici :root dans styles.css),
+// en utilisant la valeur de `--brand` DISPONIBLE À CET ENDROIT — puis c'est
+// cette valeur déjà résolue qui est héritée par les descendants. Redéfinir
+// seulement `--brand` sur un <div> plus bas dans l'arbre ne change donc RIEN
+// à `--primary`/`--secondary`/`--accent`/`--ring` (déjà figés en vert au
+// niveau de :root) : `--brand` lui-même reste bien la nouvelle couleur pour
+// qui l'utilise directement (`.bg-hero-gradient`, `.shadow-brand`, la
+// sélection de texte), mais tous les boutons `bg-primary` restaient verts.
+// Il faut donc redéfinir explicitement CHAQUE token consommé par les
+// utilitaires Tailwind (`--primary`, `--secondary`, `--accent`, `--ring`...),
+// pas seulement la source `--brand` dont ils dérivent d'habitude.
+function stylesMarqueBoutique(theme: unknown): CSSProperties | undefined {
+  if (!theme || typeof theme !== "object") return undefined;
+  const { primary, accent } = theme as { primary?: unknown; accent?: unknown };
+  if (typeof primary !== "string" && typeof accent !== "string") return undefined;
+
+  const style: Record<string, string> = {};
+  if (typeof primary === "string") {
+    const fonce = `color-mix(in oklch, ${primary}, black 35%)`;
+    const clair = `color-mix(in oklch, ${primary}, white 88%)`;
+    style["--brand"] = primary;
+    style["--brand-dark"] = fonce;
+    style["--brand-light"] = clair;
+    style["--primary"] = primary;
+    style["--ring"] = primary;
+    style["--secondary"] = clair;
+    style["--secondary-foreground"] = fonce;
+    style["--accent"] = clair;
+    style["--accent-foreground"] = fonce;
+  }
+  if (typeof accent === "string") style["--amber"] = accent;
+  return style as CSSProperties;
+}
+
 function BoutiqueLayout() {
   const { boutique } = Route.useRouteContext();
   return (
@@ -109,9 +153,11 @@ function BoutiqueLayout() {
           juste à la lecture du code : le SSR basculait silencieusement en
           rendu client seul).
       */}
-      <BoutiqueCartProvider boutiqueId={boutique.id}>
-        <Outlet />
-      </BoutiqueCartProvider>
+      <div className="contents" style={stylesMarqueBoutique(boutique.theme)}>
+        <BoutiqueCartProvider boutiqueId={boutique.id}>
+          <Outlet />
+        </BoutiqueCartProvider>
+      </div>
     </BoutiqueProvider>
   );
 }
