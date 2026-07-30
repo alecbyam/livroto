@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { BoutiqueSiteLayout } from "@/components/boutiques/BoutiqueSiteLayout";
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import { useBoutiqueCart } from "@/lib/boutiques/BoutiqueCartContext";
+import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
 
 export const Route = createFileRoute("/boutique/")({
   component: BoutiqueAccueil,
@@ -17,6 +18,10 @@ type Produit = {
   id: string;
   nom: string;
   prix_usd: number;
+  prix_promo_usd: number | null;
+  promo_actif: boolean | null;
+  promo_debut: string | null;
+  promo_fin: string | null;
   image_url: string | null;
   categorie_id: string | null;
   taille: string | null;
@@ -58,7 +63,7 @@ function BoutiqueAccueil() {
       const { data, error } = await supabase
         .from("produits")
         .select(
-          "id,nom,prix_usd,image_url,categorie_id,taille,couleur,quantite,created_at,sous_categories(nom),boutique_categories(nom,icone)",
+          "id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,image_url,categorie_id,taille,couleur,quantite,created_at,sous_categories(nom),boutique_categories(nom,icone)",
         )
         .eq("boutique_id", boutique.id)
         .eq("actif", true)
@@ -184,6 +189,7 @@ function BoutiqueAccueil() {
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {produitsFiltres.map((p) => {
               const enRupture = p.quantite <= 0;
+              const promo = getPrixEffectif(p);
               return (
                 <div
                   key={p.id}
@@ -211,11 +217,18 @@ function BoutiqueAccueil() {
                         Rupture de stock
                       </span>
                     ) : (
-                      estNouveau(p.created_at) && (
-                        <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
-                          Nouveau
-                        </span>
-                      )
+                      <>
+                        {promo.enPromo && (
+                          <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground shadow-sm">
+                            −{promo.pourcentage}%
+                          </span>
+                        )}
+                        {!promo.enPromo && estNouveau(p.created_at) && (
+                          <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
+                            Nouveau
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                   <div className="flex flex-1 flex-col gap-1 p-3">
@@ -225,8 +238,24 @@ function BoutiqueAccueil() {
                         {[p.sous_categories?.nom, p.taille, p.couleur].filter(Boolean).join(" · ")}
                       </p>
                     )}
-                    <div className="mt-auto flex items-center justify-between pt-2">
-                      <span className="font-display text-base font-bold">{p.prix_usd} $</span>
+                    <div className="mt-auto flex flex-col gap-0.5 pt-2">
+                      {promo.enPromo ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="font-display text-base font-bold text-destructive">
+                              {promo.prix} $
+                            </span>
+                            <span className="text-sm text-muted-foreground line-through">
+                              {promo.prixOriginal} $
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-medium text-destructive">
+                            Vous économisez {promo.economie.toFixed(2)} $
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-display text-base font-bold">{p.prix_usd} $</span>
+                      )}
                     </div>
                     <Button
                       size="sm"
@@ -236,7 +265,8 @@ function BoutiqueAccueil() {
                         ajouter({
                           produit_id: p.id,
                           nom: p.nom,
-                          prix_usd: p.prix_usd,
+                          prix_usd: promo.prix,
+                          prix_original_usd: promo.enPromo ? promo.prixOriginal : null,
                           image_url: p.image_url,
                         })
                       }

@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertBoutiqueStaff } from "@/lib/boutiques/auth.server";
 import { genererFacturePdf } from "@/lib/boutiques/facture-pdf.server";
+import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
 
 // Encaissement caisse (POS). Point d'entrée UNIQUE pour créer une vente, que
 // ce soit en ligne ou rejouée depuis la file d'attente offline (le
@@ -68,7 +69,7 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
     const produitIds = Array.from(new Set(data.lignes.map((l) => l.produit_id)));
     const { data: produits, error: prodErr } = await context.supabase
       .from("produits")
-      .select("id,prix_usd")
+      .select("id,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin")
       .eq("boutique_id", data.boutique_id)
       .in("id", produitIds);
     if (prodErr) throw new Error(prodErr.message);
@@ -78,12 +79,15 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
     const lignesCalc = data.lignes.map((l) => {
       const p = parId.get(l.produit_id);
       if (!p) throw new Error(`Produit introuvable dans cette boutique : ${l.produit_id}`);
-      const total_ligne_usd = Math.round(p.prix_usd * l.quantite * 100) / 100;
+      // Prix barré : le prix réellement facturé est le prix promo si la
+      // promotion est en cours — jamais un affichage sans effet sur la caisse.
+      const prixUnitaire = getPrixEffectif(p).prix;
+      const total_ligne_usd = Math.round(prixUnitaire * l.quantite * 100) / 100;
       sousTotal += total_ligne_usd;
       return {
         produit_id: l.produit_id,
         quantite: l.quantite,
-        prix_unitaire_usd: p.prix_usd,
+        prix_unitaire_usd: prixUnitaire,
         total_ligne_usd,
       };
     });
@@ -190,7 +194,7 @@ export const boutiqueListerProduitsPos = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur")
+      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
       .order("nom", { ascending: true })
@@ -218,7 +222,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
     if (data.qr_code_data) {
       const { data: produit, error } = await context.supabase
         .from("produits")
-        .select("id,nom,prix_usd,quantite,image_url")
+        .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,quantite,image_url")
         .eq("boutique_id", data.boutique_id)
         .eq("qr_code_data", data.qr_code_data)
         .eq("actif", true)
@@ -228,7 +232,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
     }
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,quantite,image_url")
+      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,quantite,image_url")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
       .ilike("nom", `%${data.recherche?.trim() ?? ""}%`)

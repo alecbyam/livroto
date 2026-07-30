@@ -85,7 +85,16 @@ function PanierPage() {
                 <div key={a.produit_id} className="flex items-center gap-3 p-3">
                   <div className="flex-1">
                     <p className="text-sm font-medium">{a.nom}</p>
-                    <p className="text-xs text-muted-foreground">{a.prix_usd} $</p>
+                    <p className="text-xs text-muted-foreground">
+                      {a.prix_original_usd ? (
+                        <>
+                          <span className="text-destructive">{a.prix_usd} $</span>{" "}
+                          <span className="line-through">{a.prix_original_usd} $</span>
+                        </>
+                      ) : (
+                        `${a.prix_usd} $`
+                      )}
+                    </p>
                   </div>
                   <Button size="icon" variant="outline" onClick={() => changerQuantite(a.produit_id, a.quantite - 1)}><Minus className="h-3 w-3" /></Button>
                   <span className="w-6 text-center text-sm">{a.quantite}</span>

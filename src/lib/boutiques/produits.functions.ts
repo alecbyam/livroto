@@ -77,6 +77,12 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         // produits déjà créés n'en ont pas, et un vendeur peut ne pas
         // connaître le coût exact au moment de la saisie.
         prix_achat_usd: z.number().min(0).max(100000).optional(),
+        // Prix barré (promotion) — optionnel, jamais actif par défaut : une
+        // promotion doit être un choix explicite, pas un état accidentel.
+        prix_promo_usd: z.number().min(0).max(100000).optional(),
+        promo_debut: z.string().datetime().optional(),
+        promo_fin: z.string().datetime().optional(),
+        promo_actif: z.boolean().default(false),
         quantite: z.number().int().min(0).max(1000000).default(0),
         seuil_alerte: z.number().int().min(0).max(100000).default(3),
         description: z.string().max(1000).optional(),
@@ -102,6 +108,10 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         couleur: rest.couleur ?? null,
         prix_usd: rest.prix_usd,
         prix_achat_usd: rest.prix_achat_usd ?? null,
+        prix_promo_usd: rest.prix_promo_usd ?? null,
+        promo_debut: rest.promo_debut ?? null,
+        promo_fin: rest.promo_fin ?? null,
+        promo_actif: rest.promo_actif,
         quantite: rest.quantite,
         seuil_alerte: rest.seuil_alerte,
         description: rest.description ?? null,
@@ -160,6 +170,10 @@ export const boutiqueModifierProduit = createServerFn({ method: "POST" })
         couleur: z.string().max(40).nullable().optional(),
         prix_usd: z.number().min(0).max(100000).optional(),
         prix_achat_usd: z.number().min(0).max(100000).nullable().optional(),
+        prix_promo_usd: z.number().min(0).max(100000).nullable().optional(),
+        promo_debut: z.string().datetime().nullable().optional(),
+        promo_fin: z.string().datetime().nullable().optional(),
+        promo_actif: z.boolean().optional(),
         seuil_alerte: z.number().int().min(0).max(100000).optional(),
         description: z.string().max(1000).nullable().optional(),
         images: z.array(z.string().url().max(1000)).max(8).optional(),

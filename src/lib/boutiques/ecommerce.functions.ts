@@ -7,6 +7,7 @@ import {
   notifierConfirmationCommande,
   notifierChangementStatut,
 } from "@/lib/boutiques/whatsapp.server";
+import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
 
 // ============================================================================
 // Checkout invité : PAS de middleware requireSupabaseAuth — un visiteur sans
@@ -90,7 +91,7 @@ export const boutiqueCreerCommande = createServerFn({ method: "POST" })
     const produitIds = Array.from(new Set(data.lignes.map((l) => l.produit_id)));
     const { data: produits, error: prodErr } = await admin
       .from("produits")
-      .select("id,nom,prix_usd,actif,quantite")
+      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,actif,quantite")
       .eq("boutique_id", data.boutique_id)
       .in("id", produitIds);
     if (prodErr) throw new Error(prodErr.message);
@@ -111,12 +112,15 @@ export const boutiqueCreerCommande = createServerFn({ method: "POST" })
       if (p.quantite < l.quantite) {
         throw new Error(`Stock insuffisant pour "${p.nom}" (${p.quantite} disponible(s)).`);
       }
-      const total_ligne_usd = Math.round(p.prix_usd * l.quantite * 100) / 100;
+      // Prix barré : le prix réellement facturé est le prix promo si la
+      // promotion est en cours — jamais un affichage sans effet sur la commande.
+      const prixUnitaire = getPrixEffectif(p).prix;
+      const total_ligne_usd = Math.round(prixUnitaire * l.quantite * 100) / 100;
       sousTotal += total_ligne_usd;
       return {
         produit_id: l.produit_id,
         quantite: l.quantite,
-        prix_unitaire_usd: p.prix_usd,
+        prix_unitaire_usd: prixUnitaire,
         total_ligne_usd,
       };
     });

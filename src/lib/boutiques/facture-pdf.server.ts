@@ -8,9 +8,11 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 function renderPdf(params: {
   boutique: { nom: string; adresse: string | null; telephone: string | null; email: string | null; rccm: string | null; id_national: string | null; devise: string };
+  logo: Buffer | null;
   facture: { numero: string | null; created_at: string };
   vente: { numero: string | null; canal: string; mode_paiement: string; sous_total_usd: number; remise_usd: number; total_usd: number; created_at: string };
   client: { nom: string; telephone: string } | null;
+  credit: { montant_paye_usd: number; date_echeance: string; statut: string } | null;
   lignes: Array<{ nom: string; quantite: number; prix_unitaire_usd: number; total_ligne_usd: number }>;
 }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -20,30 +22,59 @@ function renderPdf(params: {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    const { boutique, facture, vente, client, lignes } = params;
+    const { boutique, logo, facture, vente, client, credit, lignes } = params;
 
-    doc.fontSize(18).text(boutique.nom, { continued: false });
+    // En-tête : logo à gauche (best-effort — un logo illisible/absent ne doit
+    // jamais empêcher la génération de la facture) + identité légale à droite
+    // du logo, sur la même ligne, façon papier à en-tête classique.
+    const texteX = logo ? 110 : 50;
+    let logoOk = false;
+    if (logo) {
+      try {
+        doc.image(logo, 50, 45, { fit: [50, 50] });
+        logoOk = true;
+      } catch {
+        /* format d'image illisible par pdfkit (rare) — on continue sans logo */
+      }
+    }
+    const hautEnTete = doc.y;
+    doc.fontSize(18).text(boutique.nom, texteX, 45, { continued: false });
     doc.fontSize(9).fillColor("#555");
-    if (boutique.adresse) doc.text(boutique.adresse);
+    if (boutique.adresse) doc.text(boutique.adresse, texteX);
     const contact = [boutique.telephone, boutique.email].filter(Boolean).join(" · ");
-    if (contact) doc.text(contact);
+    if (contact) doc.text(contact, texteX);
     const legal = [
       boutique.rccm ? `RCCM: ${boutique.rccm}` : null,
       boutique.id_national ? `ID. Nat.: ${boutique.id_national}` : null,
     ].filter(Boolean).join(" · ");
-    if (legal) doc.text(legal);
+    if (legal) doc.text(legal, texteX);
     doc.fillColor("#000");
+    // Le texte peut être plus court que le logo (50pt) : on repart toujours
+    // sous le plus grand des deux blocs pour ne jamais chevaucher la suite.
+    doc.y = Math.max(doc.y, logoOk ? 45 + 50 : hautEnTete);
+    doc.x = 50;
 
     doc.moveDown(1.5);
     doc.fontSize(16).text(`FACTURE ${facture.numero ?? ""}`);
     doc.fontSize(9).fillColor("#555")
       .text(`Vente ${vente.numero ?? ""} — ${new Date(facture.created_at).toLocaleString("fr-FR")}`)
-      .text(`Canal : ${vente.canal === "ecommerce" ? "e-commerce" : "boutique physique"} — Paiement : ${vente.mode_paiement}`);
+      .text(`Canal : ${vente.canal === "ecommerce" ? "e-commerce" : "boutique physique"} — Paiement : ${vente.mode_paiement === "credit" ? "Crédit" : vente.mode_paiement}`);
     doc.fillColor("#000");
 
     if (client) {
       doc.moveDown(0.5);
       doc.fontSize(10).text(`Client : ${client.nom} — ${client.telephone}`);
+    }
+
+    if (credit) {
+      doc.moveDown(0.3);
+      const restant = vente.total_usd - credit.montant_paye_usd;
+      const libelleStatut =
+        credit.statut === "paye" ? "Payé intégralement" : credit.statut === "partiellement_paye" ? "Partiellement payé" : "En attente de paiement";
+      doc.fontSize(10).fillColor("#8a5a00")
+        .text(`Vente à crédit — Échéance : ${new Date(credit.date_echeance).toLocaleDateString("fr-FR")} — ${libelleStatut}`)
+        .text(`Déjà payé : ${credit.montant_paye_usd.toFixed(2)} ${boutique.devise} — Reste à payer : ${restant.toFixed(2)} ${boutique.devise}`);
+      doc.fillColor("#000");
     }
 
     doc.moveDown(1);
@@ -84,8 +115,26 @@ function renderPdf(params: {
     if (vente.remise_usd > 0) ligneMontant("Remise", -vente.remise_usd);
     ligneMontant("Total", vente.total_usd, true);
 
+    doc.moveDown(2);
+    doc.fontSize(9).fillColor("#888").text(`Merci pour votre confiance — ${boutique.nom}`, 50, doc.y, { width: 450, align: "center" });
+    doc.fillColor("#000");
+
     doc.end();
   });
+}
+
+// Best-effort : un logo introuvable/inaccessible ne doit jamais empêcher la
+// génération de la facture (même philosophie que le reste du module — la
+// caisse ne doit jamais être bloquée par un souci de stockage/réseau externe).
+async function telechargerLogo(logoUrl: string | null): Promise<Buffer | null> {
+  if (!logoUrl) return null;
+  try {
+    const res = await fetch(logoUrl);
+    if (!res.ok) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
 }
 
 export async function genererFacturePdf(factureId: string): Promise<string> {
@@ -97,7 +146,7 @@ export async function genererFacturePdf(factureId: string): Promise<string> {
   if (factureErr) throw new Error(factureErr.message);
 
   const [{ data: boutique }, { data: vente }, { data: lignes }] = await Promise.all([
-    supabaseAdmin.from("boutiques").select("nom,adresse,telephone,email,rccm,id_national,devise").eq("id", facture.boutique_id).single(),
+    supabaseAdmin.from("boutiques").select("nom,adresse,telephone,email,rccm,id_national,devise,logo_url").eq("id", facture.boutique_id).single(),
     supabaseAdmin.from("ventes").select("numero,canal,mode_paiement,sous_total_usd,remise_usd,total_usd,created_at,client_id").eq("id", facture.vente_id).single(),
     supabaseAdmin.from("vente_lignes").select("quantite,prix_unitaire_usd,total_ligne_usd,produits(nom)").eq("vente_id", facture.vente_id),
   ]);
@@ -109,11 +158,25 @@ export async function genererFacturePdf(factureId: string): Promise<string> {
     client = data ?? null;
   }
 
+  let credit: { montant_paye_usd: number; date_echeance: string; statut: string } | null = null;
+  if (vente.mode_paiement === "credit") {
+    const { data } = await supabaseAdmin
+      .from("credits")
+      .select("montant_paye_usd,date_echeance,statut")
+      .eq("vente_id", facture.vente_id)
+      .maybeSingle();
+    if (data) credit = { montant_paye_usd: Number(data.montant_paye_usd), date_echeance: data.date_echeance, statut: data.statut };
+  }
+
+  const logo = await telechargerLogo(boutique.logo_url);
+
   const pdf = await renderPdf({
     boutique,
+    logo,
     facture,
     vente,
     client,
+    credit,
     lignes: (lignes ?? []).map((l: any) => ({
       nom: l.produits?.nom ?? "Produit",
       quantite: l.quantite,

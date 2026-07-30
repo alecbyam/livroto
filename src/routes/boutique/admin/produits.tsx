@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Package, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   Dialog,
@@ -52,6 +53,7 @@ import {
   boutiqueCreerSousCategorie,
 } from "@/lib/boutiques/sous-categories.functions";
 import { boutiqueListerCategories, boutiqueCreerCategorie } from "@/lib/boutiques/categories.functions";
+import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
 
 export const Route = createFileRoute("/boutique/admin/produits")({
   component: ProduitsAdminPage,
@@ -334,7 +336,17 @@ function ProduitsAdminPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div>{p.prix_usd} $</div>
+                    {getPrixEffectif(p).enPromo ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-destructive">{getPrixEffectif(p).prix} $</span>
+                        <span className="text-xs text-muted-foreground line-through">{p.prix_usd} $</span>
+                        <Badge variant="destructive" className="text-[10px]">
+                          −{getPrixEffectif(p).pourcentage}%
+                        </Badge>
+                      </div>
+                    ) : (
+                      <div>{p.prix_usd} $</div>
+                    )}
                     {p.prix_achat_usd != null && (
                       <div className="text-xs text-muted-foreground">
                         achat {p.prix_achat_usd} $ · marge{" "}
@@ -438,6 +450,10 @@ function ProduitsAdminPage() {
                 couleur: produitAModifier.couleur,
                 prix_usd: produitAModifier.prix_usd,
                 prix_achat_usd: produitAModifier.prix_achat_usd,
+                prix_promo_usd: produitAModifier.prix_promo_usd,
+                promo_debut: produitAModifier.promo_debut,
+                promo_fin: produitAModifier.promo_fin,
+                promo_actif: produitAModifier.promo_actif,
                 seuil_alerte: produitAModifier.seuil_alerte,
                 description: produitAModifier.description,
                 images: produitAModifier.images ?? [],
@@ -468,10 +484,25 @@ type ValeursProduit = {
   couleur?: string | null;
   prix_usd: number;
   prix_achat_usd?: number | null;
+  prix_promo_usd?: number | null;
+  promo_debut?: string | null;
+  promo_fin?: string | null;
+  promo_actif?: boolean | null;
   seuil_alerte?: number;
   description?: string | null;
   images?: string[];
 };
+
+// ISO <-> valeur d'<input type="datetime-local"> (heure locale) — même
+// helper que côté marketplace (VendorPanel.tsx), dupliqué ici pour ne pas
+// créer une dépendance croisée entre les deux modules de tarification promo.
+function versLocal(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function FormulaireProduit({
   boutiqueId,
@@ -488,6 +519,10 @@ function FormulaireProduit({
     couleur?: string;
     prix_usd: number;
     prix_achat_usd?: number;
+    prix_promo_usd?: number | null;
+    promo_debut?: string | null;
+    promo_fin?: string | null;
+    promo_actif?: boolean;
     quantite?: number;
     seuil_alerte: number;
     description?: string;
@@ -506,6 +541,12 @@ function FormulaireProduit({
   const [prixAchat, setPrixAchat] = useState(
     valeursInitiales?.prix_achat_usd != null ? String(valeursInitiales.prix_achat_usd) : "",
   );
+  const [prixPromo, setPrixPromo] = useState(
+    valeursInitiales?.prix_promo_usd != null ? String(valeursInitiales.prix_promo_usd) : "",
+  );
+  const [promoDebut, setPromoDebut] = useState(versLocal(valeursInitiales?.promo_debut));
+  const [promoFin, setPromoFin] = useState(versLocal(valeursInitiales?.promo_fin));
+  const [promoActif, setPromoActif] = useState(!!valeursInitiales?.promo_actif);
   const [quantite, setQuantite] = useState("0");
   const [seuil, setSeuil] = useState(
     valeursInitiales?.seuil_alerte != null ? String(valeursInitiales.seuil_alerte) : "3",
@@ -527,6 +568,12 @@ function FormulaireProduit({
           toast.error("Choisis une catégorie.");
           return;
         }
+        if (promoActif) {
+          if (!prixPromo || Number(prixPromo) >= Number(prix)) {
+            toast.error("Le prix promo doit être renseigné et inférieur au prix de vente.");
+            return;
+          }
+        }
         onSoumettre({
           nom,
           categorie_id: categorieId,
@@ -535,6 +582,10 @@ function FormulaireProduit({
           couleur: couleur || undefined,
           prix_usd: Number(prix),
           prix_achat_usd: prixAchat ? Number(prixAchat) : undefined,
+          prix_promo_usd: prixPromo ? Number(prixPromo) : null,
+          promo_debut: promoDebut ? new Date(promoDebut).toISOString() : null,
+          promo_fin: promoFin ? new Date(promoFin).toISOString() : null,
+          promo_actif: promoActif,
           quantite: modeEdition ? undefined : Number(quantite),
           seuil_alerte: Number(seuil),
           description: description || undefined,
@@ -610,6 +661,41 @@ function FormulaireProduit({
             placeholder="Optionnel"
           />
         </div>
+      </div>
+      <div className="rounded-lg border p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="promo-actif">Prix barré (promotion)</Label>
+            <p className="text-xs text-muted-foreground">Affiche le prix promo barré sur la vitrine et l'applique à la caisse.</p>
+          </div>
+          <Switch id="promo-actif" checked={promoActif} onCheckedChange={setPromoActif} />
+        </div>
+        {promoActif && (
+          <div className="mt-3 space-y-3">
+            <div>
+              <Label htmlFor="prix-promo">Prix promo ($)</Label>
+              <Input
+                id="prix-promo"
+                type="number"
+                step="0.01"
+                min="0"
+                value={prixPromo}
+                onChange={(e) => setPrixPromo(e.target.value)}
+                placeholder={`Inférieur à ${prix || "..."} $`}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="promo-debut">Début (optionnel)</Label>
+                <Input id="promo-debut" type="datetime-local" value={promoDebut} onChange={(e) => setPromoDebut(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="promo-fin">Fin (optionnel)</Label>
+                <Input id="promo-fin" type="datetime-local" value={promoFin} onChange={(e) => setPromoFin(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

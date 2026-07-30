@@ -1501,7 +1501,11 @@ export type Database = {
           images: string[]
           nom: string
           prix_achat_usd: number | null
+          prix_promo_usd: number | null
           prix_usd: number
+          promo_actif: boolean
+          promo_debut: string | null
+          promo_fin: string | null
           qr_code_data: string | null
           qr_code_url: string | null
           quantite: number
@@ -1523,7 +1527,11 @@ export type Database = {
           images?: string[]
           nom: string
           prix_achat_usd?: number | null
+          prix_promo_usd?: number | null
           prix_usd: number
+          promo_actif?: boolean
+          promo_debut?: string | null
+          promo_fin?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           quantite?: number
@@ -1545,7 +1553,11 @@ export type Database = {
           images?: string[]
           nom?: string
           prix_achat_usd?: number | null
+          prix_promo_usd?: number | null
           prix_usd?: number
+          promo_actif?: boolean
+          promo_debut?: string | null
+          promo_fin?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           quantite?: number

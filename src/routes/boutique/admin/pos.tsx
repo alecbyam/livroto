@@ -28,6 +28,7 @@ import { posOfflineQueue, isOnline } from "@/lib/boutiques/pos-offline-queue";
 import { PosOfflineBanner } from "@/components/boutiques/PosOfflineBanner";
 import { ConfigImpressionDialog } from "@/components/boutiques/ConfigImpressionDialog";
 import { imprimerRecu } from "@/lib/boutiques/impression/imprimante";
+import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
 
 export const Route = createFileRoute("/boutique/admin/pos")({
   component: PosPage,
@@ -37,6 +38,10 @@ type ProduitGrille = {
   id: string;
   nom: string;
   prix_usd: number;
+  prix_promo_usd: number | null;
+  promo_actif: boolean | null;
+  promo_debut: string | null;
+  promo_fin: string | null;
   quantite: number;
   image_url: string | null;
   categorie_id: string | null;
@@ -98,13 +103,25 @@ function PosPage() {
     });
   }, [produits, categorieId, filtre]);
 
-  function ajouterAuPanier(p: { id: string; nom: string; prix_usd: number }) {
+  function ajouterAuPanier(p: {
+    id: string;
+    nom: string;
+    prix_usd: number;
+    prix_promo_usd?: number | null;
+    promo_actif?: boolean | null;
+    promo_debut?: string | null;
+    promo_fin?: string | null;
+  }) {
+    // Prix affiché dans le panier caisse = prix effectif (promo si en cours)
+    // — l'encaissement recalcule de toute façon côté serveur, mais autant que
+    // le sous-total visible avant validation soit déjà le bon.
+    const prixEffectif = getPrixEffectif(p).prix;
     setCart((prev) => {
       const existe = prev.find((l) => l.produit_id === p.id);
       if (existe) {
         return prev.map((l) => (l.produit_id === p.id ? { ...l, quantite: l.quantite + 1 } : l));
       }
-      return [...prev, { produit_id: p.id, nom: p.nom, prix_usd: p.prix_usd, quantite: 1 }];
+      return [...prev, { produit_id: p.id, nom: p.nom, prix_usd: prixEffectif, quantite: 1 }];
     });
     toast.success(`${p.nom} ajouté`);
   }
@@ -431,6 +448,7 @@ function PosPage() {
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {produitsFiltres.map((p) => {
               const enRupture = p.quantite <= 0;
+              const promo = getPrixEffectif(p);
               return (
                 <button
                   key={p.id}
@@ -455,10 +473,16 @@ function PosPage() {
                         <Tag className="h-8 w-8 text-muted-foreground/60" />
                       </div>
                     )}
-                    {enRupture && (
+                    {enRupture ? (
                       <span className="absolute inset-x-0 top-0 bg-destructive/90 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-white">
                         Rupture
                       </span>
+                    ) : (
+                      promo.enPromo && (
+                        <span className="absolute left-1.5 top-1.5 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive-foreground">
+                          −{promo.pourcentage}%
+                        </span>
+                      )
                     )}
                   </div>
                   <div className="flex flex-1 flex-col gap-0.5 p-2">
@@ -469,7 +493,14 @@ function PosPage() {
                       </p>
                     )}
                     <div className="mt-auto flex items-center justify-between pt-1">
-                      <span className="text-sm font-bold">{p.prix_usd} $</span>
+                      {promo.enPromo ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-sm font-bold text-destructive">{promo.prix} $</span>
+                          <span className="text-[10px] text-muted-foreground line-through">{promo.prixOriginal} $</span>
+                        </span>
+                      ) : (
+                        <span className="text-sm font-bold">{p.prix_usd} $</span>
+                      )}
                       {!enRupture && p.quantite <= 3 && (
                         <span className="text-[10px] font-semibold text-amber-600">
                           {p.quantite} rest.

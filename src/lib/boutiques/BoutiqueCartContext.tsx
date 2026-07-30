@@ -7,11 +7,21 @@
 // de téléphone.
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type ArticlePanier = { produit_id: string; nom: string; prix_usd: number; quantite: number; image_url?: string | null };
+export type ArticlePanier = {
+  produit_id: string;
+  nom: string;
+  prix_usd: number;
+  // Prix barré (avant promo) — présent seulement si l'article a été ajouté
+  // pendant qu'une promotion était active, pour afficher le prix barré dans
+  // le panier/récap sans avoir à re-consulter le catalogue.
+  prix_original_usd?: number | null;
+  quantite: number;
+  image_url?: string | null;
+};
 
 type PanierContexte = {
   articles: ArticlePanier[];
-  ajouter: (p: { produit_id: string; nom: string; prix_usd: number; image_url?: string | null }) => void;
+  ajouter: (p: { produit_id: string; nom: string; prix_usd: number; prix_original_usd?: number | null; image_url?: string | null }) => void;
   retirer: (produit_id: string) => void;
   changerQuantite: (produit_id: string, quantite: number) => void;
   vider: () => void;
