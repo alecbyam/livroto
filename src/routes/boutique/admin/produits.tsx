@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Package, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ import {
   boutiqueListerProduits,
   boutiqueCreerProduit,
   boutiqueModifierProduit,
+  boutiqueSupprimerProduit,
   boutiqueAjusterStock,
   boutiqueProduitsPourPlancheQr,
 } from "@/lib/boutiques/produits.functions";
@@ -60,6 +62,8 @@ function ProduitsAdminPage() {
   const qc = useQueryClient();
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [ouvrirCreation, setOuvrirCreation] = useState(false);
+  const [produitAModifier, setProduitAModifier] = useState<any | null>(null);
+  const [recherche, setRecherche] = useState("");
   const [produitPhotos, setProduitPhotos] = useState<{
     id: string;
     nom: string;
@@ -73,8 +77,9 @@ function ProduitsAdminPage() {
 
   const listerFn = useServerFn(boutiqueListerProduits);
   const { data, isLoading } = useQuery({
-    queryKey: ["boutique-admin-produits", boutique.id],
-    queryFn: () => listerFn({ data: { boutique_id: boutique.id, offset: 0 } }),
+    queryKey: ["boutique-admin-produits", boutique.id, recherche],
+    queryFn: () =>
+      listerFn({ data: { boutique_id: boutique.id, offset: 0, recherche: recherche || undefined } }),
   });
 
   const creerFn = useServerFn(boutiqueCreerProduit);
@@ -94,6 +99,26 @@ function ProduitsAdminPage() {
       modifierFn({ data: { boutique_id: boutique.id, produit_id: produitPhotos!.id, images } }),
     onSuccess: (_r, images) => {
       setProduitPhotos((p) => (p ? { ...p, images } : p));
+      qc.invalidateQueries({ queryKey: ["boutique-admin-produits", boutique.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const modifier = useMutation({
+    mutationFn: modifierFn,
+    onSuccess: () => {
+      toast.success("Produit mis à jour.");
+      qc.invalidateQueries({ queryKey: ["boutique-admin-produits", boutique.id] });
+      setProduitAModifier(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const supprimerFn = useServerFn(boutiqueSupprimerProduit);
+  const supprimer = useMutation({
+    mutationFn: supprimerFn,
+    onSuccess: () => {
+      toast.success("Produit supprimé.");
       qc.invalidateQueries({ queryKey: ["boutique-admin-produits", boutique.id] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -211,8 +236,34 @@ function ProduitsAdminPage() {
         />
       </div>
 
+      <div className="relative mt-4 max-w-sm">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          placeholder="Rechercher un produit..."
+          className="pl-9"
+        />
+        {recherche && (
+          <button
+            type="button"
+            onClick={() => setRecherche("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="mt-6 h-64 animate-pulse rounded-xl bg-muted" />
+      ) : (data?.rows ?? []).length === 0 ? (
+        <div className="mt-16 flex flex-col items-center gap-2 text-center">
+          <Package className="h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">
+            {recherche ? "Aucun produit ne correspond." : "Aucun produit pour le moment."}
+          </p>
+        </div>
       ) : (
         <Table className="mt-6">
           <TableHeader>
@@ -224,6 +275,7 @@ function ProduitsAdminPage() {
               <TableHead>Prix</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead>Ajuster</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -321,6 +373,30 @@ function ProduitsAdminPage() {
                       </Button>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Modifier"
+                        onClick={() => setProduitAModifier(p)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Supprimer"
+                        onClick={() => {
+                          if (confirm(`Supprimer définitivement "${p.nom}" ? Cette action est irréversible.`)) {
+                            supprimer.mutate({ data: { boutique_id: boutique.id, produit_id: p.id } });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -343,14 +419,65 @@ function ProduitsAdminPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!produitAModifier} onOpenChange={(open) => !open && setProduitAModifier(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier — {produitAModifier?.nom}</DialogTitle>
+          </DialogHeader>
+          {produitAModifier && (
+            <FormulaireProduit
+              boutiqueId={boutique.id}
+              enCours={modifier.isPending}
+              valeursInitiales={{
+                id: produitAModifier.id,
+                nom: produitAModifier.nom,
+                categorie_id: produitAModifier.categorie_id,
+                sous_categorie_id: produitAModifier.sous_categorie_id,
+                taille: produitAModifier.taille,
+                couleur: produitAModifier.couleur,
+                prix_usd: produitAModifier.prix_usd,
+                prix_achat_usd: produitAModifier.prix_achat_usd,
+                seuil_alerte: produitAModifier.seuil_alerte,
+                description: produitAModifier.description,
+                images: produitAModifier.images ?? [],
+              }}
+              onSoumettre={(valeurs) =>
+                modifier.mutate({
+                  data: {
+                    boutique_id: boutique.id,
+                    produit_id: produitAModifier.id,
+                    ...valeurs,
+                  },
+                })
+              }
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+type ValeursProduit = {
+  id?: string;
+  nom: string;
+  categorie_id: string;
+  sous_categorie_id?: string | null;
+  taille?: string | null;
+  couleur?: string | null;
+  prix_usd: number;
+  prix_achat_usd?: number | null;
+  seuil_alerte?: number;
+  description?: string | null;
+  images?: string[];
+};
 
 function FormulaireProduit({
   boutiqueId,
   onSoumettre,
   enCours,
+  valeursInitiales,
 }: {
   boutiqueId: string;
   onSoumettre: (v: {
@@ -361,28 +488,35 @@ function FormulaireProduit({
     couleur?: string;
     prix_usd: number;
     prix_achat_usd?: number;
-    quantite: number;
+    quantite?: number;
     seuil_alerte: number;
     description?: string;
     images?: string[];
   }) => void;
   enCours: boolean;
+  valeursInitiales?: ValeursProduit;
 }) {
-  const [nom, setNom] = useState("");
-  const [categorieId, setCategorieId] = useState("");
-  const [sousCategorieId, setSousCategorieId] = useState("");
-  const [taille, setTaille] = useState("");
-  const [couleur, setCouleur] = useState("");
-  const [prix, setPrix] = useState("");
-  const [prixAchat, setPrixAchat] = useState("");
+  const modeEdition = !!valeursInitiales;
+  const [nom, setNom] = useState(valeursInitiales?.nom ?? "");
+  const [categorieId, setCategorieId] = useState(valeursInitiales?.categorie_id ?? "");
+  const [sousCategorieId, setSousCategorieId] = useState(valeursInitiales?.sous_categorie_id ?? "");
+  const [taille, setTaille] = useState(valeursInitiales?.taille ?? "");
+  const [couleur, setCouleur] = useState(valeursInitiales?.couleur ?? "");
+  const [prix, setPrix] = useState(valeursInitiales ? String(valeursInitiales.prix_usd) : "");
+  const [prixAchat, setPrixAchat] = useState(
+    valeursInitiales?.prix_achat_usd != null ? String(valeursInitiales.prix_achat_usd) : "",
+  );
   const [quantite, setQuantite] = useState("0");
-  const [seuil, setSeuil] = useState("3");
-  const [description, setDescription] = useState("");
-  const [images, setImages] = useState<string[]>([]);
-  // Dossier de stockage stable pour toute la durée d'ouverture du formulaire
-  // (le produit n'existe pas encore en base au moment de l'upload) — voir
-  // GestionnairePhotosProduit / migration 47.
-  const [dossierId] = useState(() => crypto.randomUUID());
+  const [seuil, setSeuil] = useState(
+    valeursInitiales?.seuil_alerte != null ? String(valeursInitiales.seuil_alerte) : "3",
+  );
+  const [description, setDescription] = useState(valeursInitiales?.description ?? "");
+  const [images, setImages] = useState<string[]>(valeursInitiales?.images ?? []);
+  // Dossier de stockage stable pour toute la durée d'ouverture du formulaire.
+  // En création, le produit n'existe pas encore en base (uuid temporaire) —
+  // voir GestionnairePhotosProduit / migration 47. En édition, on réutilise
+  // directement l'id réel du produit (déjà son dossier de stockage).
+  const [dossierId] = useState(() => valeursInitiales?.id ?? crypto.randomUUID());
 
   return (
     <form
@@ -401,7 +535,7 @@ function FormulaireProduit({
           couleur: couleur || undefined,
           prix_usd: Number(prix),
           prix_achat_usd: prixAchat ? Number(prixAchat) : undefined,
-          quantite: Number(quantite),
+          quantite: modeEdition ? undefined : Number(quantite),
           seuil_alerte: Number(seuil),
           description: description || undefined,
           images: images.length > 0 ? images : undefined,
@@ -488,16 +622,18 @@ function FormulaireProduit({
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="quantite">Quantité initiale</Label>
-          <Input
-            id="quantite"
-            type="number"
-            min="0"
-            value={quantite}
-            onChange={(e) => setQuantite(e.target.value)}
-          />
-        </div>
+        {!modeEdition && (
+          <div>
+            <Label htmlFor="quantite">Quantité initiale</Label>
+            <Input
+              id="quantite"
+              type="number"
+              min="0"
+              value={quantite}
+              onChange={(e) => setQuantite(e.target.value)}
+            />
+          </div>
+        )}
         <div>
           <Label htmlFor="seuil">Seuil d'alerte</Label>
           <Input
@@ -509,6 +645,12 @@ function FormulaireProduit({
           />
         </div>
       </div>
+      {modeEdition && (
+        <p className="text-xs text-muted-foreground">
+          Le stock ne se modifie pas ici — utilise les boutons +1/-1 du tableau (ou l'inventaire) pour
+          garder un historique fiable des mouvements.
+        </p>
+      )}
       <div>
         <Label htmlFor="description">Description</Label>
         <Textarea
@@ -519,7 +661,7 @@ function FormulaireProduit({
       </div>
       <DialogFooter>
         <Button type="submit" disabled={enCours}>
-          {enCours ? "Création..." : "Créer"}
+          {enCours ? "Enregistrement..." : modeEdition ? "Enregistrer" : "Créer"}
         </Button>
       </DialogFooter>
     </form>

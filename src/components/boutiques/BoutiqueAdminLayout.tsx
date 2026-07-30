@@ -5,6 +5,8 @@
 // une vraie gestion autonome, avec sa propre identité (logo/nom), sans
 // jamais mentionner Livroto — même philosophie que <BoutiqueSiteLayout>.
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import {
   Package,
   ShoppingCart,
@@ -23,25 +25,49 @@ import {
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
+import { boutiqueObtenirMonRole } from "@/lib/boutiques/staff.functions";
 
-const SECTIONS = [
-  { to: "/boutique/admin/pos", label: "Caisse", icon: ShoppingCart },
-  { to: "/boutique/admin/produits", label: "Produits", icon: Package },
-  { to: "/boutique/admin/categories", label: "Catégories", icon: LayoutGrid },
-  { to: "/boutique/admin/commandes", label: "Commandes", icon: ClipboardList },
-  { to: "/boutique/admin/credits", label: "Crédits", icon: CreditCard },
-  { to: "/boutique/admin/fournisseurs", label: "Fournisseurs", icon: Truck },
-  { to: "/boutique/admin/factures", label: "Factures", icon: Receipt },
-  { to: "/boutique/admin/promo", label: "Promotions", icon: Tag },
-  { to: "/boutique/admin/rapports", label: "Rapports", icon: BarChart3 },
-  { to: "/boutique/admin/equipe", label: "Équipe", icon: Users },
-  { to: "/boutique/admin/parametres", label: "Paramètres", icon: Settings },
-] as const;
+type Role = "admin" | "vendeur" | "caissier";
+
+// Rôles autorisés à voir chaque section — reflète exactement ce que le
+// serveur autorise déjà (assertBoutiqueStaff dans chaque *.functions.ts) :
+// pas une règle de sécurité en soi (le serveur revérifie toujours), mais
+// masquer une section où un rôle n'a de toute façon aucun droit d'écriture
+// évite d'atterrir sur une page où chaque bouton échoue silencieusement.
+const SECTIONS: { to: string; label: string; icon: typeof Package; roles: Role[] }[] = [
+  { to: "/boutique/admin/pos", label: "Caisse", icon: ShoppingCart, roles: ["admin", "vendeur", "caissier"] },
+  { to: "/boutique/admin/produits", label: "Produits", icon: Package, roles: ["admin", "vendeur"] },
+  { to: "/boutique/admin/categories", label: "Catégories", icon: LayoutGrid, roles: ["admin", "vendeur"] },
+  { to: "/boutique/admin/commandes", label: "Commandes", icon: ClipboardList, roles: ["admin", "vendeur", "caissier"] },
+  { to: "/boutique/admin/credits", label: "Crédits", icon: CreditCard, roles: ["admin", "vendeur", "caissier"] },
+  { to: "/boutique/admin/fournisseurs", label: "Fournisseurs", icon: Truck, roles: ["admin", "vendeur"] },
+  { to: "/boutique/admin/factures", label: "Factures", icon: Receipt, roles: ["admin", "vendeur", "caissier"] },
+  { to: "/boutique/admin/promo", label: "Promotions", icon: Tag, roles: ["admin", "vendeur"] },
+  { to: "/boutique/admin/rapports", label: "Rapports", icon: BarChart3, roles: ["admin", "vendeur", "caissier"] },
+  { to: "/boutique/admin/equipe", label: "Équipe", icon: Users, roles: ["admin"] },
+  { to: "/boutique/admin/parametres", label: "Paramètres", icon: Settings, roles: ["admin"] },
+];
+
+const LIBELLE_ROLE: Record<Role, string> = {
+  admin: "Admin",
+  vendeur: "Vendeur",
+  caissier: "Caissier",
+};
 
 export function BoutiqueAdminLayout({ children }: { children: ReactNode }) {
   const boutique = useBoutique();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const monRoleFn = useServerFn(boutiqueObtenirMonRole);
+  const { data: monRole } = useQuery({
+    queryKey: ["boutique-mon-role", boutique.id],
+    queryFn: () => monRoleFn({ data: { boutique_id: boutique.id } }),
+  });
+  const role = monRole?.role as Role | null | undefined;
+  // Tant que le rôle n'est pas encore chargé, tout afficher plutôt que de
+  // faire clignoter la nav (elle se réduira dès que la réponse arrive).
+  const sectionsVisibles = role ? SECTIONS.filter((s) => s.roles.includes(role)) : SECTIONS;
 
   const seDeconnecter = async () => {
     await supabase.auth.signOut();
@@ -73,6 +99,11 @@ export function BoutiqueAdminLayout({ children }: { children: ReactNode }) {
               <p className="text-xs text-muted-foreground">Gestion</p>
             </div>
           </Link>
+          {role && (
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground sm:flex">
+              {LIBELLE_ROLE[role]}
+            </span>
+          )}
           <Link
             to="/boutique"
             search={{ boutique: boutique.slug }}
@@ -91,7 +122,7 @@ export function BoutiqueAdminLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="container mx-auto overflow-x-auto px-4 pb-2">
           <ul className="flex gap-1 whitespace-nowrap">
-            {SECTIONS.map((s) => {
+            {sectionsVisibles.map((s) => {
               const active = pathname.startsWith(s.to);
               const Icon = s.icon;
               return (

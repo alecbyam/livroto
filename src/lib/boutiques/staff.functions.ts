@@ -15,6 +15,25 @@ import { assertBoutiqueStaff } from "@/lib/boutiques/auth.server";
 const SITE_URL = "https://livroto-frontend-production.up.railway.app";
 const ROLES = ["admin", "vendeur", "caissier"] as const;
 
+// Le rôle du membre connecté, pour adapter la navigation admin côté client
+// (masquer les sections où il n'a de toute façon aucun droit d'écriture) et
+// afficher "connecté en tant que X" dans l'en-tête — jamais utilisé pour une
+// vérification de sécurité réelle, seulement pour l'affichage (le serveur
+// revérifie toujours le rôle via assertBoutiqueStaff sur chaque action).
+export const boutiqueObtenirMonRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ boutique_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("boutique_users")
+      .select("role")
+      .eq("boutique_id", data.boutique_id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { role: row?.role ?? null };
+  });
+
 export const boutiqueListerStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ boutique_id: z.string().uuid() }).parse(input))
