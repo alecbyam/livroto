@@ -12,6 +12,8 @@ import {
   Truck,
   Receipt,
   Tag,
+  LayoutGrid,
+  CreditCard,
   BarChart3,
   Settings,
   Store,
@@ -25,7 +27,9 @@ import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 const SECTIONS = [
   { to: "/boutique/admin/pos", label: "Caisse", icon: ShoppingCart },
   { to: "/boutique/admin/produits", label: "Produits", icon: Package },
+  { to: "/boutique/admin/categories", label: "Catégories", icon: LayoutGrid },
   { to: "/boutique/admin/commandes", label: "Commandes", icon: ClipboardList },
+  { to: "/boutique/admin/credits", label: "Crédits", icon: CreditCard },
   { to: "/boutique/admin/fournisseurs", label: "Fournisseurs", icon: Truck },
   { to: "/boutique/admin/factures", label: "Factures", icon: Receipt },
   { to: "/boutique/admin/promo", label: "Promotions", icon: Tag },

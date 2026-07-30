@@ -44,7 +44,7 @@ export const boutiqueListerProduits = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id);
     let q = context.supabase
       .from("produits")
-      .select("*,sous_categories(id,nom)", { count: "exact" })
+      .select("*,sous_categories(id,nom),boutique_categories(id,nom,icone)", { count: "exact" })
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true);
     if (data.recherche?.trim()) q = q.ilike("nom", `%${data.recherche.trim()}%`);
@@ -67,7 +67,7 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
       .object({
         boutique_id: z.string().uuid(),
         nom: z.string().min(2).max(120),
-        categorie: z.enum(["vetement", "accessoire"]).default("vetement"),
+        categorie_id: z.string().uuid(),
         sous_categorie_id: z.string().uuid().optional(),
         taille: z.string().max(30).optional(),
         couleur: z.string().max(40).optional(),
@@ -96,7 +96,7 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
       .insert({
         boutique_id,
         nom: rest.nom,
-        categorie: rest.categorie,
+        categorie_id: rest.categorie_id,
         sous_categorie_id: rest.sous_categorie_id ?? null,
         taille: rest.taille ?? null,
         couleur: rest.couleur ?? null,
@@ -154,7 +154,7 @@ export const boutiqueModifierProduit = createServerFn({ method: "POST" })
         boutique_id: z.string().uuid(),
         produit_id: z.string().uuid(),
         nom: z.string().min(2).max(120).optional(),
-        categorie: z.enum(["vetement", "accessoire"]).optional(),
+        categorie_id: z.string().uuid().optional(),
         sous_categorie_id: z.string().uuid().nullable().optional(),
         taille: z.string().max(30).nullable().optional(),
         couleur: z.string().max(40).nullable().optional(),

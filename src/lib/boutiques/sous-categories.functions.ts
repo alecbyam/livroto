@@ -1,5 +1,6 @@
-// Sous-catégories par catégorie (ex: "Chemises", "Robes" sous vêtements ;
-// "Sacs", "Ceintures" sous accessoires) — migration 48. Réutilisables d'un
+// Sous-catégories par catégorie (ex: "Chemises", "Robes" sous Vêtements ;
+// "Sacs", "Ceintures" sous Accessoires) — migration 48, migrées vers une FK
+// catégorie réelle (categorie_id) en migration 49. Réutilisables d'un
 // produit à l'autre (évite les doublons/incohérences d'une saisie libre —
 // "Chemise" vs "chemises" vs "Chemise Homme").
 import { createServerFn } from "@tanstack/react-start";
@@ -13,7 +14,7 @@ export const boutiqueListerSousCategories = createServerFn({ method: "POST" })
     z
       .object({
         boutique_id: z.string().uuid(),
-        categorie: z.enum(["vetement", "accessoire"]).optional(),
+        categorie_id: z.string().uuid().optional(),
       })
       .parse(input),
   )
@@ -21,10 +22,10 @@ export const boutiqueListerSousCategories = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id);
     let q = context.supabase
       .from("sous_categories")
-      .select("id,categorie,nom")
+      .select("id,categorie_id,nom")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true);
-    if (data.categorie) q = q.eq("categorie", data.categorie);
+    if (data.categorie_id) q = q.eq("categorie_id", data.categorie_id);
     const { data: rows, error } = await q.order("nom", { ascending: true });
     if (error) throw new Error(error.message);
     return { sousCategories: rows ?? [] };
@@ -39,7 +40,7 @@ export const boutiqueCreerSousCategorie = createServerFn({ method: "POST" })
     z
       .object({
         boutique_id: z.string().uuid(),
-        categorie: z.enum(["vetement", "accessoire"]),
+        categorie_id: z.string().uuid(),
         nom: z.string().min(1).max(60),
       })
       .parse(input),
@@ -50,17 +51,17 @@ export const boutiqueCreerSousCategorie = createServerFn({ method: "POST" })
 
     const { data: existante } = await context.supabase
       .from("sous_categories")
-      .select("id,categorie,nom")
+      .select("id,categorie_id,nom")
       .eq("boutique_id", data.boutique_id)
-      .eq("categorie", data.categorie)
+      .eq("categorie_id", data.categorie_id)
       .ilike("nom", nom)
       .maybeSingle();
     if (existante) return { sousCategorie: existante };
 
     const { data: row, error } = await context.supabase
       .from("sous_categories")
-      .insert({ boutique_id: data.boutique_id, categorie: data.categorie, nom })
-      .select("id,categorie,nom")
+      .insert({ boutique_id: data.boutique_id, categorie_id: data.categorie_id, nom })
+      .select("id,categorie_id,nom")
       .single();
     if (error) throw new Error(error.message);
     return { sousCategorie: row };

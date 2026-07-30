@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Shirt, ShoppingBag } from "lucide-react";
+import { Search, Tag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,31 +18,40 @@ type Produit = {
   nom: string;
   prix_usd: number;
   image_url: string | null;
-  categorie: "vetement" | "accessoire";
+  categorie_id: string | null;
   taille: string | null;
   couleur: string | null;
   quantite: number;
   sous_categories: { nom: string } | null;
+  boutique_categories: { nom: string; icone: string | null } | null;
 };
-
-const CATEGORIES = [
-  { id: "tous", label: "Tout" },
-  { id: "vetement", label: "Vêtements" },
-  { id: "accessoire", label: "Accessoires" },
-] as const;
 
 function BoutiqueAccueil() {
   const boutique = useBoutique();
   const { ajouter } = useBoutiqueCart();
-  const [categorie, setCategorie] = useState<(typeof CATEGORIES)[number]["id"]>("tous");
+  const [categorieId, setCategorieId] = useState<string>("tous");
   const [recherche, setRecherche] = useState("");
+
+  const { data: categories } = useQuery({
+    queryKey: ["boutique-categories-public", boutique.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("boutique_categories")
+        .select("id,nom,icone")
+        .eq("boutique_id", boutique.id)
+        .eq("actif", true)
+        .order("nom", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["boutique-produits", boutique.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("produits")
-        .select("id,nom,prix_usd,image_url,categorie,taille,couleur,quantite,sous_categories(nom)")
+        .select("id,nom,prix_usd,image_url,categorie_id,taille,couleur,quantite,sous_categories(nom),boutique_categories(nom,icone)")
         .eq("boutique_id", boutique.id)
         .eq("actif", true)
         .order("created_at", { ascending: false });
@@ -55,7 +64,7 @@ function BoutiqueAccueil() {
   const produitsFiltres = useMemo(() => {
     const q = recherche.trim().toLowerCase();
     return produits.filter((p) => {
-      if (categorie !== "tous" && p.categorie !== categorie) return false;
+      if (categorieId !== "tous" && p.categorie_id !== categorieId) return false;
       if (!q) return true;
       return (
         p.nom.toLowerCase().includes(q) ||
@@ -63,7 +72,7 @@ function BoutiqueAccueil() {
         p.couleur?.toLowerCase().includes(q)
       );
     });
-  }, [produits, categorie, recherche]);
+  }, [produits, categorieId, recherche]);
 
   return (
     <BoutiqueSiteLayout>
@@ -87,19 +96,31 @@ function BoutiqueAccueil() {
               className="pl-9"
             />
           </div>
-          <div className="flex gap-1.5">
-            {CATEGORIES.map((c) => (
+          <div className="flex gap-1.5 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setCategorieId("tous")}
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                categorieId === "tous"
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Tout
+            </button>
+            {(categories ?? []).map((c) => (
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setCategorie(c.id)}
-                className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                  categorie === c.id
+                onClick={() => setCategorieId(c.id)}
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  categorieId === c.id
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border text-muted-foreground hover:bg-muted"
                 }`}
               >
-                {c.label}
+                {c.icone ? `${c.icone} ` : ""}
+                {c.nom}
               </button>
             ))}
           </div>
@@ -121,7 +142,6 @@ function BoutiqueAccueil() {
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {produitsFiltres.map((p) => {
               const enRupture = p.quantite <= 0;
-              const Icone = p.categorie === "vetement" ? Shirt : ShoppingBag;
               return (
                 <div
                   key={p.id}
@@ -135,9 +155,13 @@ function BoutiqueAccueil() {
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                         loading="lazy"
                       />
+                    ) : p.boutique_categories?.icone ? (
+                      <div className="grid h-full w-full place-items-center text-4xl">
+                        {p.boutique_categories.icone}
+                      </div>
                     ) : (
                       <div className="grid h-full w-full place-items-center">
-                        <Icone className="h-10 w-10 text-muted-foreground/50" />
+                        <Tag className="h-10 w-10 text-muted-foreground/50" />
                       </div>
                     )}
                     {enRupture && (

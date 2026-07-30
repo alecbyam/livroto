@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Minus, Plus, ScanLine, Search, Shirt, ShoppingBag, Trash2, X } from "lucide-react";
+import { Camera, Minus, Plus, ScanLine, Search, Tag, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ import {
   boutiqueListerProduitsPos,
   boutiqueRechercherProduitPos,
 } from "@/lib/boutiques/pos.functions";
+import { boutiqueListerCategories } from "@/lib/boutiques/categories.functions";
+import { boutiqueListerClients, boutiqueTrouverOuCreerClient } from "@/lib/boutiques/clients.functions";
 import { posOfflineQueue, isOnline } from "@/lib/boutiques/pos-offline-queue";
 import { PosOfflineBanner } from "@/components/boutiques/PosOfflineBanner";
 import { ConfigImpressionDialog } from "@/components/boutiques/ConfigImpressionDialog";
@@ -37,17 +39,12 @@ type ProduitGrille = {
   prix_usd: number;
   quantite: number;
   image_url: string | null;
-  categorie: "vetement" | "accessoire";
+  categorie_id: string | null;
+  boutique_categories: { id: string; nom: string; icone: string | null } | null;
   taille: string | null;
   couleur: string | null;
 };
 type LigneCaisse = { produit_id: string; nom: string; prix_usd: number; quantite: number };
-
-const CATEGORIES = [
-  { id: "tous", label: "Tous" },
-  { id: "vetement", label: "Vêtements" },
-  { id: "accessoire", label: "Accessoires" },
-] as const;
 
 function PosPage() {
   const boutique = useBoutique();
@@ -62,12 +59,21 @@ function PosPage() {
   });
   const produits = (data?.produits ?? []) as ProduitGrille[];
 
+  const listerCategoriesFn = useServerFn(boutiqueListerCategories);
+  const { data: categoriesData } = useQuery({
+    queryKey: ["boutique-categories", boutique.id],
+    queryFn: () => listerCategoriesFn({ data: { boutique_id: boutique.id } }),
+  });
+  const categories = categoriesData?.categories ?? [];
+
   const [cart, setCart] = useState<LigneCaisse[]>([]);
   const [scan, setScan] = useState("");
   const [filtre, setFiltre] = useState("");
-  const [categorie, setCategorie] = useState<(typeof CATEGORIES)[number]["id"]>("tous");
-  const [modePaiement, setModePaiement] = useState<"cash" | "mobile_money" | "carte">("cash");
+  const [categorieId, setCategorieId] = useState<string>("tous");
+  const [modePaiement, setModePaiement] = useState<"cash" | "mobile_money" | "carte" | "credit">("cash");
   const [codePromo, setCodePromo] = useState("");
+  const [clientCredit, setClientCredit] = useState<{ id: string; nom: string } | null>(null);
+  const [dateEcheance, setDateEcheance] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [camActive, setCamActive] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
@@ -82,7 +88,7 @@ function PosPage() {
   const produitsFiltres = useMemo(() => {
     const q = filtre.trim().toLowerCase();
     return produits.filter((p) => {
-      if (categorie !== "tous" && p.categorie !== categorie) return false;
+      if (categorieId !== "tous" && p.categorie_id !== categorieId) return false;
       if (!q) return true;
       return (
         p.nom.toLowerCase().includes(q) ||
@@ -90,7 +96,7 @@ function PosPage() {
         p.couleur?.toLowerCase().includes(q)
       );
     });
-  }, [produits, categorie, filtre]);
+  }, [produits, categorieId, filtre]);
 
   function ajouterAuPanier(p: { id: string; nom: string; prix_usd: number }) {
     setCart((prev) => {
@@ -208,12 +214,32 @@ function PosPage() {
       toast.error("Le panier est vide.");
       return;
     }
+    // Une vente à crédit doit toujours être liée à un client ET une échéance
+    // — jamais l'un sans l'autre. Le mode hors-ligne n'est volontairement pas
+    // supporté pour le crédit (il faut le client_id résolu côté serveur avant
+    // d'ouvrir la dette), contrairement aux autres modes de paiement.
+    if (modePaiement === "credit") {
+      if (!clientCredit) {
+        toast.error("Sélectionne ou crée un client pour une vente à crédit.");
+        return;
+      }
+      if (!dateEcheance) {
+        toast.error("Indique une échéance de paiement.");
+        return;
+      }
+      if (!isOnline()) {
+        toast.error("Vente à crédit impossible hors ligne — reconnecte-toi.");
+        return;
+      }
+    }
     setEnCours(true);
     const horsLigneId = crypto.randomUUID();
     const payload = {
       boutique_id: boutique.id,
       hors_ligne_id: horsLigneId,
       mode_paiement: modePaiement,
+      client_id: modePaiement === "credit" ? clientCredit!.id : undefined,
+      date_echeance: modePaiement === "credit" ? dateEcheance : undefined,
       code_promo: codePromo.trim() || undefined,
       lignes: cart.map((l) => ({ produit_id: l.produit_id, quantite: l.quantite })),
     };
@@ -221,11 +247,14 @@ function PosPage() {
     const lignesVendues = [...cart]; // instantané avant vidage du panier (pour le reçu)
 
     if (!isOnline()) {
+      // modePaiement ne peut pas valoir "credit" ici : le bloc plus haut
+      // retourne systématiquement dès que le crédit est hors-ligne — la file
+      // (QueuedVente) ne sait de toute façon pas porter client_id/date_echeance.
       posOfflineQueue.add({
         id: horsLigneId,
         createdAt: new Date().toISOString(),
         boutique_id: boutique.id,
-        mode_paiement: modePaiement,
+        mode_paiement: modePaiement as Exclude<typeof modePaiement, "credit">,
         code_promo: codePromo.trim() || null,
         lignes: cart.map((l) => ({
           produit_id: l.produit_id,
@@ -249,8 +278,19 @@ function PosPage() {
       imprimerRecuVente(lignesVendues, vente.numero, Number(vente.total_usd));
       setCart([]);
       setCodePromo("");
+      setClientCredit(null);
+      setDateEcheance("");
       qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
     } catch (err) {
+      if (modePaiement === "credit") {
+        // Le crédit n'est jamais mis en file hors-ligne (le format de la file
+        // ne sait pas porter client_id/date_echeance, et on ne veut surtout
+        // pas rejouer une ouverture de dette sans garantie de lien client) —
+        // on laisse le panier intact pour que le staff puisse réessayer.
+        toast.error(`Échec d'envoi (${(err as Error).message}) — réessaie, le panier est conservé.`);
+        setEnCours(false);
+        return;
+      }
       // Échec réseau en cours de route (pas juste "hors ligne" détecté à
       // l'avance) : on ne perd pas la vente, on la met en file elle aussi.
       posOfflineQueue.add({
@@ -347,19 +387,31 @@ function PosPage() {
               </button>
             )}
           </div>
-          <div className="flex gap-1.5">
-            {CATEGORIES.map((c) => (
+          <div className="flex gap-1.5 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setCategorieId("tous")}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                categorieId === "tous"
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Tous
+            </button>
+            {categories.map((c) => (
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setCategorie(c.id)}
-                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  categorie === c.id
+                onClick={() => setCategorieId(c.id)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  categorieId === c.id
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border text-muted-foreground hover:bg-muted"
                 }`}
               >
-                {c.label}
+                {c.icone ? `${c.icone} ` : ""}
+                {c.nom}
               </button>
             ))}
           </div>
@@ -379,7 +431,6 @@ function PosPage() {
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {produitsFiltres.map((p) => {
               const enRupture = p.quantite <= 0;
-              const Icone = p.categorie === "vetement" ? Shirt : ShoppingBag;
               return (
                 <button
                   key={p.id}
@@ -395,9 +446,13 @@ function PosPage() {
                   <div className="relative aspect-square w-full bg-muted">
                     {p.image_url ? (
                       <img src={p.image_url} alt={p.nom} className="h-full w-full object-cover" />
+                    ) : p.boutique_categories?.icone ? (
+                      <div className="grid h-full w-full place-items-center bg-muted text-3xl">
+                        {p.boutique_categories.icone}
+                      </div>
                     ) : (
                       <div className="grid h-full w-full place-items-center bg-muted">
-                        <Icone className="h-8 w-8 text-muted-foreground/60" />
+                        <Tag className="h-8 w-8 text-muted-foreground/60" />
                       </div>
                     )}
                     {enRupture && (
@@ -517,9 +572,32 @@ function PosPage() {
               <SelectItem value="cash">Cash</SelectItem>
               <SelectItem value="mobile_money">Mobile Money</SelectItem>
               <SelectItem value="carte">Carte</SelectItem>
+              <SelectItem value="credit">Crédit (à payer plus tard)</SelectItem>
             </SelectContent>
           </Select>
         </div>
+        {modePaiement === "credit" && (
+          <div className="mt-3 space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+            <div>
+              <Label>Client</Label>
+              <SelecteurClientCredit
+                boutiqueId={boutique.id}
+                client={clientCredit}
+                onChange={setClientCredit}
+              />
+            </div>
+            <div>
+              <Label htmlFor="date-echeance">Échéance de paiement</Label>
+              <Input
+                id="date-echeance"
+                type="date"
+                value={dateEcheance}
+                onChange={(e) => setDateEcheance(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+              />
+            </div>
+          </div>
+        )}
         <div className="mt-3">
           <Label>Code promo</Label>
           <Input
@@ -544,6 +622,128 @@ function PosPage() {
           {enCours ? "Encaissement..." : "Encaisser"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+// Recherche un client existant (nom/téléphone) ou en crée un à la volée —
+// une vente à crédit doit toujours être liée à un client réel, jamais un
+// texte libre. Pas un <form> : ce composant vit dans une simple <div>
+// (le panier n'est pas un formulaire HTML), donc pas de risque de form imbriqué.
+function SelecteurClientCredit({
+  boutiqueId,
+  client,
+  onChange,
+}: {
+  boutiqueId: string;
+  client: { id: string; nom: string } | null;
+  onChange: (c: { id: string; nom: string } | null) => void;
+}) {
+  const [recherche, setRecherche] = useState("");
+  const [ouvrirCreation, setOuvrirCreation] = useState(false);
+  const [nouveauNom, setNouveauNom] = useState("");
+  const [nouveauTelephone, setNouveauTelephone] = useState("");
+
+  const listerFn = useServerFn(boutiqueListerClients);
+  const { data } = useQuery({
+    queryKey: ["boutique-clients-recherche", boutiqueId, recherche],
+    queryFn: () => listerFn({ data: { boutique_id: boutiqueId, recherche } }),
+    enabled: !client && recherche.trim().length >= 2,
+  });
+  const resultats = data?.clients ?? [];
+
+  const creerFn = useServerFn(boutiqueTrouverOuCreerClient);
+  const creer = useMutation({
+    mutationFn: () =>
+      creerFn({
+        data: { boutique_id: boutiqueId, nom: nouveauNom.trim(), telephone: nouveauTelephone.trim() },
+      }),
+    onSuccess: ({ client: c }) => {
+      onChange({ id: c.id, nom: c.nom });
+      setOuvrirCreation(false);
+      setNouveauNom("");
+      setNouveauTelephone("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (client) {
+    return (
+      <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
+        <span className="font-medium">{client.nom}</span>
+        <button type="button" onClick={() => onChange(null)} className="text-muted-foreground hover:text-destructive">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  if (ouvrirCreation) {
+    return (
+      <div className="space-y-1.5">
+        <Input
+          autoFocus
+          value={nouveauNom}
+          onChange={(e) => setNouveauNom(e.target.value)}
+          placeholder="Nom du client"
+        />
+        <Input
+          value={nouveauTelephone}
+          onChange={(e) => setNouveauTelephone(e.target.value)}
+          placeholder="Téléphone"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && nouveauNom.trim() && nouveauTelephone.trim() && !creer.isPending) {
+              e.preventDefault();
+              creer.mutate();
+            }
+          }}
+        />
+        <div className="flex gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            disabled={creer.isPending || !nouveauNom.trim() || !nouveauTelephone.trim()}
+            onClick={() => creer.mutate()}
+          >
+            Ajouter ce client
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setOuvrirCreation(false)}>
+            Annuler
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Input
+        value={recherche}
+        onChange={(e) => setRecherche(e.target.value)}
+        placeholder="Rechercher par nom ou téléphone…"
+      />
+      {resultats.length > 0 && (
+        <ul className="max-h-32 divide-y overflow-y-auto rounded-md border bg-background">
+          {resultats.map((c: { id: string; nom: string; telephone: string }) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({ id: c.id, nom: c.nom });
+                  setRecherche("");
+                }}
+                className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-muted"
+              >
+                <span>{c.nom}</span>
+                <span className="text-xs text-muted-foreground">{c.telephone}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button type="button" size="sm" variant="outline" onClick={() => setOuvrirCreation(true)}>
+        + Nouveau client
+      </Button>
     </div>
   );
 }

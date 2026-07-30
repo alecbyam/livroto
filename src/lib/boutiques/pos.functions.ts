@@ -17,7 +17,12 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
         boutique_id: z.string().uuid(),
         hors_ligne_id: z.string().max(100).optional(),
         client_id: z.string().uuid().optional(),
-        mode_paiement: z.enum(["cash", "mobile_money", "carte"]),
+        mode_paiement: z.enum(["cash", "mobile_money", "carte", "credit"]),
+        // Requis uniquement en mode crédit : à qui appartient la dette et
+        // quand elle doit être remboursée. Validé plus bas (Zod ne peut pas
+        // exprimer "requis seulement si mode_paiement === credit" sans
+        // .superRefine).
+        date_echeance: z.string().max(10).optional(),
         code_promo: z.string().max(40).optional(),
         lignes: z
           .array(
@@ -28,6 +33,16 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
           )
           .min(1)
           .max(200),
+      })
+      .superRefine((v, ctx) => {
+        if (v.mode_paiement === "credit") {
+          if (!v.client_id) {
+            ctx.addIssue({ code: "custom", path: ["client_id"], message: "Un client est requis pour une vente à crédit." });
+          }
+          if (!v.date_echeance) {
+            ctx.addIssue({ code: "custom", path: ["date_echeance"], message: "Une échéance est requise pour une vente à crédit." });
+          }
+        }
       })
       .parse(input),
   )
@@ -119,6 +134,22 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
       .insert(lignesCalc.map((l) => ({ ...l, vente_id: vente.id })));
     if (lignesErr) throw new Error(lignesErr.message);
 
+    // Vente à crédit : le solde dû est traqué à part (table credits), toujours
+    // lié à cette vente précise (donc à ses produits via vente_lignes) ET au
+    // client — jamais l'un sans l'autre.
+    if (data.mode_paiement === "credit") {
+      // client_id/date_echeance sont garantis présents ici par le
+      // .superRefine() du schéma Zod ci-dessus (requis si mode_paiement === "credit").
+      const { error: creditErr } = await context.supabase.from("credits").insert({
+        boutique_id: data.boutique_id,
+        vente_id: vente.id,
+        client_id: data.client_id!,
+        montant_total_usd: total,
+        date_echeance: data.date_echeance!,
+      });
+      if (creditErr) throw new Error(creditErr.message);
+    }
+
     if (codePromoId) {
       // fn_incrementer_usage_code_promo est restreinte à service_role
       // (migration 40, pour empêcher un client d'épuiser le quota d'un code
@@ -159,7 +190,7 @@ export const boutiqueListerProduitsPos = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,quantite,image_url,categorie,taille,couleur")
+      .select("id,nom,prix_usd,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
       .order("nom", { ascending: true })

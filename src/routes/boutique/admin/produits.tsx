@@ -49,6 +49,7 @@ import {
   boutiqueListerSousCategories,
   boutiqueCreerSousCategorie,
 } from "@/lib/boutiques/sous-categories.functions";
+import { boutiqueListerCategories, boutiqueCreerCategorie } from "@/lib/boutiques/categories.functions";
 
 export const Route = createFileRoute("/boutique/admin/produits")({
   component: ProduitsAdminPage,
@@ -270,7 +271,14 @@ function ProduitsAdminPage() {
                   <TableCell>
                     <div className="font-medium">{p.nom}</div>
                     <div className="text-xs text-muted-foreground">
-                      {[p.sous_categories?.nom, p.taille, p.couleur].filter(Boolean).join(" · ")}
+                      {[
+                        p.boutique_categories ? `${p.boutique_categories.icone ?? ""} ${p.boutique_categories.nom}`.trim() : null,
+                        p.sous_categories?.nom,
+                        p.taille,
+                        p.couleur,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -347,7 +355,7 @@ function FormulaireProduit({
   boutiqueId: string;
   onSoumettre: (v: {
     nom: string;
-    categorie: "vetement" | "accessoire";
+    categorie_id: string;
     sous_categorie_id?: string;
     taille?: string;
     couleur?: string;
@@ -361,7 +369,7 @@ function FormulaireProduit({
   enCours: boolean;
 }) {
   const [nom, setNom] = useState("");
-  const [categorie, setCategorie] = useState<"vetement" | "accessoire">("vetement");
+  const [categorieId, setCategorieId] = useState("");
   const [sousCategorieId, setSousCategorieId] = useState("");
   const [taille, setTaille] = useState("");
   const [couleur, setCouleur] = useState("");
@@ -381,9 +389,13 @@ function FormulaireProduit({
       className="space-y-3"
       onSubmit={(e) => {
         e.preventDefault();
+        if (!categorieId) {
+          toast.error("Choisis une catégorie.");
+          return;
+        }
         onSoumettre({
           nom,
-          categorie,
+          categorie_id: categorieId,
           sous_categorie_id: sousCategorieId || undefined,
           taille: taille || undefined,
           couleur: couleur || undefined,
@@ -420,27 +432,20 @@ function FormulaireProduit({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Catégorie</Label>
-          <Select
-            value={categorie}
-            onValueChange={(v) => {
-              setCategorie(v as "vetement" | "accessoire");
+          <SelecteurCategorie
+            boutiqueId={boutiqueId}
+            value={categorieId}
+            onChange={(id) => {
+              setCategorieId(id);
               setSousCategorieId(""); // les sous-catégories dépendent de la catégorie
             }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="vetement">Vêtement</SelectItem>
-              <SelectItem value="accessoire">Accessoire</SelectItem>
-            </SelectContent>
-          </Select>
+          />
         </div>
         <div>
           <Label>Sous-catégorie</Label>
           <SelecteurSousCategorie
             boutiqueId={boutiqueId}
-            categorie={categorie}
+            categorieId={categorieId}
             value={sousCategorieId}
             onChange={setSousCategorieId}
           />
@@ -528,12 +533,12 @@ const CREER_NOUVELLE = "__creer__";
 
 function SelecteurSousCategorie({
   boutiqueId,
-  categorie,
+  categorieId,
   value,
   onChange,
 }: {
   boutiqueId: string;
-  categorie: "vetement" | "accessoire";
+  categorieId: string;
   value: string;
   onChange: (id: string) => void;
 }) {
@@ -544,22 +549,34 @@ function SelecteurSousCategorie({
   const [nouveauNom, setNouveauNom] = useState("");
 
   const { data } = useQuery({
-    queryKey: ["boutique-sous-categories", boutiqueId, categorie],
-    queryFn: () => listerFn({ data: { boutique_id: boutiqueId, categorie } }),
+    queryKey: ["boutique-sous-categories", boutiqueId, categorieId],
+    queryFn: () => listerFn({ data: { boutique_id: boutiqueId, categorie_id: categorieId } }),
+    enabled: !!categorieId,
   });
   const sousCategories = data?.sousCategories ?? [];
 
   const creer = useMutation({
     mutationFn: () =>
-      creerFn({ data: { boutique_id: boutiqueId, categorie, nom: nouveauNom.trim() } }),
+      creerFn({ data: { boutique_id: boutiqueId, categorie_id: categorieId, nom: nouveauNom.trim() } }),
     onSuccess: ({ sousCategorie }) => {
-      qc.invalidateQueries({ queryKey: ["boutique-sous-categories", boutiqueId, categorie] });
+      qc.invalidateQueries({ queryKey: ["boutique-sous-categories", boutiqueId, categorieId] });
       onChange(sousCategorie.id);
       setOuvrirCreation(false);
       setNouveauNom("");
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  if (!categorieId) {
+    return (
+      <Select disabled>
+        <SelectTrigger>
+          <SelectValue placeholder="Choisis d'abord une catégorie" />
+        </SelectTrigger>
+        <SelectContent />
+      </Select>
+    );
+  }
 
   if (ouvrirCreation) {
     // Une <div>, pas un <form> : ce composant vit À L'INTÉRIEUR du <form>
@@ -615,6 +632,98 @@ function SelecteurSousCategorie({
           </SelectItem>
         ))}
         <SelectItem value={CREER_NOUVELLE}>+ Nouvelle sous-catégorie…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+// Même principe que SelecteurSousCategorie : création à la volée en plus de
+// la page de gestion dédiée (/boutique/admin/categories) — un vendeur pressé
+// n'a pas à quitter le formulaire produit pour créer une catégorie manquante.
+function SelecteurCategorie({
+  boutiqueId,
+  value,
+  onChange,
+}: {
+  boutiqueId: string;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const qc = useQueryClient();
+  const listerFn = useServerFn(boutiqueListerCategories);
+  const creerFn = useServerFn(boutiqueCreerCategorie);
+  const [ouvrirCreation, setOuvrirCreation] = useState(false);
+  const [nouveauNom, setNouveauNom] = useState("");
+
+  const { data } = useQuery({
+    queryKey: ["boutique-categories", boutiqueId],
+    queryFn: () => listerFn({ data: { boutique_id: boutiqueId } }),
+  });
+  const categories = data?.categories ?? [];
+
+  const creer = useMutation({
+    mutationFn: () => creerFn({ data: { boutique_id: boutiqueId, nom: nouveauNom.trim() } }),
+    onSuccess: ({ categorie }) => {
+      qc.invalidateQueries({ queryKey: ["boutique-categories", boutiqueId] });
+      onChange(categorie.id);
+      setOuvrirCreation(false);
+      setNouveauNom("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (ouvrirCreation) {
+    // <div>, pas <form> : ce composant vit à l'intérieur du <form> produit —
+    // voir la même remarque sur SelecteurSousCategorie plus haut.
+    const soumettre = () => {
+      if (nouveauNom.trim() && !creer.isPending) creer.mutate();
+    };
+    return (
+      <div className="flex gap-1.5">
+        <Input
+          autoFocus
+          value={nouveauNom}
+          onChange={(e) => setNouveauNom(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              soumettre();
+            }
+          }}
+          placeholder="Ex. Chaussures"
+          maxLength={60}
+        />
+        <Button
+          type="button"
+          size="sm"
+          disabled={creer.isPending || !nouveauNom.trim()}
+          onClick={soumettre}
+        >
+          Créer
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setOuvrirCreation(false)}>
+          Annuler
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      value={value || undefined}
+      onValueChange={(v) => (v === CREER_NOUVELLE ? setOuvrirCreation(true) : onChange(v))}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Choisir…" />
+      </SelectTrigger>
+      <SelectContent>
+        {categories.map((c: { id: string; nom: string; icone: string | null }) => (
+          <SelectItem key={c.id} value={c.id}>
+            {c.icone ? `${c.icone} ` : ""}
+            {c.nom}
+          </SelectItem>
+        ))}
+        <SelectItem value={CREER_NOUVELLE}>+ Nouvelle catégorie…</SelectItem>
       </SelectContent>
     </Select>
   );

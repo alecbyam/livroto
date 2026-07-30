@@ -131,6 +131,41 @@ export type Database = {
           },
         ]
       }
+      boutique_categories: {
+        Row: {
+          actif: boolean
+          boutique_id: string
+          created_at: string
+          icone: string | null
+          id: string
+          nom: string
+        }
+        Insert: {
+          actif?: boolean
+          boutique_id: string
+          created_at?: string
+          icone?: string | null
+          id?: string
+          nom: string
+        }
+        Update: {
+          actif?: boolean
+          boutique_id?: string
+          created_at?: string
+          icone?: string | null
+          id?: string
+          nom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boutique_categories_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boutique_compteurs: {
         Row: {
           boutique_id: string
@@ -610,6 +645,112 @@ export type Database = {
           value?: number
         }
         Relationships: []
+      }
+      credit_paiements: {
+        Row: {
+          boutique_id: string
+          created_at: string
+          credit_id: string
+          encaisse_par: string | null
+          id: string
+          mode_paiement: string
+          montant_usd: number
+          note: string | null
+        }
+        Insert: {
+          boutique_id: string
+          created_at?: string
+          credit_id: string
+          encaisse_par?: string | null
+          id?: string
+          mode_paiement?: string
+          montant_usd: number
+          note?: string | null
+        }
+        Update: {
+          boutique_id?: string
+          created_at?: string
+          credit_id?: string
+          encaisse_par?: string | null
+          id?: string
+          mode_paiement?: string
+          montant_usd?: number
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_paiements_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_paiements_credit_id_fkey"
+            columns: ["credit_id"]
+            isOneToOne: false
+            referencedRelation: "credits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credits: {
+        Row: {
+          boutique_id: string
+          client_id: string
+          created_at: string
+          date_echeance: string
+          id: string
+          montant_paye_usd: number
+          montant_total_usd: number
+          statut: string
+          vente_id: string
+        }
+        Insert: {
+          boutique_id: string
+          client_id: string
+          created_at?: string
+          date_echeance: string
+          id?: string
+          montant_paye_usd?: number
+          montant_total_usd: number
+          statut?: string
+          vente_id: string
+        }
+        Update: {
+          boutique_id?: string
+          client_id?: string
+          created_at?: string
+          date_echeance?: string
+          id?: string
+          montant_paye_usd?: number
+          montant_total_usd?: number
+          statut?: string
+          vente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credits_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients_boutique"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credits_vente_id_fkey"
+            columns: ["vente_id"]
+            isOneToOne: true
+            referencedRelation: "ventes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deliveries: {
         Row: {
@@ -1351,7 +1492,7 @@ export type Database = {
         Row: {
           actif: boolean
           boutique_id: string
-          categorie: string
+          categorie_id: string
           couleur: string | null
           created_at: string
           description: string | null
@@ -1373,7 +1514,7 @@ export type Database = {
         Insert: {
           actif?: boolean
           boutique_id: string
-          categorie?: string
+          categorie_id: string
           couleur?: string | null
           created_at?: string
           description?: string | null
@@ -1395,7 +1536,7 @@ export type Database = {
         Update: {
           actif?: boolean
           boutique_id?: string
-          categorie?: string
+          categorie_id?: string
           couleur?: string | null
           created_at?: string
           description?: string | null
@@ -1420,6 +1561,13 @@ export type Database = {
             columns: ["boutique_id"]
             isOneToOne: false
             referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "produits_categorie_id_fkey"
+            columns: ["categorie_id"]
+            isOneToOne: false
+            referencedRelation: "boutique_categories"
             referencedColumns: ["id"]
           },
           {
@@ -1778,7 +1926,7 @@ export type Database = {
         Row: {
           actif: boolean
           boutique_id: string
-          categorie: string
+          categorie_id: string
           created_at: string
           id: string
           nom: string
@@ -1786,7 +1934,7 @@ export type Database = {
         Insert: {
           actif?: boolean
           boutique_id: string
-          categorie: string
+          categorie_id: string
           created_at?: string
           id?: string
           nom: string
@@ -1794,7 +1942,7 @@ export type Database = {
         Update: {
           actif?: boolean
           boutique_id?: string
-          categorie?: string
+          categorie_id?: string
           created_at?: string
           id?: string
           nom?: string
@@ -1805,6 +1953,13 @@ export type Database = {
             columns: ["boutique_id"]
             isOneToOne: false
             referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sous_categories_categorie_id_fkey"
+            columns: ["categorie_id"]
+            isOneToOne: false
+            referencedRelation: "boutique_categories"
             referencedColumns: ["id"]
           },
         ]
