@@ -25,6 +25,34 @@ import {
 } from "@/lib/boutiques/livraisons.functions";
 import { echapperHtml } from "@/lib/boutiques/html-escape";
 
+// Le champ adresse_livraison reste du texte libre (pas de colonnes lat/lng) —
+// quand un client a utilisé "Partager ma position" côté vitrine, un lien
+// Google Maps est mêlé au texte. On le rend cliquable ici pour le staff sans
+// changer le stockage ; le lien texte brut original reste intact ailleurs
+// (bon de livraison imprimé notamment, volontairement laissé en texte simple).
+function AdresseAvecLien({ adresse }: { adresse: string }) {
+  const parties = adresse.split(/(https?:\/\/\S+)/g);
+  return (
+    <>
+      {parties.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:no-underline"
+          >
+            Voir sur la carte
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 export const Route = createFileRoute("/boutique/admin/commandes")({
   component: CommandesAdminPage,
 });
@@ -224,7 +252,7 @@ function CommandesAdminPage() {
                     {c.numero} — {c.clients_boutique?.nom} ({c.clients_boutique?.telephone})
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(c.created_at).toLocaleString("fr-FR")} — {c.adresse_livraison}
+                    {new Date(c.created_at).toLocaleString("fr-FR")} — <AdresseAvecLien adresse={c.adresse_livraison} />
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

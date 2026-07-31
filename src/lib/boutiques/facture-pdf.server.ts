@@ -7,7 +7,7 @@ import PDFDocument from "pdfkit";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 function renderPdf(params: {
-  boutique: { nom: string; adresse: string | null; telephone: string | null; email: string | null; rccm: string | null; id_national: string | null; devise: string };
+  boutique: { nom: string; slogan: string | null; adresse: string | null; telephone: string | null; email: string | null; rccm: string | null; id_national: string | null; devise: string };
   logo: Buffer | null;
   facture: { numero: string | null; created_at: string };
   vente: { numero: string | null; canal: string; mode_paiement: string; sous_total_usd: number; remise_usd: number; total_usd: number; created_at: string };
@@ -39,6 +39,10 @@ function renderPdf(params: {
     }
     const hautEnTete = doc.y;
     doc.fontSize(18).text(boutique.nom, texteX, 45, { continued: false });
+    if (boutique.slogan) {
+      doc.fontSize(9).font("Helvetica-Oblique").fillColor("#777").text(boutique.slogan, texteX);
+      doc.font("Helvetica").fillColor("#000");
+    }
     doc.fontSize(9).fillColor("#555");
     if (boutique.adresse) doc.text(boutique.adresse, texteX);
     const contact = [boutique.telephone, boutique.email].filter(Boolean).join(" · ");
@@ -146,7 +150,7 @@ export async function genererFacturePdf(factureId: string): Promise<string> {
   if (factureErr) throw new Error(factureErr.message);
 
   const [{ data: boutique }, { data: vente }, { data: lignes }] = await Promise.all([
-    supabaseAdmin.from("boutiques").select("nom,adresse,telephone,email,rccm,id_national,devise,logo_url").eq("id", facture.boutique_id).single(),
+    supabaseAdmin.from("boutiques").select("nom,slogan,adresse,telephone,email,rccm,id_national,devise,logo_url").eq("id", facture.boutique_id).single(),
     supabaseAdmin.from("ventes").select("numero,canal,mode_paiement,sous_total_usd,remise_usd,total_usd,created_at,client_id").eq("id", facture.vente_id).single(),
     supabaseAdmin.from("vente_lignes").select("quantite,prix_unitaire_usd,total_ligne_usd,produits(nom)").eq("vente_id", facture.vente_id),
   ]);

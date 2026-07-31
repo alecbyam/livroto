@@ -17,6 +17,7 @@ export type BoutiqueTenant = {
   id: string;
   slug: string;
   nom: string;
+  slogan: string | null;
   logo_url: string | null;
   theme: Json;
   devise: string;
@@ -27,7 +28,7 @@ export type BoutiqueTenant = {
   id_national: string | null;
 };
 
-const COLONNES = "id,slug,nom,logo_url,theme,devise,adresse,telephone,email,rccm,id_national";
+const COLONNES = "id,slug,nom,slogan,logo_url,theme,devise,adresse,telephone,email,rccm,id_national";
 
 export async function resolveBoutiqueTenant(host: string | null, slugParam: string | null): Promise<BoutiqueTenant | null> {
   const domaine = (host ?? "").split(":")[0].trim().toLowerCase();

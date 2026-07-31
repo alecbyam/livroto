@@ -57,6 +57,7 @@ function ConnexionBoutique() {
             </div>
           )}
           <h1 className="mt-3 text-xl font-bold">{boutique.nom}</h1>
+          {boutique.slogan && <p className="mt-0.5 text-xs italic text-muted-foreground">{boutique.slogan}</p>}
           <p className="mt-1 text-sm text-muted-foreground">Connectez-vous à votre gestion</p>
         </div>
 

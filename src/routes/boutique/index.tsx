@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { PackageSearch, Search, Tag, X } from "lucide-react";
+import { MessageCircle, PackageSearch, Search, Share2, Tag, X } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,24 @@ import { BoutiqueSiteLayout } from "@/components/boutiques/BoutiqueSiteLayout";
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import { useBoutiqueCart } from "@/lib/boutiques/BoutiqueCartContext";
 import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
+import { urlProduit, whatsAppCommanderProduitUrl } from "@/lib/boutiques/whatsapp-links";
+
+// Web Share API si disponible (Android/iOS/desktop récents) sinon copie du
+// lien dans le presse-papiers — jamais d'échec silencieux, l'utilisateur a
+// toujours un retour (partage natif OU confirmation de copie).
+async function partagerProduit(url: string, texte: string) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: texte, url });
+    } catch {
+      // Annulé par l'utilisateur (bouton retour de la feuille de partage) —
+      // ce n'est pas une erreur à signaler.
+    }
+    return;
+  }
+  await navigator.clipboard.writeText(url);
+  toast.success("Lien de l'article copié !");
+}
 
 export const Route = createFileRoute("/boutique/")({
   component: BoutiqueAccueil,
@@ -42,6 +61,24 @@ function BoutiqueAccueil() {
   const { ajouter } = useBoutiqueCart();
   const [categorieId, setCategorieId] = useState<string>("tous");
   const [recherche, setRecherche] = useState("");
+  // Article ciblé par un lien partagé (?produit=...) — lu directement via
+  // URLSearchParams plutôt que d'ajouter `produit` au validateSearch typé de
+  // cette route (qui n'existe même pas ici, hérité du parent /boutique) :
+  // garde ce paramètre purement côté client, sans toucher au routage.
+  const [produitCible, setProduitCible] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("produit");
+    if (!id) return;
+    setProduitCible(id);
+    const t = setTimeout(() => {
+      document.getElementById(`produit-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300);
+    const t2 = setTimeout(() => setProduitCible(null), 3000);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(t2);
+    };
+  }, []);
 
   const { data: categories } = useQuery({
     queryKey: ["boutique-categories-public", boutique.id],
@@ -100,6 +137,9 @@ function BoutiqueAccueil() {
       <section className="border-b bg-gradient-to-b from-muted/60 to-background">
         <div className="container mx-auto px-4 py-10 text-center">
           <h1 className="font-display text-3xl font-bold sm:text-4xl">{boutique.nom}</h1>
+          {boutique.slogan && (
+            <p className="mt-1 text-sm italic text-muted-foreground">{boutique.slogan}</p>
+          )}
           {boutique.adresse && (
             <p className="mt-2 text-sm text-muted-foreground">{boutique.adresse}</p>
           )}
@@ -193,7 +233,10 @@ function BoutiqueAccueil() {
               return (
                 <div
                   key={p.id}
-                  className="group flex flex-col overflow-hidden rounded-2xl border bg-card transition hover:shadow-md"
+                  id={`produit-${p.id}`}
+                  className={`group flex flex-col overflow-hidden rounded-2xl border bg-card transition hover:shadow-md ${
+                    produitCible === p.id ? "ring-2 ring-primary ring-offset-2" : ""
+                  }`}
                 >
                   <div className="relative aspect-square w-full bg-muted">
                     {p.image_url ? (
@@ -273,6 +316,40 @@ function BoutiqueAccueil() {
                     >
                       {enRupture ? "Indisponible" : "Ajouter au panier"}
                     </Button>
+                    <div className="mt-1 flex gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1 px-2 text-xs"
+                        onClick={() =>
+                          partagerProduit(urlProduit(boutique.slug, p.id), `${p.nom} — ${promo.prix} $ chez ${boutique.nom}`)
+                        }
+                      >
+                        <Share2 className="h-3.5 w-3.5" /> Partager
+                      </Button>
+                      {boutique.telephone && (
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1 border-green-600/40 px-2 text-xs text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+                        >
+                          <a
+                            href={whatsAppCommanderProduitUrl({
+                              telephoneBoutique: boutique.telephone,
+                              boutiqueNom: boutique.nom,
+                              nom: p.nom,
+                              prixUsd: promo.prix,
+                              url: urlProduit(boutique.slug, p.id),
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" /> Commander
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { MapPin, MessageCircle, Minus, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { BoutiqueSiteLayout } from "@/components/boutiques/BoutiqueSiteLayout";
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import { useBoutiqueCart } from "@/lib/boutiques/BoutiqueCartContext";
 import { boutiqueCreerCommande } from "@/lib/boutiques/ecommerce.functions";
+import { whatsAppCommanderPanierUrl } from "@/lib/boutiques/whatsapp-links";
 
 export const Route = createFileRoute("/boutique/panier")({
   component: PanierPage,
@@ -30,6 +31,24 @@ function PanierPage() {
   const [modePaiement, setModePaiement] = useState<"mobile_money" | "paiement_livraison">("paiement_livraison");
   const [enCours, setEnCours] = useState(false);
   const [commandeConfirmee, setCommandeConfirmee] = useState<{ numero: string; total_usd: number } | null>(null);
+
+  // Position GPS ajoutée en texte brut dans le champ adresse existant —
+  // adresse_livraison est déjà un champ libre (pas de colonnes lat/lng sur
+  // commandes_ecommerce), donc aucune migration n'est nécessaire ici.
+  function partagerPosition() {
+    if (!navigator.geolocation) {
+      toast.error("La géolocalisation n'est pas disponible sur cet appareil.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lien = `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`;
+        setAdresse((prev) => (prev.trim() ? `${prev}\n📍 Ma position : ${lien}` : `📍 Ma position : ${lien}`));
+        toast.success("Ta position a été ajoutée à l'adresse.");
+      },
+      () => toast.error("Impossible d'obtenir ta position — vérifie que la localisation est autorisée."),
+    );
+  }
 
   async function commander(e: React.FormEvent) {
     e.preventDefault();
@@ -112,7 +131,19 @@ function PanierPage() {
             <h2 className="font-semibold">Livraison</h2>
             <div><Label>Nom</Label><Input value={nom} onChange={(e) => setNom(e.target.value)} required minLength={2} /></div>
             <div><Label>Téléphone</Label><Input value={telephone} onChange={(e) => setTelephone(e.target.value)} required minLength={6} /></div>
-            <div><Label>Adresse de livraison</Label><Textarea value={adresse} onChange={(e) => setAdresse(e.target.value)} required minLength={5} /></div>
+            <div>
+              <div className="flex items-center justify-between">
+                <Label>Adresse de livraison</Label>
+                <button
+                  type="button"
+                  onClick={partagerPosition}
+                  className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <MapPin className="h-3.5 w-3.5" /> Partager ma position
+                </button>
+              </div>
+              <Textarea value={adresse} onChange={(e) => setAdresse(e.target.value)} required minLength={5} className="mt-1.5" />
+            </div>
             <div>
               <Label>Paiement</Label>
               <Select value={modePaiement} onValueChange={(v) => setModePaiement(v as typeof modePaiement)}>
@@ -130,6 +161,33 @@ function PanierPage() {
             <Button type="submit" className="w-full" size="lg" disabled={enCours}>
               {enCours ? "Envoi..." : "Commander"}
             </Button>
+
+            {boutique.telephone && (
+              <>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="h-px flex-1 bg-border" /> ou <div className="h-px flex-1 bg-border" />
+                </div>
+                <Button asChild variant="outline" size="lg" className="w-full gap-2 border-green-600/40 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30">
+                  <a
+                    href={whatsAppCommanderPanierUrl({
+                      telephoneBoutique: boutique.telephone,
+                      boutiqueNom: boutique.nom,
+                      lignes: articles.map((a) => ({ nom: a.nom, quantite: a.quantite, prixUsd: a.prix_usd })),
+                      totalUsd: sousTotal,
+                      nomClient: nom,
+                      adresseClient: adresse,
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageCircle className="h-5 w-5" /> Commander via WhatsApp
+                  </a>
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  Envoie directement ta commande par message, sans passer par le formulaire.
+                </p>
+              </>
+            )}
           </form>
         )}
       </div>

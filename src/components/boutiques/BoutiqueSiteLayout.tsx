@@ -24,7 +24,12 @@ function EnTete() {
               {boutique.nom.charAt(0)}
             </div>
           )}
-          <span className="text-lg font-semibold">{boutique.nom}</span>
+          <span className="min-w-0">
+            <span className="block truncate text-lg font-semibold leading-tight">{boutique.nom}</span>
+            {boutique.slogan && (
+              <span className="hidden truncate text-xs italic text-muted-foreground sm:block">{boutique.slogan}</span>
+            )}
+          </span>
         </Link>
         <Link to="/boutique/panier" search={{ boutique: boutique.slug }} className="relative">
           <ShoppingCart className="h-6 w-6" />
@@ -53,6 +58,7 @@ export function BoutiqueSiteLayout({ children }: { children: ReactNode }) {
       <footer className="border-t bg-background">
         <div className="container mx-auto px-4 py-6 text-sm text-muted-foreground">
           <p className="font-medium text-foreground">{boutique.nom}</p>
+          {boutique.slogan && <p className="italic">{boutique.slogan}</p>}
           {boutique.adresse && <p>{boutique.adresse}</p>}
           <div className="mt-1 flex flex-wrap gap-x-4">
             {boutique.telephone && <span>{boutique.telephone}</span>}

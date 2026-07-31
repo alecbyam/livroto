@@ -34,7 +34,7 @@ export const Route = createFileRoute("/boutique")({
     return { boutique };
   },
   head: ({ match }) => {
-    const boutique = (match.context as { boutique?: { nom: string; logo_url: string | null; theme?: unknown } }).boutique;
+    const boutique = (match.context as { boutique?: { nom: string; slogan?: string | null; logo_url: string | null; theme?: unknown } }).boutique;
     if (!boutique) return {};
     // Le head() du root (__root.tsx) pose ~15 balises meta "Livroto" (og:*,
     // twitter:*, apple-mobile-web-app-title, author, publisher...). TanStack
@@ -45,7 +45,12 @@ export const Route = createFileRoute("/boutique")({
     // twitter:description et apple-mobile-web-app-title. Voir la checklist
     // "nouvelle boutique" : toute clé ajoutée au head() du root DOIT être
     // dupliquée ici.
-    const description = `Boutique en ligne ${boutique.nom}`;
+    // Slogan inclus dans la description : visible dans les résultats de
+    // recherche, l'aperçu de partage ET l'infobulle d'onglet navigateur —
+    // le "partout, y compris les onglets" demandé par l'utilisateur.
+    const description = boutique.slogan
+      ? `${boutique.nom} — ${boutique.slogan}`
+      : `Boutique en ligne ${boutique.nom}`;
     const themeCouleur = (boutique.theme as { primary?: string } | undefined)?.primary;
     return {
       meta: [

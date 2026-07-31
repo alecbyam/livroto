@@ -275,6 +275,7 @@ export type Database = {
           logo_url: string | null
           nom: string
           rccm: string | null
+          slogan: string | null
           slug: string
           telephone: string | null
           theme: Json
@@ -292,6 +293,7 @@ export type Database = {
           logo_url?: string | null
           nom: string
           rccm?: string | null
+          slogan?: string | null
           slug: string
           telephone?: string | null
           theme?: Json
@@ -309,6 +311,7 @@ export type Database = {
           logo_url?: string | null
           nom?: string
           rccm?: string | null
+          slogan?: string | null
           slug?: string
           telephone?: string | null
           theme?: Json

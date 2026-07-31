@@ -96,7 +96,9 @@ export function BoutiqueAdminLayout({ children }: { children: ReactNode }) {
             )}
             <div className="min-w-0">
               <p className="truncate font-semibold leading-tight">{boutique.nom}</p>
-              <p className="text-xs text-muted-foreground">Gestion</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {boutique.slogan ? <span className="italic">{boutique.slogan}</span> : "Gestion"}
+              </p>
             </div>
           </Link>
           {role && (
