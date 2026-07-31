@@ -4,6 +4,7 @@
 // la vente elle-même — la caisse doit rester utilisable même si le stockage
 // est temporairement indisponible.
 import PDFDocument from "pdfkit";
+import sharp from "sharp";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const MODE_PAIEMENT_LABEL: Record<string, string> = {
@@ -143,7 +144,18 @@ async function telechargerLogo(logoUrl: string | null): Promise<Buffer | null> {
   try {
     const res = await fetch(logoUrl);
     if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
+    const original = Buffer.from(await res.arrayBuffer());
+    // Facture = document imprimé/officiel : logo en noir et blanc plutôt que
+    // la version couleur (déjà utilisée partout ailleurs — vitrine, admin).
+    // sharp() préserve le format d'origine (JPEG ici) quand aucune méthode
+    // .jpeg()/.png() n'est appelée après .grayscale(). Best-effort comme le
+    // reste de cette fonction : un échec de conversion renvoie le logo
+    // couleur plutôt que de faire échouer toute la facture.
+    try {
+      return await sharp(original).toColourspace("b-w").toBuffer();
+    } catch {
+      return original;
+    }
   } catch {
     return null;
   }

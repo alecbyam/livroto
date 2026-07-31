@@ -5,9 +5,24 @@
 // pouvoir se croire seule sur sa propre plateforme.
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Facebook, MessageCircle } from "lucide-react";
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import { useBoutiqueCart } from "@/lib/boutiques/BoutiqueCartContext";
+
+// lucide-react n'a pas d'icône TikTok (icônes de marque dépréciées dans cette
+// lib) — tracé minimal maison plutôt qu'ajouter une dépendance juste pour un
+// glyphe.
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M16.6 5.82c-.9-.94-1.4-2.13-1.44-3.32h-3.02v13.5a2.59 2.59 0 1 1-1.83-2.48V10.5a5.6 5.6 0 1 0 4.85 5.55V9.35a7.6 7.6 0 0 0 4.44 1.42V7.75c-1.05 0-2.09-.35-2.93-1.03a4.3 4.3 0 0 1-.07-.9Z" />
+    </svg>
+  );
+}
+
+function normaliserUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
 
 function EnTete() {
   const boutique = useBoutique();
@@ -64,6 +79,43 @@ export function BoutiqueSiteLayout({ children }: { children: ReactNode }) {
             {boutique.telephone && <span>{boutique.telephone}</span>}
             {boutique.email && <span>{boutique.email}</span>}
           </div>
+          {(boutique.facebook_url || boutique.tiktok_url || boutique.whatsapp_url) && (
+            <div className="mt-3 flex gap-3">
+              {boutique.facebook_url && (
+                <a
+                  href={normaliserUrl(boutique.facebook_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Facebook"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Facebook className="h-5 w-5" />
+                </a>
+              )}
+              {boutique.tiktok_url && (
+                <a
+                  href={normaliserUrl(boutique.tiktok_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="TikTok"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <TikTokIcon className="h-5 w-5" />
+                </a>
+              )}
+              {boutique.whatsapp_url && (
+                <a
+                  href={normaliserUrl(boutique.whatsapp_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="WhatsApp"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </footer>
     </div>

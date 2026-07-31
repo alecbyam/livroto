@@ -270,6 +270,7 @@ export type Database = {
           devise: string
           domaine: string | null
           email: string | null
+          facebook_url: string | null
           id: string
           id_national: string | null
           logo_url: string | null
@@ -279,7 +280,9 @@ export type Database = {
           slug: string
           telephone: string | null
           theme: Json
+          tiktok_url: string | null
           updated_at: string
+          whatsapp_url: string | null
         }
         Insert: {
           actif?: boolean
@@ -288,6 +291,7 @@ export type Database = {
           devise?: string
           domaine?: string | null
           email?: string | null
+          facebook_url?: string | null
           id?: string
           id_national?: string | null
           logo_url?: string | null
@@ -297,7 +301,9 @@ export type Database = {
           slug: string
           telephone?: string | null
           theme?: Json
+          tiktok_url?: string | null
           updated_at?: string
+          whatsapp_url?: string | null
         }
         Update: {
           actif?: boolean
@@ -306,6 +312,7 @@ export type Database = {
           devise?: string
           domaine?: string | null
           email?: string | null
+          facebook_url?: string | null
           id?: string
           id_national?: string | null
           logo_url?: string | null
@@ -315,7 +322,9 @@ export type Database = {
           slug?: string
           telephone?: string | null
           theme?: Json
+          tiktok_url?: string | null
           updated_at?: string
+          whatsapp_url?: string | null
         }
         Relationships: []
       }

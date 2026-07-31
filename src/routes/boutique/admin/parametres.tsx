@@ -16,6 +16,8 @@ import {
   boutiqueTesterWhatsapp,
   boutiqueEnregistrerFlexpay,
   boutiqueTesterFlexpay,
+  boutiqueEnregistrerCoordonnees,
+  boutiqueEnregistrerReseauxSociaux,
 } from "@/lib/boutiques/parametres.functions";
 
 export const Route = createFileRoute("/boutique/admin/parametres")({
@@ -28,6 +30,26 @@ function ParametresAdminPage() {
   const { data, refetch } = useQuery({
     queryKey: ["boutique-parametres", boutique.id],
     queryFn: () => obtenirFn({ data: { boutique_id: boutique.id } }),
+  });
+
+  const [adresse, setAdresse] = useState(boutique.adresse ?? "");
+  const [telephone, setTelephone] = useState(boutique.telephone ?? "");
+  const [email, setEmail] = useState(boutique.email ?? "");
+  const enregistrerCoordonneesFn = useServerFn(boutiqueEnregistrerCoordonnees);
+  const enregistrerCoordonnees = useMutation({
+    mutationFn: enregistrerCoordonneesFn,
+    onSuccess: () => toast.success("Coordonnées enregistrées."),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [facebookUrl, setFacebookUrl] = useState(boutique.facebook_url ?? "");
+  const [tiktokUrl, setTiktokUrl] = useState(boutique.tiktok_url ?? "");
+  const [whatsappUrl, setWhatsappUrl] = useState(boutique.whatsapp_url ?? "");
+  const enregistrerReseauxFn = useServerFn(boutiqueEnregistrerReseauxSociaux);
+  const enregistrerReseaux = useMutation({
+    mutationFn: enregistrerReseauxFn,
+    onSuccess: () => toast.success("Réseaux sociaux enregistrés."),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const [phoneNumberId, setPhoneNumberId] = useState("");
@@ -81,6 +103,98 @@ function ParametresAdminPage() {
   return (
     <div className="container mx-auto max-w-lg px-4 py-8">
       <h1 className="text-2xl font-bold">Paramètres — {boutique.nom}</h1>
+
+      <div className="mt-6 rounded-xl border p-4">
+        <h2 className="font-semibold">Coordonnées</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Adresse, téléphone et email affichés sur la vitrine, la facture et partout où l'identité
+          de {boutique.nom} apparaît.
+        </p>
+        <form
+          className="mt-3 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            enregistrerCoordonnees.mutate({
+              data: { boutique_id: boutique.id, adresse, telephone, email },
+            });
+          }}
+        >
+          <div>
+            <Label>Adresse</Label>
+            <Input
+              value={adresse}
+              onChange={(e) => setAdresse(e.target.value)}
+              placeholder="Quartier, avenue, repère..."
+            />
+          </div>
+          <div>
+            <Label>Téléphone</Label>
+            <Input value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="+243..." />
+          </div>
+          <div>
+            <Label>Email de contact</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="contact@..."
+            />
+          </div>
+          <Button type="submit" disabled={enregistrerCoordonnees.isPending}>
+            Enregistrer
+          </Button>
+        </form>
+      </div>
+
+      <div className="mt-6 rounded-xl border p-4">
+        <h2 className="font-semibold">Réseaux sociaux</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Liens affichés en pied de page de la vitrine. Colle l'adresse complète de chaque page
+          (laisse vide si non applicable).
+        </p>
+        <form
+          className="mt-3 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            enregistrerReseaux.mutate({
+              data: {
+                boutique_id: boutique.id,
+                facebook_url: facebookUrl,
+                tiktok_url: tiktokUrl,
+                whatsapp_url: whatsappUrl,
+              },
+            });
+          }}
+        >
+          <div>
+            <Label>Page Facebook</Label>
+            <Input
+              value={facebookUrl}
+              onChange={(e) => setFacebookUrl(e.target.value)}
+              placeholder="https://facebook.com/hugocollection"
+            />
+          </div>
+          <div>
+            <Label>Page TikTok</Label>
+            <Input
+              value={tiktokUrl}
+              onChange={(e) => setTiktokUrl(e.target.value)}
+              placeholder="https://tiktok.com/@hugocollection"
+            />
+          </div>
+          <div>
+            <Label>Page/chaîne WhatsApp</Label>
+            <Input
+              value={whatsappUrl}
+              onChange={(e) => setWhatsappUrl(e.target.value)}
+              placeholder="https://wa.me/243..."
+            />
+          </div>
+          <Button type="submit" disabled={enregistrerReseaux.isPending}>
+            Enregistrer
+          </Button>
+        </form>
+      </div>
 
       <div className="mt-6 rounded-xl border p-4">
         <div className="flex items-center justify-between">

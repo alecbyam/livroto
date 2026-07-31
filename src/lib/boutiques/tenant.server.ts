@@ -26,9 +26,13 @@ export type BoutiqueTenant = {
   email: string | null;
   rccm: string | null;
   id_national: string | null;
+  facebook_url: string | null;
+  tiktok_url: string | null;
+  whatsapp_url: string | null;
 };
 
-const COLONNES = "id,slug,nom,slogan,logo_url,theme,devise,adresse,telephone,email,rccm,id_national";
+const COLONNES =
+  "id,slug,nom,slogan,logo_url,theme,devise,adresse,telephone,email,rccm,id_national,facebook_url,tiktok_url,whatsapp_url";
 
 export async function resolveBoutiqueTenant(host: string | null, slugParam: string | null): Promise<BoutiqueTenant | null> {
   const domaine = (host ?? "").split(":")[0].trim().toLowerCase();
