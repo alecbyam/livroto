@@ -18,6 +18,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as BoutiquesRouteImport } from './routes/boutiques'
+import { Route as BoutiqueManifestDotwebmanifestRouteImport } from './routes/boutique-manifest[.]webmanifest'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AideRouteImport } from './routes/aide'
 import { Route as AboutRouteImport } from './routes/about'
@@ -93,6 +94,12 @@ const BoutiquesRoute = BoutiquesRouteImport.update({
   path: '/boutiques',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BoutiqueManifestDotwebmanifestRoute =
+  BoutiqueManifestDotwebmanifestRouteImport.update({
+    id: '/boutique-manifest.webmanifest',
+    path: '/boutique-manifest.webmanifest',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -246,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
+  '/boutique-manifest.webmanifest': typeof BoutiqueManifestDotwebmanifestRoute
   '/boutiques': typeof BoutiquesRoute
   '/cart': typeof CartRoute
   '/catalog': typeof CatalogRoute
@@ -284,6 +292,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
+  '/boutique-manifest.webmanifest': typeof BoutiqueManifestDotwebmanifestRoute
   '/boutiques': typeof BoutiquesRoute
   '/cart': typeof CartRoute
   '/catalog': typeof CatalogRoute
@@ -325,6 +334,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
+  '/boutique-manifest.webmanifest': typeof BoutiqueManifestDotwebmanifestRoute
   '/boutiques': typeof BoutiquesRoute
   '/cart': typeof CartRoute
   '/catalog': typeof CatalogRoute
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/aide'
     | '/auth'
+    | '/boutique-manifest.webmanifest'
     | '/boutiques'
     | '/cart'
     | '/catalog'
@@ -404,6 +415,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/aide'
     | '/auth'
+    | '/boutique-manifest.webmanifest'
     | '/boutiques'
     | '/cart'
     | '/catalog'
@@ -444,6 +456,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/aide'
     | '/auth'
+    | '/boutique-manifest.webmanifest'
     | '/boutiques'
     | '/cart'
     | '/catalog'
@@ -485,6 +498,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AideRoute: typeof AideRoute
   AuthRoute: typeof AuthRoute
+  BoutiqueManifestDotwebmanifestRoute: typeof BoutiqueManifestDotwebmanifestRoute
   BoutiquesRoute: typeof BoutiquesRoute
   CartRoute: typeof CartRoute
   CatalogRoute: typeof CatalogRoute
@@ -562,6 +576,13 @@ declare module '@tanstack/react-router' {
       path: '/boutiques'
       fullPath: '/boutiques'
       preLoaderRoute: typeof BoutiquesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/boutique-manifest.webmanifest': {
+      id: '/boutique-manifest.webmanifest'
+      path: '/boutique-manifest.webmanifest'
+      fullPath: '/boutique-manifest.webmanifest'
+      preLoaderRoute: typeof BoutiqueManifestDotwebmanifestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -854,6 +875,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AideRoute: AideRoute,
   AuthRoute: AuthRoute,
+  BoutiqueManifestDotwebmanifestRoute: BoutiqueManifestDotwebmanifestRoute,
   BoutiquesRoute: BoutiquesRoute,
   CartRoute: CartRoute,
   CatalogRoute: CatalogRoute,

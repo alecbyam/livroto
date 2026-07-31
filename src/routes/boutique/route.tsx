@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useEffect } from "react";
 import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
 import { resolveBoutiqueTenantFn } from "@/lib/boutiques/tenant.functions";
 import { BoutiqueProvider } from "@/lib/boutiques/BoutiqueProvider";
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/boutique")({
     return { boutique };
   },
   head: ({ match }) => {
-    const boutique = (match.context as { boutique?: { nom: string; logo_url: string | null } }).boutique;
+    const boutique = (match.context as { boutique?: { nom: string; logo_url: string | null; theme?: unknown } }).boutique;
     if (!boutique) return {};
     // Le head() du root (__root.tsx) pose ~15 balises meta "Livroto" (og:*,
     // twitter:*, apple-mobile-web-app-title, author, publisher...). TanStack
@@ -45,6 +46,7 @@ export const Route = createFileRoute("/boutique")({
     // "nouvelle boutique" : toute clé ajoutée au head() du root DOIT être
     // dupliquée ici.
     const description = `Boutique en ligne ${boutique.nom}`;
+    const themeCouleur = (boutique.theme as { primary?: string } | undefined)?.primary;
     return {
       meta: [
         { title: boutique.nom },
@@ -61,6 +63,10 @@ export const Route = createFileRoute("/boutique")({
         { name: "apple-mobile-web-app-title", content: boutique.nom },
         { name: "author", content: boutique.nom },
         { name: "publisher", content: boutique.nom },
+        // Couleur de la barre de statut/écran de démarrage PWA — sinon le
+        // vert Livroto du root (#0f3d2e) reste utilisé pour une boutique qui
+        // a pourtant sa propre couleur de marque (theme.primary).
+        ...(themeCouleur ? [{ name: "theme-color", content: themeCouleur }] : []),
       ],
       // Les <link rel="icon"> du root (favicon-32.png, icon-192.png Livroto)
       // sont CONCATÉNÉS, pas remplacés (contrairement aux meta, fusionnées par
@@ -137,8 +143,31 @@ function stylesMarqueBoutique(theme: unknown): CSSProperties | undefined {
   return style as CSSProperties;
 }
 
+// Le <link rel="manifest"> du root (__root.tsx) pointe vers le manifest
+// Livroto générique — et contrairement aux meta (fusionnées par clé), les
+// liens sont CONCATÉNÉS et le premier <link rel="manifest"> du document
+// gagne (les navigateurs ne "choisissent" pas le meilleur comme ils le font
+// pour les favicons via `sizes`). Impossible donc de simplement ajouter un
+// second lien ici — il ne serait jamais lu par Chrome/Edge pour le prompt
+// d'installation PWA. On réécrit directement l'attribut `href` du lien déjà
+// présent dans le DOM, après montage, pour cibler le manifest dynamique
+// PAR boutique (nom/icônes/couleur/`start_url` propres à cette boutique) —
+// voir src/routes/boutique-manifest[.]webmanifest.ts.
+function useManifestBoutique(slug: string) {
+  useEffect(() => {
+    const lien = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (!lien) return;
+    const original = lien.getAttribute("href");
+    lien.setAttribute("href", `/boutique-manifest.webmanifest?boutique=${encodeURIComponent(slug)}`);
+    return () => {
+      if (original) lien.setAttribute("href", original);
+    };
+  }, [slug]);
+}
+
 function BoutiqueLayout() {
   const { boutique } = Route.useRouteContext();
+  useManifestBoutique(boutique.slug);
   return (
     <BoutiqueProvider boutique={boutique}>
       {/* Le panier doit englober TOUT ce que /boutique/* rend via <Outlet/> —

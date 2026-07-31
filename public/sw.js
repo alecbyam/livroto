@@ -1,5 +1,7 @@
-// Livroto Service Worker — PWA offline support
-const CACHE = 'livroto-v28';
+// Livroto Service Worker — PWA offline support (aussi utilisé par les
+// boutiques marque blanche sous /boutique/**, cf. src/routes/boutique/route.tsx
+// — d'où le fallback hors-ligne générique ci-dessous, sans "Livroto" en dur).
+const CACHE = 'livroto-v29';
 const ASSETS = [
   '/',
   '/catalog',
@@ -70,12 +72,18 @@ self.addEventListener('fetch', (e) => {
           return res;
         })
         .catch(() =>
-          caches.match(request).then((cached) =>
-            cached ?? caches.match('/offline') ?? new Response(
-              '<html><body style="font-family:sans-serif;text-align:center;padding:3rem"><h1>Livroto</h1><p>Tu es hors ligne. Reconnecte-toi à internet.</p><a href="/">Réessayer</a></body></html>',
+          caches.match(request).then((cached) => {
+            if (cached) return cached;
+            const offlineCache = caches.match('/offline');
+            // Titre générique, pas "Livroto" en dur : cette page hors-ligne
+            // de dernier recours peut être servie à un visiteur d'une
+            // boutique marque blanche (/boutique/**), qui ne doit jamais
+            // voir la marque Livroto.
+            return offlineCache.then((page) => page ?? new Response(
+              '<html><body style="font-family:sans-serif;text-align:center;padding:3rem"><p>Tu es hors ligne. Reconnecte-toi à internet.</p><a href="/">Réessayer</a></body></html>',
               { headers: { 'Content-Type': 'text/html' } }
-            )
-          )
+            ));
+          })
         )
     );
   }
