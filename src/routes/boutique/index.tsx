@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { MessageCircle, PackageSearch, Search, Share2, Tag, X } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { BoutiqueSiteLayout } from "@/components/boutiques/BoutiqueSiteLayout";
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import { useBoutiqueCart } from "@/lib/boutiques/BoutiqueCartContext";
 import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
+import { estNouveau, stockBas } from "@/lib/boutiques/produit-affichage";
 import { urlProduit, whatsAppCommanderProduitUrl } from "@/lib/boutiques/whatsapp-links";
 
 // Web Share API si disponible (Android/iOS/desktop récents) sinon copie du
@@ -51,34 +52,11 @@ type Produit = {
   boutique_categories: { nom: string; icone: string | null } | null;
 };
 
-const NOUVEAU_JOURS = 14;
-function estNouveau(created_at: string) {
-  return Date.now() - new Date(created_at).getTime() < NOUVEAU_JOURS * 24 * 60 * 60 * 1000;
-}
-
 function BoutiqueAccueil() {
   const boutique = useBoutique();
   const { ajouter } = useBoutiqueCart();
   const [categorieId, setCategorieId] = useState<string>("tous");
   const [recherche, setRecherche] = useState("");
-  // Article ciblé par un lien partagé (?produit=...) — lu directement via
-  // URLSearchParams plutôt que d'ajouter `produit` au validateSearch typé de
-  // cette route (qui n'existe même pas ici, hérité du parent /boutique) :
-  // garde ce paramètre purement côté client, sans toucher au routage.
-  const [produitCible, setProduitCible] = useState<string | null>(null);
-  useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("produit");
-    if (!id) return;
-    setProduitCible(id);
-    const t = setTimeout(() => {
-      document.getElementById(`produit-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 300);
-    const t2 = setTimeout(() => setProduitCible(null), 3000);
-    return () => {
-      clearTimeout(t);
-      clearTimeout(t2);
-    };
-  }, []);
 
   const { data: categories } = useQuery({
     queryKey: ["boutique-categories-public", boutique.id],
@@ -233,73 +211,79 @@ function BoutiqueAccueil() {
               return (
                 <div
                   key={p.id}
-                  id={`produit-${p.id}`}
-                  className={`group flex flex-col overflow-hidden rounded-2xl border bg-card transition hover:shadow-md ${
-                    produitCible === p.id ? "ring-2 ring-primary ring-offset-2" : ""
-                  }`}
+                  className="group flex flex-col overflow-hidden rounded-2xl border bg-card transition hover:shadow-md hover:-translate-y-0.5"
                 >
-                  <div className="relative aspect-square w-full bg-muted">
-                    {p.image_url ? (
-                      <img
-                        src={p.image_url}
-                        alt={p.nom}
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-                        loading="lazy"
-                      />
-                    ) : p.boutique_categories?.icone ? (
-                      <div className="grid h-full w-full place-items-center text-4xl">
-                        {p.boutique_categories.icone}
-                      </div>
-                    ) : (
-                      <div className="grid h-full w-full place-items-center">
-                        <Tag className="h-10 w-10 text-muted-foreground/50" />
-                      </div>
-                    )}
-                    {enRupture ? (
-                      <span className="absolute inset-x-0 top-0 bg-foreground/80 py-1 text-center text-[11px] font-bold uppercase tracking-wide text-background">
-                        Rupture de stock
-                      </span>
-                    ) : (
-                      <>
-                        {promo.enPromo && (
-                          <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground shadow-sm">
-                            −{promo.pourcentage}%
-                          </span>
-                        )}
-                        {!promo.enPromo && estNouveau(p.created_at) && (
-                          <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
-                            Nouveau
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1 p-3">
-                    <p className="line-clamp-2 text-sm font-medium leading-snug">{p.nom}</p>
-                    {(p.sous_categories?.nom || p.taille || p.couleur) && (
-                      <p className="text-xs text-muted-foreground">
-                        {[p.sous_categories?.nom, p.taille, p.couleur].filter(Boolean).join(" · ")}
-                      </p>
-                    )}
-                    <div className="mt-auto flex flex-col gap-0.5 pt-2">
-                      {promo.enPromo ? (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <span className="font-display text-base font-bold text-destructive">
-                              {promo.prix} $
-                            </span>
-                            <span className="text-sm text-muted-foreground line-through">
-                              {promo.prixOriginal} $
-                            </span>
-                          </div>
-                          <span className="text-[11px] font-medium text-destructive">
-                            Vous économisez {promo.economie.toFixed(2)} $
-                          </span>
-                        </>
+                  <Link to="/boutique/produit" search={{ boutique: boutique.slug, produit: p.id }}>
+                    <div className="relative aspect-square w-full bg-muted">
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt={p.nom}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                          loading="lazy"
+                        />
+                      ) : p.boutique_categories?.icone ? (
+                        <div className="grid h-full w-full place-items-center text-4xl">
+                          {p.boutique_categories.icone}
+                        </div>
                       ) : (
-                        <span className="font-display text-base font-bold">{p.prix_usd} $</span>
+                        <div className="grid h-full w-full place-items-center">
+                          <Tag className="h-10 w-10 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      {enRupture ? (
+                        <span className="absolute inset-x-0 top-0 bg-foreground/80 py-1 text-center text-[11px] font-bold uppercase tracking-wide text-background">
+                          Rupture de stock
+                        </span>
+                      ) : (
+                        <>
+                          {promo.enPromo && (
+                            <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground shadow-sm">
+                              −{promo.pourcentage}%
+                            </span>
+                          )}
+                          {!promo.enPromo && estNouveau(p.created_at) && (
+                            <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
+                              Nouveau
+                            </span>
+                          )}
+                          {stockBas(p.quantite) && (
+                            <span className="absolute bottom-2 left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                              Plus que {p.quantite} !
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
+                    <div className="flex flex-col gap-1 p-3 pb-0">
+                      <p className="line-clamp-2 text-sm font-medium leading-snug group-hover:underline">{p.nom}</p>
+                      {(p.sous_categories?.nom || p.taille || p.couleur) && (
+                        <p className="text-xs text-muted-foreground">
+                          {[p.sous_categories?.nom, p.taille, p.couleur].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      <div className="flex flex-col gap-0.5 pt-1">
+                        {promo.enPromo ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="font-display text-base font-bold text-destructive">
+                                {promo.prix} $
+                              </span>
+                              <span className="text-sm text-muted-foreground line-through">
+                                {promo.prixOriginal} $
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-medium text-destructive">
+                              Vous économisez {promo.economie.toFixed(2)} $
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-display text-base font-bold">{p.prix_usd} $</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                  <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
                     <Button
                       size="sm"
                       className="mt-1 w-full"

@@ -6,7 +6,7 @@ import { phoneDigits } from "@/lib/phone";
 
 export function urlProduit(boutiqueSlug: string, produitId: string): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/boutique?boutique=${encodeURIComponent(boutiqueSlug)}&produit=${encodeURIComponent(produitId)}`;
+  return `${origin}/boutique/produit?boutique=${encodeURIComponent(boutiqueSlug)}&produit=${encodeURIComponent(produitId)}`;
 }
 
 // wa.me/?text=... (sans numéro) ouvre le sélecteur de contact natif — pour

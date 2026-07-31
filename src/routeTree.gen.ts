@@ -29,6 +29,7 @@ import { Route as BoutiqueIndexRouteImport } from './routes/boutique/index'
 import { Route as VendorSlugRouteImport } from './routes/vendor.$slug'
 import { Route as ProductProductIdRouteImport } from './routes/product.$productId'
 import { Route as OrderProductIdRouteImport } from './routes/order.$productId'
+import { Route as BoutiqueProduitRouteImport } from './routes/boutique/produit'
 import { Route as BoutiquePanierRouteImport } from './routes/boutique/panier'
 import { Route as BoutiqueConnexionRouteImport } from './routes/boutique/connexion'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
@@ -148,6 +149,11 @@ const OrderProductIdRoute = OrderProductIdRouteImport.update({
   id: '/order/$productId',
   path: '/order/$productId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BoutiqueProduitRoute = BoutiqueProduitRouteImport.update({
+  id: '/produit',
+  path: '/produit',
+  getParentRoute: () => BoutiqueRouteRoute,
 } as any)
 const BoutiquePanierRoute = BoutiquePanierRouteImport.update({
   id: '/panier',
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/boutique/connexion': typeof BoutiqueConnexionRoute
   '/boutique/panier': typeof BoutiquePanierRoute
+  '/boutique/produit': typeof BoutiqueProduitRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/vendor/$slug': typeof VendorSlugRoute
@@ -309,6 +316,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/boutique/connexion': typeof BoutiqueConnexionRoute
   '/boutique/panier': typeof BoutiquePanierRoute
+  '/boutique/produit': typeof BoutiqueProduitRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/vendor/$slug': typeof VendorSlugRoute
@@ -351,6 +359,7 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/boutique/connexion': typeof BoutiqueConnexionRoute
   '/boutique/panier': typeof BoutiquePanierRoute
+  '/boutique/produit': typeof BoutiqueProduitRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/vendor/$slug': typeof VendorSlugRoute
@@ -393,6 +402,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/boutique/connexion'
     | '/boutique/panier'
+    | '/boutique/produit'
     | '/order/$productId'
     | '/product/$productId'
     | '/vendor/$slug'
@@ -432,6 +442,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/boutique/connexion'
     | '/boutique/panier'
+    | '/boutique/produit'
     | '/order/$productId'
     | '/product/$productId'
     | '/vendor/$slug'
@@ -473,6 +484,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/boutique/connexion'
     | '/boutique/panier'
+    | '/boutique/produit'
     | '/order/$productId'
     | '/product/$productId'
     | '/vendor/$slug'
@@ -654,6 +666,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/order/$productId'
       preLoaderRoute: typeof OrderProductIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/boutique/produit': {
+      id: '/boutique/produit'
+      path: '/produit'
+      fullPath: '/boutique/produit'
+      preLoaderRoute: typeof BoutiqueProduitRouteImport
+      parentRoute: typeof BoutiqueRouteRoute
     }
     '/boutique/panier': {
       id: '/boutique/panier'
@@ -854,6 +873,7 @@ interface BoutiqueRouteRouteChildren {
   BoutiqueAdminRouteRoute: typeof BoutiqueAdminRouteRouteWithChildren
   BoutiqueConnexionRoute: typeof BoutiqueConnexionRoute
   BoutiquePanierRoute: typeof BoutiquePanierRoute
+  BoutiqueProduitRoute: typeof BoutiqueProduitRoute
   BoutiqueIndexRoute: typeof BoutiqueIndexRoute
 }
 
@@ -861,6 +881,7 @@ const BoutiqueRouteRouteChildren: BoutiqueRouteRouteChildren = {
   BoutiqueAdminRouteRoute: BoutiqueAdminRouteRouteWithChildren,
   BoutiqueConnexionRoute: BoutiqueConnexionRoute,
   BoutiquePanierRoute: BoutiquePanierRoute,
+  BoutiqueProduitRoute: BoutiqueProduitRoute,
   BoutiqueIndexRoute: BoutiqueIndexRoute,
 }
 
