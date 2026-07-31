@@ -6,6 +6,14 @@
 import PDFDocument from "pdfkit";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+const MODE_PAIEMENT_LABEL: Record<string, string> = {
+  cash: "Cash",
+  mobile_money: "FlexPay (Mobile Money)",
+  carte: "Carte bancaire",
+  paiement_livraison: "Paiement à la livraison",
+  credit: "Crédit",
+};
+
 function renderPdf(params: {
   boutique: { nom: string; slogan: string | null; adresse: string | null; telephone: string | null; email: string | null; rccm: string | null; id_national: string | null; devise: string };
   logo: Buffer | null;
@@ -62,7 +70,7 @@ function renderPdf(params: {
     doc.fontSize(16).text(`FACTURE ${facture.numero ?? ""}`);
     doc.fontSize(9).fillColor("#555")
       .text(`Vente ${vente.numero ?? ""} — ${new Date(facture.created_at).toLocaleString("fr-FR")}`)
-      .text(`Canal : ${vente.canal === "ecommerce" ? "e-commerce" : "boutique physique"} — Paiement : ${vente.mode_paiement === "credit" ? "Crédit" : vente.mode_paiement}`);
+      .text(`Canal : ${vente.canal === "ecommerce" ? "e-commerce" : "boutique physique"} — Paiement : ${MODE_PAIEMENT_LABEL[vente.mode_paiement] ?? vente.mode_paiement}`);
     doc.fillColor("#000");
 
     if (client) {

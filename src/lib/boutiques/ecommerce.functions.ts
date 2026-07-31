@@ -8,6 +8,9 @@ import {
   notifierChangementStatut,
 } from "@/lib/boutiques/whatsapp.server";
 import { getPrixEffectif } from "@/lib/boutiques/prix-promo";
+import { loadBoutiqueIntegrationConfig } from "@/lib/boutiques/integration-config.server";
+import { getFlexpayConfig, flexpayInitiateMobileMoney, flexpayCheck } from "@/lib/integrations/flexpay.server";
+import { getCdfRate } from "@/lib/integrations/config.server";
 
 // ============================================================================
 // Checkout invité : PAS de middleware requireSupabaseAuth — un visiteur sans
@@ -28,7 +31,7 @@ export const boutiqueCreerCommande = createServerFn({ method: "POST" })
         client_telephone: z.string().min(6).max(30),
         client_email: z.string().email().optional(),
         adresse_livraison: z.string().min(5).max(500),
-        mode_paiement: z.enum(["mobile_money", "paiement_livraison"]),
+        mode_paiement: z.enum(["mobile_money", "paiement_livraison", "carte"]),
         code_promo: z.string().max(40).optional(),
         lignes: z
           .array(
@@ -184,6 +187,95 @@ export const boutiqueCreerCommande = createServerFn({ method: "POST" })
     }).catch(() => {});
 
     return { commande };
+  });
+
+// ---------- Paiement FlexPay (invité) : initiation + suivi ----------
+// Même principe que flexpayInitiate/flexpayCheckStatus marketplace
+// (src/lib/integrations.functions.ts), mais scopé par boutique et sans
+// middleware auth (checkout invité, comme boutiqueCreerCommande ci-dessus).
+// Tant que la boutique n'a pas renseigné merchant/token dans Paramètres,
+// getFlexpayConfig() renvoie null et mode_paiement="mobile_money" reste un
+// simple libellé (comportement inchangé) — dès que les identifiants existent,
+// ça déclenche un vrai push USSD sans rien recoder côté client.
+export const boutiqueFlexpayInitier = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        commande_id: z.string().uuid(),
+        phone: z.string().min(6).max(30),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const cfg = await getFlexpayConfig(await loadBoutiqueIntegrationConfig(data.boutique_id));
+    if (!cfg) return { ok: false as const, notConfigured: true as const };
+
+    const { data: commande, error } = await supabaseAdmin
+      .from("commandes_ecommerce")
+      .select("id,numero,total_usd,mode_paiement")
+      .eq("id", data.commande_id)
+      .eq("boutique_id", data.boutique_id)
+      .maybeSingle();
+    if (error || !commande) return { ok: false as const, error: "Commande introuvable." };
+    if (commande.mode_paiement !== "mobile_money") {
+      return { ok: false as const, error: "Cette commande n'utilise pas FlexPay." };
+    }
+
+    // Montant à débiter dans la devise configurée (CDF arrondi, ou USD) —
+    // même conversion que flexpayInitiate côté marketplace.
+    let amount = Number(commande.total_usd);
+    if (cfg.currency === "CDF") {
+      const rate = await getCdfRate();
+      amount = Math.max(1, Math.round(amount * rate));
+    }
+    const reference = `HC-${commande.numero ?? commande.id.slice(0, 8)}-${Date.now().toString().slice(-6)}`;
+
+    const result = await flexpayInitiateMobileMoney({
+      cfg,
+      phone: data.phone,
+      amount,
+      reference,
+      currency: cfg.currency,
+    });
+    if (!result.ok) {
+      await supabaseAdmin.from("commandes_ecommerce").update({ statut_paiement: "echoue" }).eq("id", commande.id);
+      return { ok: false as const, error: result.error || "Échec de l'initiation du paiement." };
+    }
+
+    await supabaseAdmin
+      .from("commandes_ecommerce")
+      .update({ statut_paiement: "en_attente", flexpay_order_number: result.orderNumber })
+      .eq("id", commande.id);
+
+    return { ok: true as const, amount, currency: cfg.currency };
+  });
+
+export const boutiqueFlexpayVerifier = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z.object({ boutique_id: z.string().uuid(), commande_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const cfg = await getFlexpayConfig(await loadBoutiqueIntegrationConfig(data.boutique_id));
+    if (!cfg) return { ok: false as const, status: "pending" as const };
+
+    const { data: commande } = await supabaseAdmin
+      .from("commandes_ecommerce")
+      .select("id,statut_paiement,flexpay_order_number")
+      .eq("id", data.commande_id)
+      .eq("boutique_id", data.boutique_id)
+      .maybeSingle();
+    if (!commande) return { ok: false as const, status: "pending" as const };
+    if (commande.statut_paiement === "paye") return { ok: true as const, status: "success" as const };
+    if (!commande.flexpay_order_number) return { ok: false as const, status: "pending" as const };
+
+    const { status } = await flexpayCheck(commande.flexpay_order_number, cfg);
+    if (status === "success") {
+      await supabaseAdmin.from("commandes_ecommerce").update({ statut_paiement: "paye" }).eq("id", commande.id);
+    } else if (status === "failed") {
+      await supabaseAdmin.from("commandes_ecommerce").update({ statut_paiement: "echoue" }).eq("id", commande.id);
+    }
+    return { ok: true as const, status };
   });
 
 // Suivi invité : numéro de commande + téléphone (pas de compte nécessaire),

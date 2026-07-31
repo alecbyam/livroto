@@ -53,6 +53,21 @@ function AdresseAvecLien({ adresse }: { adresse: string }) {
   );
 }
 
+const MODE_PAIEMENT_LABEL: Record<string, string> = {
+  mobile_money: "FlexPay",
+  paiement_livraison: "Paiement à la livraison",
+  carte: "Carte bancaire",
+};
+
+// statut_paiement (migration 54) : distinct du statut de traitement `statut`
+// ci-dessus. Reste "non_requis" (donc invisible) pour paiement_livraison/carte
+// — seul un vrai push FlexPay produit en_attente/paye/echoue.
+const STATUT_PAIEMENT_BADGE: Record<string, { label: string; className: string }> = {
+  en_attente: { label: "Paiement en attente", className: "border-amber-500 text-amber-700" },
+  paye: { label: "Payé ✅", className: "border-green-600 text-green-700" },
+  echoue: { label: "Paiement échoué", className: "border-destructive text-destructive" },
+};
+
 export const Route = createFileRoute("/boutique/admin/commandes")({
   component: CommandesAdminPage,
 });
@@ -225,7 +240,7 @@ function CommandesAdminPage() {
       <p><b>Commande :</b> ${e(commande.numero)}</p>
       <p><b>Client :</b> ${e(commande.clients_boutique?.nom ?? "")} — ${e(commande.clients_boutique?.telephone ?? "")}</p>
       <p><b>Adresse :</b> ${e(commande.adresse_livraison)}</p>
-      <p><b>Paiement :</b> ${e(commande.mode_paiement)}</p>
+      <p><b>Paiement :</b> ${e(MODE_PAIEMENT_LABEL[commande.mode_paiement] ?? commande.mode_paiement)}</p>
       <table><thead><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr></thead><tbody>
       ${(commande.lignes ?? []).map((l: any) => `<tr><td>${e(l.produits?.nom ?? "")}</td><td>${e(l.quantite)}</td><td>${e(l.prix_unitaire_usd)} $</td><td>${e(l.total_ligne_usd)} $</td></tr>`).join("")}
       </tbody></table>
@@ -257,8 +272,13 @@ function CommandesAdminPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">
-                    {c.total_usd} $ · {c.mode_paiement}
+                    {c.total_usd} $ · {MODE_PAIEMENT_LABEL[c.mode_paiement] ?? c.mode_paiement}
                   </Badge>
+                  {c.statut_paiement && STATUT_PAIEMENT_BADGE[c.statut_paiement] && (
+                    <Badge variant="outline" className={STATUT_PAIEMENT_BADGE[c.statut_paiement].className}>
+                      {STATUT_PAIEMENT_BADGE[c.statut_paiement].label}
+                    </Badge>
+                  )}
                   <Select
                     value={c.statut}
                     onValueChange={(v) =>

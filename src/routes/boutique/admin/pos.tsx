@@ -601,8 +601,8 @@ function PosPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="mobile_money">Mobile Money</SelectItem>
-              <SelectItem value="carte">Carte</SelectItem>
+              <SelectItem value="mobile_money">FlexPay (Mobile Money)</SelectItem>
+              <SelectItem value="carte">Carte bancaire</SelectItem>
               <SelectItem value="credit">Crédit (à payer plus tard)</SelectItem>
             </SelectContent>
           </Select>

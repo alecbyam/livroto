@@ -519,6 +519,7 @@ export type Database = {
           client_id: string
           code_promo_id: string | null
           created_at: string
+          flexpay_order_number: string | null
           frais_livraison_usd: number
           id: string
           mode_paiement: string
@@ -526,6 +527,7 @@ export type Database = {
           remise_usd: number
           sous_total_usd: number
           statut: string
+          statut_paiement: string
           total_usd: number
           updated_at: string
           vente_id: string | null
@@ -536,6 +538,7 @@ export type Database = {
           client_id: string
           code_promo_id?: string | null
           created_at?: string
+          flexpay_order_number?: string | null
           frais_livraison_usd?: number
           id?: string
           mode_paiement: string
@@ -543,6 +546,7 @@ export type Database = {
           remise_usd?: number
           sous_total_usd: number
           statut?: string
+          statut_paiement?: string
           total_usd: number
           updated_at?: string
           vente_id?: string | null
@@ -553,6 +557,7 @@ export type Database = {
           client_id?: string
           code_promo_id?: string | null
           created_at?: string
+          flexpay_order_number?: string | null
           frais_livraison_usd?: number
           id?: string
           mode_paiement?: string
@@ -560,6 +565,7 @@ export type Database = {
           remise_usd?: number
           sous_total_usd?: number
           statut?: string
+          statut_paiement?: string
           total_usd?: number
           updated_at?: string
           vente_id?: string | null

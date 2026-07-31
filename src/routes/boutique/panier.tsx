@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { BoutiqueSiteLayout } from "@/components/boutiques/BoutiqueSiteLayout";
+import { BoutiqueFlexPayDialog } from "@/components/boutiques/BoutiqueFlexPayDialog";
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import { useBoutiqueCart } from "@/lib/boutiques/BoutiqueCartContext";
 import { boutiqueCreerCommande } from "@/lib/boutiques/ecommerce.functions";
@@ -28,9 +29,13 @@ function PanierPage() {
   const [nom, setNom] = useState("");
   const [telephone, setTelephone] = useState("");
   const [adresse, setAdresse] = useState("");
-  const [modePaiement, setModePaiement] = useState<"mobile_money" | "paiement_livraison">("paiement_livraison");
+  const [modePaiement, setModePaiement] = useState<"mobile_money" | "paiement_livraison" | "carte">("paiement_livraison");
   const [enCours, setEnCours] = useState(false);
   const [commandeConfirmee, setCommandeConfirmee] = useState<{ numero: string; total_usd: number } | null>(null);
+  // Commande créée mais paiement FlexPay pas encore résolu — la confirmation
+  // finale n'est affichée qu'après fermeture du dialog (succès, échec ou
+  // "boutique pas configurée", ce dernier cas fermant le dialog aussitôt).
+  const [flexpayEnAttente, setFlexpayEnAttente] = useState<{ id: string; numero: string; total_usd: number } | null>(null);
 
   // Position GPS ajoutée en texte brut dans le champ adresse existant —
   // adresse_livraison est déjà un champ libre (pas de colonnes lat/lng sur
@@ -65,14 +70,41 @@ function PanierPage() {
           lignes: articles.map((a) => ({ produit_id: a.produit_id, quantite: a.quantite })),
         },
       });
-      setCommandeConfirmee({ numero: commande.numero ?? "", total_usd: commande.total_usd });
       vider();
       toast.success(`Commande ${commande.numero} enregistrée !`);
+      if (modePaiement === "mobile_money") {
+        // La confirmation finale s'affiche seulement une fois le dialog
+        // FlexPay résolu (cf. onDone) — sauf si la boutique n'a pas configuré
+        // FlexPay, auquel cas le dialog se ferme lui-même immédiatement.
+        setFlexpayEnAttente({ id: commande.id, numero: commande.numero ?? "", total_usd: commande.total_usd });
+      } else {
+        setCommandeConfirmee({ numero: commande.numero ?? "", total_usd: commande.total_usd });
+      }
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setEnCours(false);
     }
+  }
+
+  if (flexpayEnAttente) {
+    return (
+      <BoutiqueSiteLayout>
+        <div className="container mx-auto max-w-lg px-4 py-16 text-center text-muted-foreground">
+          Commande <span className="font-mono font-semibold text-foreground">{flexpayEnAttente.numero}</span> enregistrée…
+        </div>
+        <BoutiqueFlexPayDialog
+          boutiqueId={boutique.id}
+          commandeId={flexpayEnAttente.id}
+          phone={telephone}
+          amountLabel={`${flexpayEnAttente.total_usd} $`}
+          onDone={() => {
+            setCommandeConfirmee({ numero: flexpayEnAttente.numero, total_usd: flexpayEnAttente.total_usd });
+            setFlexpayEnAttente(null);
+          }}
+        />
+      </BoutiqueSiteLayout>
+    );
   }
 
   if (commandeConfirmee) {
@@ -150,7 +182,8 @@ function PanierPage() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="paiement_livraison">Paiement à la livraison</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  <SelectItem value="mobile_money">FlexPay (Mobile Money)</SelectItem>
+                  <SelectItem value="carte">Carte bancaire</SelectItem>
                 </SelectContent>
               </Select>
             </div>
