@@ -16,6 +16,11 @@ export const Route = createFileRoute("/boutique-manifest.webmanifest")({
       GET: async ({ request }) => {
         const url = new URL(request.url);
         const slug = url.searchParams.get("boutique")?.trim().toLowerCase();
+        // Deux apps installables bien distinctes depuis le même manifest
+        // dynamique : la vitrine cliente (cible=site, par défaut) et la
+        // gestion staff (cible=admin) — sans ce paramètre, une installation
+        // depuis la vitrine ouvrirait à tort la caisse au lieu du catalogue.
+        const cible = url.searchParams.get("cible") === "admin" ? "admin" : "site";
 
         const notFound = () =>
           new Response(JSON.stringify({ error: "boutique introuvable" }), {
@@ -26,7 +31,7 @@ export const Route = createFileRoute("/boutique-manifest.webmanifest")({
 
         const { data: boutique } = await supabaseAdmin
           .from("boutiques")
-          .select("nom,logo_url,theme,actif")
+          .select("nom,slogan,logo_url,theme,actif")
           .eq("slug", slug)
           .eq("actif", true)
           .maybeSingle();
@@ -58,10 +63,16 @@ export const Route = createFileRoute("/boutique-manifest.webmanifest")({
             ];
 
         const manifest = {
-          name: boutique.nom,
+          name: cible === "admin" ? boutique.nom : `${boutique.nom} — Boutique en ligne`,
           short_name: boutique.nom.length > 15 ? boutique.nom.slice(0, 15) : boutique.nom,
-          description: `Gestion de ${boutique.nom}`,
-          start_url: `/boutique/admin/pos?boutique=${encodeURIComponent(slug)}`,
+          description:
+            cible === "admin"
+              ? `Gestion de ${boutique.nom}`
+              : boutique.slogan || `Boutique en ligne ${boutique.nom}`,
+          start_url:
+            cible === "admin"
+              ? `/boutique/admin/pos?boutique=${encodeURIComponent(slug)}`
+              : `/boutique?boutique=${encodeURIComponent(slug)}`,
           scope: "/boutique",
           display: "standalone",
           display_override: ["standalone", "minimal-ui"],

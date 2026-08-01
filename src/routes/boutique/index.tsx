@@ -82,6 +82,7 @@ function BoutiqueAccueil() {
         )
         .eq("boutique_id", boutique.id)
         .eq("actif", true)
+        .gt("quantite", 0)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Produit[];
@@ -206,7 +207,6 @@ function BoutiqueAccueil() {
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {produitsFiltres.map((p) => {
-              const enRupture = p.quantite <= 0;
               const promo = getPrixEffectif(p);
               return (
                 <div
@@ -231,28 +231,20 @@ function BoutiqueAccueil() {
                           <Tag className="h-10 w-10 text-muted-foreground/50" />
                         </div>
                       )}
-                      {enRupture ? (
-                        <span className="absolute inset-x-0 top-0 bg-foreground/80 py-1 text-center text-[11px] font-bold uppercase tracking-wide text-background">
-                          Rupture de stock
+                      {promo.enPromo && (
+                        <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground shadow-sm">
+                          −{promo.pourcentage}%
                         </span>
-                      ) : (
-                        <>
-                          {promo.enPromo && (
-                            <span className="absolute left-2 top-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground shadow-sm">
-                              −{promo.pourcentage}%
-                            </span>
-                          )}
-                          {!promo.enPromo && estNouveau(p.created_at) && (
-                            <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
-                              Nouveau
-                            </span>
-                          )}
-                          {stockBas(p.quantite) && (
-                            <span className="absolute bottom-2 left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                              Plus que {p.quantite} !
-                            </span>
-                          )}
-                        </>
+                      )}
+                      {!promo.enPromo && estNouveau(p.created_at) && (
+                        <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
+                          Nouveau
+                        </span>
+                      )}
+                      {stockBas(p.quantite) && (
+                        <span className="absolute bottom-2 left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                          Plus que {p.quantite} !
+                        </span>
                       )}
                     </div>
                     <div className="flex flex-col gap-1 p-3 pb-0">
@@ -287,7 +279,6 @@ function BoutiqueAccueil() {
                     <Button
                       size="sm"
                       className="mt-1 w-full"
-                      disabled={enRupture}
                       onClick={() =>
                         ajouter({
                           produit_id: p.id,
@@ -298,7 +289,7 @@ function BoutiqueAccueil() {
                         })
                       }
                     >
-                      {enRupture ? "Indisponible" : "Ajouter au panier"}
+                      Ajouter au panier
                     </Button>
                     <div className="mt-1 flex gap-1.5">
                       <Button

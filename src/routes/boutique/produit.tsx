@@ -96,6 +96,7 @@ function FicheProduit() {
         .eq("id", produitId as string)
         .eq("boutique_id", boutique.id)
         .eq("actif", true)
+        .gt("quantite", 0)
         .maybeSingle();
       if (error) throw error;
       return data as unknown as ProduitDetail | null;
@@ -112,6 +113,7 @@ function FicheProduit() {
         .eq("boutique_id", boutique.id)
         .eq("categorie_id", produit!.categorie_id as string)
         .eq("actif", true)
+        .gt("quantite", 0)
         .neq("id", produit!.id)
         .limit(6);
       if (error) throw error;
@@ -153,7 +155,6 @@ function FicheProduit() {
   }
 
   const promo = getPrixEffectif(produit);
-  const enRupture = produit.quantite <= 0;
   const images = produit.images && produit.images.length > 0 ? produit.images : produit.image_url ? [produit.image_url] : [];
 
   function ajouterAuPanier() {
@@ -192,23 +193,15 @@ function FicheProduit() {
                   <Tag className="h-16 w-16 text-muted-foreground/40" />
                 </div>
               )}
-              {enRupture ? (
-                <span className="absolute inset-x-0 top-0 bg-foreground/80 py-1.5 text-center text-xs font-bold uppercase tracking-wide text-background">
-                  Rupture de stock
+              {promo.enPromo && (
+                <span className="absolute left-3 top-3 rounded-full bg-destructive px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-destructive-foreground shadow">
+                  −{promo.pourcentage}%
                 </span>
-              ) : (
-                <>
-                  {promo.enPromo && (
-                    <span className="absolute left-3 top-3 rounded-full bg-destructive px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-destructive-foreground shadow">
-                      −{promo.pourcentage}%
-                    </span>
-                  )}
-                  {!promo.enPromo && estNouveau(produit.created_at) && (
-                    <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-primary-foreground shadow">
-                      Nouveau
-                    </span>
-                  )}
-                </>
+              )}
+              {!promo.enPromo && estNouveau(produit.created_at) && (
+                <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-primary-foreground shadow">
+                  Nouveau
+                </span>
               )}
             </div>
             {images.length > 1 && (
@@ -253,16 +246,8 @@ function FicheProduit() {
               )}
             </div>
 
-            <p
-              className={`mt-2 text-sm font-medium ${
-                enRupture ? "text-destructive" : stockBas(produit.quantite) ? "text-amber-600" : "text-green-700"
-              }`}
-            >
-              {enRupture
-                ? "Rupture de stock"
-                : stockBas(produit.quantite)
-                  ? `Plus que ${produit.quantite} en stock !`
-                  : "En stock"}
+            <p className={`mt-2 text-sm font-medium ${stockBas(produit.quantite) ? "text-amber-600" : "text-green-700"}`}>
+              {stockBas(produit.quantite) ? `Plus que ${produit.quantite} en stock !` : "En stock"}
             </p>
 
             <div className="mt-5 flex items-center gap-3">
@@ -285,8 +270,8 @@ function FicheProduit() {
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
-              <Button size="lg" className="flex-1" disabled={enRupture} onClick={ajouterAuPanier}>
-                {enRupture ? "Indisponible" : "Ajouter au panier"}
+              <Button size="lg" className="flex-1" onClick={ajouterAuPanier}>
+                Ajouter au panier
               </Button>
             </div>
 

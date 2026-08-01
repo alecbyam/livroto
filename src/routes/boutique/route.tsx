@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { useEffect } from "react";
-import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
+import { createFileRoute, Outlet, notFound, useRouterState } from "@tanstack/react-router";
 import { resolveBoutiqueTenantFn } from "@/lib/boutiques/tenant.functions";
 import { BoutiqueProvider } from "@/lib/boutiques/BoutiqueProvider";
 import { BoutiqueCartProvider } from "@/lib/boutiques/BoutiqueCartContext";
@@ -158,21 +158,31 @@ function stylesMarqueBoutique(theme: unknown): CSSProperties | undefined {
 // présent dans le DOM, après montage, pour cibler le manifest dynamique
 // PAR boutique (nom/icônes/couleur/`start_url` propres à cette boutique) —
 // voir src/routes/boutique-manifest[.]webmanifest.ts.
-function useManifestBoutique(slug: string) {
+// Deux apps installables distinctes partagent ce même hook : la vitrine
+// cliente (vue par un acheteur) et la gestion staff (`/boutique/admin/**`).
+// Sans distinguer les deux, une installation lancée depuis la vitrine
+// ouvrirait à tort la caisse au lieu du catalogue — d'où `cible` dérivé du
+// chemin courant et réévalué à chaque navigation (pas seulement au montage).
+function useManifestBoutique(slug: string, pathname: string) {
   useEffect(() => {
     const lien = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     if (!lien) return;
     const original = lien.getAttribute("href");
-    lien.setAttribute("href", `/boutique-manifest.webmanifest?boutique=${encodeURIComponent(slug)}`);
+    const cible = pathname.startsWith("/boutique/admin") ? "admin" : "site";
+    lien.setAttribute(
+      "href",
+      `/boutique-manifest.webmanifest?boutique=${encodeURIComponent(slug)}&cible=${cible}`,
+    );
     return () => {
       if (original) lien.setAttribute("href", original);
     };
-  }, [slug]);
+  }, [slug, pathname]);
 }
 
 function BoutiqueLayout() {
   const { boutique } = Route.useRouteContext();
-  useManifestBoutique(boutique.slug);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useManifestBoutique(boutique.slug, pathname);
   return (
     <BoutiqueProvider boutique={boutique}>
       {/* Le panier doit englober TOUT ce que /boutique/* rend via <Outlet/> —
