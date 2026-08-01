@@ -14,7 +14,11 @@ import {
   chargerConfigImpression, enregistrerConfigImpression, imprimerRecu, type ConfigImpression,
 } from "@/lib/boutiques/impression/imprimante";
 
-export function ConfigImpressionDialog({ boutique }: { boutique: { nom: string; adresse: string | null; telephone: string | null; devise: string } }) {
+export function ConfigImpressionDialog({
+  boutique,
+}: {
+  boutique: { nom: string; adresse: string | null; telephone: string | null; devise: string; logo_url?: string | null };
+}) {
   const [open, setOpen] = useState(false);
   const [config, setConfig] = useState<ConfigImpression>(() => chargerConfigImpression());
   const [testEnCours, setTestEnCours] = useState(false);
@@ -32,7 +36,12 @@ export function ConfigImpressionDialog({ boutique }: { boutique: { nom: string; 
     try {
       await imprimerRecu(
         {
-          boutique: { nom: boutique.nom, adresse: boutique.adresse, telephone: boutique.telephone },
+          boutique: {
+            nom: boutique.nom,
+            adresse: boutique.adresse,
+            telephone: boutique.telephone,
+            logo_url: boutique.logo_url,
+          },
           numero: "TEST-000000",
           date: new Date(),
           lignes: [

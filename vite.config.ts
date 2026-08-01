@@ -15,5 +15,18 @@ export default defineConfig({
   // Deploy target: Railway (Node.js server — remplace le preset vercel).
   nitro: {
     preset: "node-server",
-  },
+    // pdfkit (facture-pdf.server.ts) charge ses polices standard (Helvetica)
+    // via un chemin relatif à `__dirname`, qui n'existe pas dans un module
+    // ESM — Nitro embarquait pdfkit dans le bundle ESM par défaut, cassant
+    // `__dirname` et donc toute génération de facture en production
+    // ("ReferenceError: __dirname is not defined", vu dans les logs Railway).
+    // En le gardant externe, Node le charge via require() depuis node_modules
+    // au runtime (présent dans l'image Railway), où __dirname est correct.
+    // `rollupConfig` est bien supporté par Nitro (transmis tel quel par
+    // @lovable.dev/vite-tanstack-config), mais absent du type TS exposé par ce
+    // package (surface volontairement restreinte) — d'où le cast.
+    rollupConfig: {
+      external: ["pdfkit"],
+    },
+  } as { preset: string },
 });

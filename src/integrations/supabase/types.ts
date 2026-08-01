@@ -219,6 +219,7 @@ export type Database = {
           prochain_numero_bon_commande: number
           prochain_numero_commande: number
           prochain_numero_facture: number
+          prochain_numero_produit: number
           prochain_numero_vente: number
         }
         Insert: {
@@ -226,6 +227,7 @@ export type Database = {
           prochain_numero_bon_commande?: number
           prochain_numero_commande?: number
           prochain_numero_facture?: number
+          prochain_numero_produit?: number
           prochain_numero_vente?: number
         }
         Update: {
@@ -233,6 +235,7 @@ export type Database = {
           prochain_numero_bon_commande?: number
           prochain_numero_commande?: number
           prochain_numero_facture?: number
+          prochain_numero_produit?: number
           prochain_numero_vente?: number
         }
         Relationships: [
@@ -1575,6 +1578,7 @@ export type Database = {
           qr_code_data: string | null
           qr_code_url: string | null
           quantite: number
+          reference: string | null
           seuil_alerte: number
           sous_categorie_id: string | null
           stock_bas: boolean | null
@@ -1603,6 +1607,7 @@ export type Database = {
           qr_code_data?: string | null
           qr_code_url?: string | null
           quantite?: number
+          reference?: string | null
           seuil_alerte?: number
           sous_categorie_id?: string | null
           stock_bas?: boolean | null
@@ -1631,6 +1636,7 @@ export type Database = {
           qr_code_data?: string | null
           qr_code_url?: string | null
           quantite?: number
+          reference?: string | null
           seuil_alerte?: number
           sous_categorie_id?: string | null
           stock_bas?: boolean | null

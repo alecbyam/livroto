@@ -223,7 +223,7 @@ export const boutiqueListerProduitsPos = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur")
+      .select("id,nom,reference,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur,images")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
       .order("nom", { ascending: true })
@@ -251,7 +251,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
     if (data.qr_code_data) {
       const { data: produit, error } = await context.supabase
         .from("produits")
-        .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url")
+        .select("id,nom,reference,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url")
         .eq("boutique_id", data.boutique_id)
         .eq("qr_code_data", data.qr_code_data)
         .eq("actif", true)
@@ -261,7 +261,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
     }
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url")
+      .select("id,nom,reference,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
       .ilike("nom", `%${data.recherche?.trim() ?? ""}%`)

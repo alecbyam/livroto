@@ -184,6 +184,7 @@ function imprimerViaNavigateur(donnees: DonneesRecu, largeur: LargeurPapier | "A
       .total { font-weight: bold; font-size: ${largeur === "A4" ? "14pt" : "10pt"}; }
     </style></head><body>
     <div class="centre">
+      ${donnees.boutique.logo_url ? `<img src="${e(donnees.boutique.logo_url)}" alt="" style="max-width:${largeur === "A4" ? "120px" : "60mm"};max-height:${largeur === "A4" ? "120px" : "30mm"};margin:0 auto 6px;display:block;" />` : ""}
       <div class="titre">${e(donnees.boutique.nom)}</div>
       ${donnees.boutique.adresse ? `<div>${e(donnees.boutique.adresse)}</div>` : ""}
       ${donnees.boutique.telephone ? `<div>${e(donnees.boutique.telephone)}</div>` : ""}

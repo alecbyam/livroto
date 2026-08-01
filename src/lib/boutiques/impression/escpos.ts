@@ -100,7 +100,7 @@ export class EscPosBuilder {
 }
 
 export type DonneesRecu = {
-  boutique: { nom: string; adresse?: string | null; telephone?: string | null };
+  boutique: { nom: string; adresse?: string | null; telephone?: string | null; logo_url?: string | null };
   numero: string | null; // null = vente hors ligne pas encore synchronisée
   date: Date;
   lignes: Array<{ nom: string; quantite: number; prix_unitaire_usd: number }>;

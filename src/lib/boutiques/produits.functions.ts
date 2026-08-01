@@ -81,7 +81,7 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         // ici, seulement comme garde-fou côté encaissement
         // (boutiqueEncaisserVente refuse toute remise sous ce prix). Nullable
         // : si absent, le serveur retombe sur prix_achat_usd comme plancher.
-        prix_limite_vente_usd: z.number().min(0).max(100000).optional(),
+        prix_limite_vente_usd: z.number().min(0).max(100000).nullable().optional(),
         // Indicatif uniquement (aucun calcul, aucun affichage facture/reçu
         // cette itération) — cf. migration 56.
         tva_applicable: z.boolean().default(false),
@@ -329,7 +329,7 @@ export const boutiqueProduitsPourPlancheQr = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id);
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,taille,couleur,qr_code_url,qr_code_data")
+      .select("id,nom,reference,prix_usd,taille,couleur,qr_code_url,qr_code_data")
       .eq("boutique_id", data.boutique_id)
       .in("id", data.produit_ids);
     if (error) throw new Error(error.message);

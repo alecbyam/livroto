@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Minus, Percent, Plus, ScanLine, Search, Tag, Trash2, X } from "lucide-react";
+import { Camera, Minus, Pencil, Percent, Plus, ScanLine, Search, Tag, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import {
@@ -22,6 +23,11 @@ import {
   boutiqueListerProduitsPos,
   boutiqueRechercherProduitPos,
 } from "@/lib/boutiques/pos.functions";
+import {
+  boutiqueModifierProduit,
+  boutiqueSupprimerProduit,
+} from "@/lib/boutiques/produits.functions";
+import { FormulaireProduit } from "@/components/boutiques/FormulaireProduit";
 import { boutiqueListerCategories } from "@/lib/boutiques/categories.functions";
 import { boutiqueListerClients, boutiqueTrouverOuCreerClient } from "@/lib/boutiques/clients.functions";
 import { posOfflineQueue, isOnline } from "@/lib/boutiques/pos-offline-queue";
@@ -37,6 +43,7 @@ export const Route = createFileRoute("/boutique/admin/pos")({
 type ProduitGrille = {
   id: string;
   nom: string;
+  reference: string | null;
   prix_usd: number;
   prix_promo_usd: number | null;
   promo_actif: boolean | null;
@@ -50,6 +57,7 @@ type ProduitGrille = {
   boutique_categories: { id: string; nom: string; icone: string | null } | null;
   taille: string | null;
   couleur: string | null;
+  images: string[] | null;
 };
 type LigneCaisse = {
   produit_id: string;
@@ -102,6 +110,30 @@ function PosPage() {
     scanInputRef.current?.focus();
   }, []);
 
+  // Modifier/supprimer un produit sans quitter la caisse — même formulaire et
+  // mêmes serverFns que la page Produits (FormulaireProduit partagé), pour ne
+  // jamais dupliquer la logique de validation (plancher ≥ achat, promo, etc).
+  const [produitAModifier, setProduitAModifier] = useState<ProduitGrille | null>(null);
+  const modifierProduitFn = useServerFn(boutiqueModifierProduit);
+  const modifierProduit = useMutation({
+    mutationFn: modifierProduitFn,
+    onSuccess: () => {
+      toast.success("Produit mis à jour.");
+      qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
+      setProduitAModifier(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const supprimerProduitFn = useServerFn(boutiqueSupprimerProduit);
+  const supprimerProduit = useMutation({
+    mutationFn: supprimerProduitFn,
+    onSuccess: () => {
+      toast.success("Produit supprimé.");
+      qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Grille filtrée côté client : catalogue d'une seule boutique, pas besoin
   // d'un aller-retour serveur à chaque frappe — tape et ça filtre, instantané.
   const produitsFiltres = useMemo(() => {
@@ -153,48 +185,63 @@ function PosPage() {
     toast.success(`${p.nom} ajouté`);
   }
 
-  // Remise manuelle négociée à la caisse : le prix ne peut jamais descendre
+  // Remise manuelle négociée à la caisse : un champ de prix TOUJOURS VISIBLE
+  // sous chaque ligne (pas un contrôle caché derrière un clic — repéré comme
+  // introuvable par le staff en usage réel). Le prix ne peut jamais descendre
   // sous le plancher résolu à l'ajout au panier (prix_limite_vente_usd, ou à
   // défaut prix_achat_usd) — le serveur revalide de toute façon strictement
   // à l'encaissement, ceci n'est qu'un retour immédiat pour le staff.
-  const [remiseOuvertePour, setRemiseOuvertePour] = useState<string | null>(null);
-  const [remiseValeur, setRemiseValeur] = useState("");
+  // Saisie en texte libre le temps de taper (ex: "1" avant "12"), validée à la
+  // sortie du champ ou sur Entrée seulement.
+  const [prixEnEdition, setPrixEnEdition] = useState<Record<string, string>>({});
 
-  function ouvrirRemise(l: LigneCaisse) {
-    setRemiseOuvertePour(l.produit_id);
-    setRemiseValeur(String(l.prix_usd));
-  }
-
-  function appliquerRemise(produitId: string) {
-    const ligne = cart.find((l) => l.produit_id === produitId);
-    if (!ligne) return;
-    const nouveauPrix = Number(remiseValeur);
-    // Rejeté -> le champ reste ouvert pour corriger, jamais fermé sur un prix
-    // refusé (sinon le staff doit rouvrir la remise pour corriger sa saisie).
+  function validerPrixLigne(l: LigneCaisse, valeurTexte: string): boolean {
+    const nouveauPrix = Number(valeurTexte);
     if (!Number.isFinite(nouveauPrix) || nouveauPrix < 0) {
       toast.error("Prix invalide.");
-      return;
+      return false;
     }
-    if (ligne.prix_plancher_usd != null && nouveauPrix < ligne.prix_plancher_usd) {
-      toast.error(`Le prix ne peut pas descendre sous ${ligne.prix_plancher_usd} $.`);
-      return;
+    if (l.prix_plancher_usd != null && nouveauPrix < l.prix_plancher_usd) {
+      toast.error(`Le prix ne peut pas descendre sous ${l.prix_plancher_usd} $ pour "${l.nom}".`);
+      return false;
     }
-    if (nouveauPrix > ligne.prix_catalogue_usd) {
-      toast.error("Impossible d'augmenter le prix au-delà du prix catalogue depuis ce contrôle.");
-      return;
+    if (nouveauPrix > l.prix_catalogue_usd) {
+      toast.error("Impossible d'augmenter le prix au-delà du prix catalogue depuis ce champ.");
+      return false;
     }
     setCart((prev) =>
-      prev.map((l) =>
-        l.produit_id === produitId ? { ...l, prix_usd: Math.round(nouveauPrix * 100) / 100 } : l,
+      prev.map((x) =>
+        x.produit_id === l.produit_id ? { ...x, prix_usd: Math.round(nouveauPrix * 100) / 100 } : x,
       ),
     );
-    setRemiseOuvertePour(null);
+    return true;
+  }
+
+  // Valide la saisie en attente pour cette ligne (blur ou Entrée) ; en cas de
+  // rejet, la valeur tapée reste affichée pour que le staff puisse corriger —
+  // jamais un retour silencieux au prix catalogue.
+  function confirmerPrixEnEdition(l: LigneCaisse) {
+    const texte = prixEnEdition[l.produit_id];
+    if (texte === undefined) return;
+    const ok = validerPrixLigne(l, texte);
+    if (ok) {
+      setPrixEnEdition((prev) => {
+        const next = { ...prev };
+        delete next[l.produit_id];
+        return next;
+      });
+    }
   }
 
   function annulerRemise(produitId: string) {
     setCart((prev) =>
       prev.map((l) => (l.produit_id === produitId ? { ...l, prix_usd: l.prix_catalogue_usd } : l)),
     );
+    setPrixEnEdition((prev) => {
+      const next = { ...prev };
+      delete next[produitId];
+      return next;
+    });
   }
 
   // Douchette USB : se comporte comme un clavier qui tape très vite puis
@@ -281,7 +328,12 @@ function PosPage() {
   function imprimerRecuVente(lignes: LigneCaisse[], numero: string | null, totalUsd: number) {
     const st = lignes.reduce((s, l) => s + l.prix_usd * l.quantite, 0);
     imprimerRecu({
-      boutique: { nom: boutique.nom, adresse: boutique.adresse, telephone: boutique.telephone },
+      boutique: {
+        nom: boutique.nom,
+        adresse: boutique.adresse,
+        telephone: boutique.telephone,
+        logo_url: boutique.logo_url,
+      },
       numero,
       date: new Date(),
       lignes: lignes.map((l) => ({
@@ -425,6 +477,7 @@ function PosPage() {
               adresse: boutique.adresse,
               telephone: boutique.telephone,
               devise: boutique.devise,
+              logo_url: boutique.logo_url,
             }}
           />
         </div>
@@ -530,65 +583,96 @@ function PosPage() {
               const enRupture = p.quantite <= 0;
               const promo = getPrixEffectif(p);
               return (
-                <button
+                <div
                   key={p.id}
-                  type="button"
-                  disabled={enRupture}
-                  onClick={() => ajouterAuPanier(p)}
-                  className={`group flex flex-col overflow-hidden rounded-xl border bg-card text-left transition ${
-                    enRupture
-                      ? "cursor-not-allowed opacity-50"
-                      : "hover:border-primary/50 hover:shadow-md active:scale-[0.98]"
+                  className={`group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition ${
+                    enRupture ? "opacity-50" : "hover:border-primary/50 hover:shadow-md"
                   }`}
                 >
-                  <div className="relative aspect-square w-full bg-muted">
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.nom} className="h-full w-full object-cover" />
-                    ) : p.boutique_categories?.icone ? (
-                      <div className="grid h-full w-full place-items-center bg-muted text-3xl">
-                        {p.boutique_categories.icone}
-                      </div>
-                    ) : (
-                      <div className="grid h-full w-full place-items-center bg-muted">
-                        <Tag className="h-8 w-8 text-muted-foreground/60" />
-                      </div>
-                    )}
-                    {enRupture ? (
-                      <span className="absolute inset-x-0 top-0 bg-destructive/90 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-white">
-                        Rupture
-                      </span>
-                    ) : (
-                      promo.enPromo && (
-                        <span className="absolute left-1.5 top-1.5 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive-foreground">
-                          −{promo.pourcentage}%
-                        </span>
-                      )
-                    )}
+                  <div className="absolute right-1 top-1 z-10 flex gap-1">
+                    <button
+                      type="button"
+                      title="Modifier ce produit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProduitAModifier(p);
+                      }}
+                      className="grid h-6 w-6 place-items-center rounded-md bg-background/90 text-muted-foreground shadow-sm hover:text-foreground"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Supprimer ce produit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Supprimer définitivement "${p.nom}" ? Cette action est irréversible.`)) {
+                          supprimerProduit.mutate({ data: { boutique_id: boutique.id, produit_id: p.id } });
+                        }
+                      }}
+                      className="grid h-6 w-6 place-items-center rounded-md bg-background/90 text-muted-foreground shadow-sm hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <div className="flex flex-1 flex-col gap-0.5 p-2">
-                    <p className="line-clamp-2 text-xs font-medium leading-tight">{p.nom}</p>
-                    {(p.taille || p.couleur) && (
-                      <p className="text-[11px] text-muted-foreground">
-                        {[p.taille, p.couleur].filter(Boolean).join(" · ")}
-                      </p>
-                    )}
-                    <div className="mt-auto flex items-center justify-between pt-1">
-                      {promo.enPromo ? (
-                        <span className="flex items-center gap-1">
-                          <span className="text-sm font-bold text-destructive">{promo.prix} $</span>
-                          <span className="text-[10px] text-muted-foreground line-through">{promo.prixOriginal} $</span>
+                  <button
+                    type="button"
+                    disabled={enRupture}
+                    onClick={() => ajouterAuPanier(p)}
+                    className={`flex flex-1 flex-col text-left ${enRupture ? "cursor-not-allowed" : "active:scale-[0.98]"}`}
+                  >
+                    <div className="relative aspect-square w-full bg-muted">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.nom} className="h-full w-full object-cover" />
+                      ) : p.boutique_categories?.icone ? (
+                        <div className="grid h-full w-full place-items-center bg-muted text-3xl">
+                          {p.boutique_categories.icone}
+                        </div>
+                      ) : (
+                        <div className="grid h-full w-full place-items-center bg-muted">
+                          <Tag className="h-8 w-8 text-muted-foreground/60" />
+                        </div>
+                      )}
+                      {enRupture ? (
+                        <span className="absolute inset-x-0 top-0 bg-destructive/90 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide text-white">
+                          Rupture
                         </span>
                       ) : (
-                        <span className="text-sm font-bold">{p.prix_usd} $</span>
-                      )}
-                      {!enRupture && p.quantite <= 3 && (
-                        <span className="text-[10px] font-semibold text-amber-600">
-                          {p.quantite} rest.
-                        </span>
+                        promo.enPromo && (
+                          <span className="absolute left-1.5 top-1.5 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive-foreground">
+                            −{promo.pourcentage}%
+                          </span>
+                        )
                       )}
                     </div>
-                  </div>
-                </button>
+                    <div className="flex flex-1 flex-col gap-0.5 p-2">
+                      <p className="line-clamp-2 text-xs font-medium leading-tight">{p.nom}</p>
+                      {p.reference && (
+                        <p className="font-mono text-[10px] text-muted-foreground">{p.reference}</p>
+                      )}
+                      {(p.taille || p.couleur) && (
+                        <p className="text-[11px] text-muted-foreground">
+                          {[p.taille, p.couleur].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      <div className="mt-auto flex items-center justify-between pt-1">
+                        {promo.enPromo ? (
+                          <span className="flex items-center gap-1">
+                            <span className="text-sm font-bold text-destructive">{promo.prix} $</span>
+                            <span className="text-[10px] text-muted-foreground line-through">{promo.prixOriginal} $</span>
+                          </span>
+                        ) : (
+                          <span className="text-sm font-bold">{p.prix_usd} $</span>
+                        )}
+                        {!enRupture && p.quantite <= 3 && (
+                          <span className="text-[10px] font-semibold text-amber-600">
+                            {p.quantite} rest.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -622,17 +706,11 @@ function PosPage() {
                   <div className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{l.nom}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {estRemise && (
-                          <span className="mr-1 text-muted-foreground line-through">
-                            {l.prix_catalogue_usd} $
-                          </span>
-                        )}
-                        <span className={estRemise ? "font-semibold text-destructive" : undefined}>
-                          {l.prix_usd} $
-                        </span>{" "}
-                        / unité
-                      </p>
+                      {estRemise && (
+                        <p className="text-xs text-muted-foreground line-through">
+                          {l.prix_catalogue_usd} $ / unité
+                        </p>
+                      )}
                     </div>
                     <Button
                       size="icon"
@@ -680,68 +758,49 @@ function PosPage() {
                     </Button>
                   </div>
 
-                  <div className="mt-1.5 flex items-center gap-1.5 pl-0.5">
-                    {remiseOuvertePour === l.produit_id ? (
-                      <>
-                        <Input
-                          autoFocus
-                          type="number"
-                          step="0.01"
-                          min={l.prix_plancher_usd ?? 0}
-                          max={l.prix_catalogue_usd}
-                          value={remiseValeur}
-                          onChange={(e) => setRemiseValeur(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              appliquerRemise(l.produit_id);
-                            }
-                          }}
-                          className="h-7 w-24 text-sm"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => appliquerRemise(l.produit_id)}
-                        >
-                          OK
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => setRemiseOuvertePour(null)}
-                        >
-                          Annuler
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          disabled={l.prix_plancher_usd == null}
-                          onClick={() => ouvrirRemise(l)}
-                          title={
-                            l.prix_plancher_usd == null
-                              ? "Aucune remise possible — aucun prix plancher ni prix d'achat défini pour ce produit"
-                              : `Remise possible jusqu'à ${l.prix_plancher_usd} $`
-                          }
-                          className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Percent className="h-3 w-3" /> Remise
-                        </button>
-                        {estRemise && (
-                          <button
-                            type="button"
-                            onClick={() => annulerRemise(l.produit_id)}
-                            className="text-[11px] font-medium text-muted-foreground hover:text-destructive"
-                          >
-                            Annuler la remise
-                          </button>
-                        )}
-                      </>
+                  <div
+                    className={`mt-1.5 flex flex-wrap items-center gap-1.5 rounded-md border px-2 py-1.5 ${
+                      estRemise ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/40"
+                    }`}
+                  >
+                    <Percent className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <Label htmlFor={`prix-remise-${l.produit_id}`} className="shrink-0 text-xs font-medium">
+                      Prix à la caisse
+                    </Label>
+                    <Input
+                      id={`prix-remise-${l.produit_id}`}
+                      type="number"
+                      step="0.01"
+                      min={l.prix_plancher_usd ?? 0}
+                      max={l.prix_catalogue_usd}
+                      disabled={l.prix_plancher_usd == null}
+                      value={prixEnEdition[l.produit_id] ?? String(l.prix_usd)}
+                      onChange={(e) =>
+                        setPrixEnEdition((prev) => ({ ...prev, [l.produit_id]: e.target.value }))
+                      }
+                      onBlur={() => confirmerPrixEnEdition(l)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          confirmerPrixEnEdition(l);
+                        }
+                      }}
+                      className={`h-7 w-20 shrink-0 text-sm ${estRemise ? "border-destructive text-destructive font-semibold" : ""}`}
+                    />
+                    <span className="shrink-0 text-xs text-muted-foreground">$ / unité</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {l.prix_plancher_usd != null
+                        ? `(plancher ${l.prix_plancher_usd} $)`
+                        : "— aucune remise possible : renseigne un prix d'achat ou un prix plancher sur ce produit"}
+                    </span>
+                    {estRemise && (
+                      <button
+                        type="button"
+                        onClick={() => annulerRemise(l.produit_id)}
+                        className="shrink-0 text-[11px] font-medium text-muted-foreground underline hover:text-destructive"
+                      >
+                        Réinitialiser
+                      </button>
                     )}
                   </div>
                 </div>
@@ -813,6 +872,45 @@ function PosPage() {
           {enCours ? "Encaissement..." : "Encaisser"}
         </Button>
       </div>
+
+      <Dialog open={!!produitAModifier} onOpenChange={(open) => !open && setProduitAModifier(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier — {produitAModifier?.nom}</DialogTitle>
+          </DialogHeader>
+          {produitAModifier && (
+            <FormulaireProduit
+              boutiqueId={boutique.id}
+              enCours={modifierProduit.isPending}
+              valeursInitiales={{
+                id: produitAModifier.id,
+                reference: produitAModifier.reference,
+                nom: produitAModifier.nom,
+                categorie_id: produitAModifier.categorie_id ?? "",
+                taille: produitAModifier.taille,
+                couleur: produitAModifier.couleur,
+                prix_usd: produitAModifier.prix_usd,
+                prix_achat_usd: produitAModifier.prix_achat_usd,
+                prix_limite_vente_usd: produitAModifier.prix_limite_vente_usd,
+                prix_promo_usd: produitAModifier.prix_promo_usd,
+                promo_debut: produitAModifier.promo_debut,
+                promo_fin: produitAModifier.promo_fin,
+                promo_actif: produitAModifier.promo_actif,
+                images: produitAModifier.images ?? [],
+              }}
+              onSoumettre={(valeurs) =>
+                modifierProduit.mutate({
+                  data: {
+                    boutique_id: boutique.id,
+                    produit_id: produitAModifier.id,
+                    ...valeurs,
+                  },
+                })
+              }
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
