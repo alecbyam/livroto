@@ -166,6 +166,53 @@ export type Database = {
           },
         ]
       }
+      boutique_charges: {
+        Row: {
+          actif: boolean
+          boutique_id: string
+          created_at: string
+          date_charge: string
+          date_fin: string | null
+          id: string
+          libelle: string
+          montant_usd: number
+          recurrence: string
+          type: string
+        }
+        Insert: {
+          actif?: boolean
+          boutique_id: string
+          created_at?: string
+          date_charge: string
+          date_fin?: string | null
+          id?: string
+          libelle: string
+          montant_usd: number
+          recurrence: string
+          type: string
+        }
+        Update: {
+          actif?: boolean
+          boutique_id?: string
+          created_at?: string
+          date_charge?: string
+          date_fin?: string | null
+          id?: string
+          libelle?: string
+          montant_usd?: number
+          recurrence?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boutique_charges_boutique_id_fkey"
+            columns: ["boutique_id"]
+            isOneToOne: false
+            referencedRelation: "boutiques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boutique_compteurs: {
         Row: {
           boutique_id: string
@@ -1519,6 +1566,7 @@ export type Database = {
           images: string[]
           nom: string
           prix_achat_usd: number | null
+          prix_limite_vente_usd: number | null
           prix_promo_usd: number | null
           prix_usd: number
           promo_actif: boolean
@@ -1531,6 +1579,7 @@ export type Database = {
           sous_categorie_id: string | null
           stock_bas: boolean | null
           taille: string | null
+          tva_applicable: boolean
           updated_at: string
         }
         Insert: {
@@ -1545,6 +1594,7 @@ export type Database = {
           images?: string[]
           nom: string
           prix_achat_usd?: number | null
+          prix_limite_vente_usd?: number | null
           prix_promo_usd?: number | null
           prix_usd: number
           promo_actif?: boolean
@@ -1557,6 +1607,7 @@ export type Database = {
           sous_categorie_id?: string | null
           stock_bas?: boolean | null
           taille?: string | null
+          tva_applicable?: boolean
           updated_at?: string
         }
         Update: {
@@ -1571,6 +1622,7 @@ export type Database = {
           images?: string[]
           nom?: string
           prix_achat_usd?: number | null
+          prix_limite_vente_usd?: number | null
           prix_promo_usd?: number | null
           prix_usd?: number
           promo_actif?: boolean
@@ -1583,6 +1635,7 @@ export type Database = {
           sous_categorie_id?: string | null
           stock_bas?: boolean | null
           taille?: string | null
+          tva_applicable?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -2180,6 +2233,7 @@ export type Database = {
           prix_unitaire_usd: number
           produit_id: string
           quantite: number
+          remise_ligne_usd: number
           total_ligne_usd: number
           vente_id: string
         }
@@ -2188,6 +2242,7 @@ export type Database = {
           prix_unitaire_usd: number
           produit_id: string
           quantite: number
+          remise_ligne_usd?: number
           total_ligne_usd: number
           vente_id: string
         }
@@ -2196,6 +2251,7 @@ export type Database = {
           prix_unitaire_usd?: number
           produit_id?: string
           quantite?: number
+          remise_ligne_usd?: number
           total_ligne_usd?: number
           vente_id?: string
         }

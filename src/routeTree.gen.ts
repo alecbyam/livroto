@@ -47,6 +47,7 @@ import { Route as BoutiqueAdminFacturesRouteImport } from './routes/boutique/adm
 import { Route as BoutiqueAdminEquipeRouteImport } from './routes/boutique/admin/equipe'
 import { Route as BoutiqueAdminCreditsRouteImport } from './routes/boutique/admin/credits'
 import { Route as BoutiqueAdminCommandesRouteImport } from './routes/boutique/admin/commandes'
+import { Route as BoutiqueAdminChargesRouteImport } from './routes/boutique/admin/charges'
 import { Route as BoutiqueAdminCategoriesRouteImport } from './routes/boutique/admin/categories'
 import { Route as AuthenticatedOrdersOrderIdRouteImport } from './routes/_authenticated/orders.$orderId'
 
@@ -241,6 +242,11 @@ const BoutiqueAdminCommandesRoute = BoutiqueAdminCommandesRouteImport.update({
   path: '/commandes',
   getParentRoute: () => BoutiqueAdminRouteRoute,
 } as any)
+const BoutiqueAdminChargesRoute = BoutiqueAdminChargesRouteImport.update({
+  id: '/charges',
+  path: '/charges',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
 const BoutiqueAdminCategoriesRoute = BoutiqueAdminCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
@@ -283,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/boutique/': typeof BoutiqueIndexRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
+  '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
   '/boutique/admin/credits': typeof BoutiqueAdminCreditsRoute
   '/boutique/admin/equipe': typeof BoutiqueAdminEquipeRoute
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   '/boutique': typeof BoutiqueIndexRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
+  '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
   '/boutique/admin/credits': typeof BoutiqueAdminCreditsRoute
   '/boutique/admin/equipe': typeof BoutiqueAdminEquipeRoute
@@ -366,6 +374,7 @@ export interface FileRoutesById {
   '/boutique/': typeof BoutiqueIndexRoute
   '/_authenticated/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
+  '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
   '/boutique/admin/credits': typeof BoutiqueAdminCreditsRoute
   '/boutique/admin/equipe': typeof BoutiqueAdminEquipeRoute
@@ -409,6 +418,7 @@ export interface FileRouteTypes {
     | '/boutique/'
     | '/orders/$orderId'
     | '/boutique/admin/categories'
+    | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
     | '/boutique/admin/credits'
     | '/boutique/admin/equipe'
@@ -449,6 +459,7 @@ export interface FileRouteTypes {
     | '/boutique'
     | '/orders/$orderId'
     | '/boutique/admin/categories'
+    | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
     | '/boutique/admin/credits'
     | '/boutique/admin/equipe'
@@ -491,6 +502,7 @@ export interface FileRouteTypes {
     | '/boutique/'
     | '/_authenticated/orders/$orderId'
     | '/boutique/admin/categories'
+    | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
     | '/boutique/admin/credits'
     | '/boutique/admin/equipe'
@@ -793,6 +805,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueAdminCommandesRouteImport
       parentRoute: typeof BoutiqueAdminRouteRoute
     }
+    '/boutique/admin/charges': {
+      id: '/boutique/admin/charges'
+      path: '/charges'
+      fullPath: '/boutique/admin/charges'
+      preLoaderRoute: typeof BoutiqueAdminChargesRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
     '/boutique/admin/categories': {
       id: '/boutique/admin/categories'
       path: '/categories'
@@ -840,6 +859,7 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface BoutiqueAdminRouteRouteChildren {
   BoutiqueAdminCategoriesRoute: typeof BoutiqueAdminCategoriesRoute
+  BoutiqueAdminChargesRoute: typeof BoutiqueAdminChargesRoute
   BoutiqueAdminCommandesRoute: typeof BoutiqueAdminCommandesRoute
   BoutiqueAdminCreditsRoute: typeof BoutiqueAdminCreditsRoute
   BoutiqueAdminEquipeRoute: typeof BoutiqueAdminEquipeRoute
@@ -854,6 +874,7 @@ interface BoutiqueAdminRouteRouteChildren {
 
 const BoutiqueAdminRouteRouteChildren: BoutiqueAdminRouteRouteChildren = {
   BoutiqueAdminCategoriesRoute: BoutiqueAdminCategoriesRoute,
+  BoutiqueAdminChargesRoute: BoutiqueAdminChargesRoute,
   BoutiqueAdminCommandesRoute: BoutiqueAdminCommandesRoute,
   BoutiqueAdminCreditsRoute: BoutiqueAdminCreditsRoute,
   BoutiqueAdminEquipeRoute: BoutiqueAdminEquipeRoute,

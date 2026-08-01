@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Minus, Plus, ScanLine, Search, Tag, Trash2, X } from "lucide-react";
+import { Camera, Minus, Percent, Plus, ScanLine, Search, Tag, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,8 @@ type ProduitGrille = {
   promo_actif: boolean | null;
   promo_debut: string | null;
   promo_fin: string | null;
+  prix_achat_usd: number | null;
+  prix_limite_vente_usd: number | null;
   quantite: number;
   image_url: string | null;
   categorie_id: string | null;
@@ -49,7 +51,19 @@ type ProduitGrille = {
   taille: string | null;
   couleur: string | null;
 };
-type LigneCaisse = { produit_id: string; nom: string; prix_usd: number; quantite: number };
+type LigneCaisse = {
+  produit_id: string;
+  nom: string;
+  prix_usd: number; // prix réellement appliqué (peut être remisé)
+  // Prix catalogue/promo normal au moment de l'ajout — référence pour
+  // détecter/annuler une remise. Jamais recalculé après l'ajout au panier
+  // (comme le reste du panier, le serveur revalide tout à l'encaissement).
+  prix_catalogue_usd: number;
+  // prix_limite_vente_usd ?? prix_achat_usd ?? null, résolu à l'ajout —
+  // null = aucune remise possible pour cette ligne (aucun plancher/coût connu).
+  prix_plancher_usd: number | null;
+  quantite: number;
+};
 
 function PosPage() {
   const boutique = useBoutique();
@@ -111,19 +125,76 @@ function PosPage() {
     promo_actif?: boolean | null;
     promo_debut?: string | null;
     promo_fin?: string | null;
+    prix_achat_usd?: number | null;
+    prix_limite_vente_usd?: number | null;
   }) {
     // Prix affiché dans le panier caisse = prix effectif (promo si en cours)
     // — l'encaissement recalcule de toute façon côté serveur, mais autant que
     // le sous-total visible avant validation soit déjà le bon.
     const prixEffectif = getPrixEffectif(p).prix;
+    const plancher = p.prix_limite_vente_usd ?? p.prix_achat_usd ?? null;
     setCart((prev) => {
       const existe = prev.find((l) => l.produit_id === p.id);
       if (existe) {
         return prev.map((l) => (l.produit_id === p.id ? { ...l, quantite: l.quantite + 1 } : l));
       }
-      return [...prev, { produit_id: p.id, nom: p.nom, prix_usd: prixEffectif, quantite: 1 }];
+      return [
+        ...prev,
+        {
+          produit_id: p.id,
+          nom: p.nom,
+          prix_usd: prixEffectif,
+          prix_catalogue_usd: prixEffectif,
+          prix_plancher_usd: plancher,
+          quantite: 1,
+        },
+      ];
     });
     toast.success(`${p.nom} ajouté`);
+  }
+
+  // Remise manuelle négociée à la caisse : le prix ne peut jamais descendre
+  // sous le plancher résolu à l'ajout au panier (prix_limite_vente_usd, ou à
+  // défaut prix_achat_usd) — le serveur revalide de toute façon strictement
+  // à l'encaissement, ceci n'est qu'un retour immédiat pour le staff.
+  const [remiseOuvertePour, setRemiseOuvertePour] = useState<string | null>(null);
+  const [remiseValeur, setRemiseValeur] = useState("");
+
+  function ouvrirRemise(l: LigneCaisse) {
+    setRemiseOuvertePour(l.produit_id);
+    setRemiseValeur(String(l.prix_usd));
+  }
+
+  function appliquerRemise(produitId: string) {
+    const ligne = cart.find((l) => l.produit_id === produitId);
+    if (!ligne) return;
+    const nouveauPrix = Number(remiseValeur);
+    // Rejeté -> le champ reste ouvert pour corriger, jamais fermé sur un prix
+    // refusé (sinon le staff doit rouvrir la remise pour corriger sa saisie).
+    if (!Number.isFinite(nouveauPrix) || nouveauPrix < 0) {
+      toast.error("Prix invalide.");
+      return;
+    }
+    if (ligne.prix_plancher_usd != null && nouveauPrix < ligne.prix_plancher_usd) {
+      toast.error(`Le prix ne peut pas descendre sous ${ligne.prix_plancher_usd} $.`);
+      return;
+    }
+    if (nouveauPrix > ligne.prix_catalogue_usd) {
+      toast.error("Impossible d'augmenter le prix au-delà du prix catalogue depuis ce contrôle.");
+      return;
+    }
+    setCart((prev) =>
+      prev.map((l) =>
+        l.produit_id === produitId ? { ...l, prix_usd: Math.round(nouveauPrix * 100) / 100 } : l,
+      ),
+    );
+    setRemiseOuvertePour(null);
+  }
+
+  function annulerRemise(produitId: string) {
+    setCart((prev) =>
+      prev.map((l) => (l.produit_id === produitId ? { ...l, prix_usd: l.prix_catalogue_usd } : l)),
+    );
   }
 
   // Douchette USB : se comporte comme un clavier qui tape très vite puis
@@ -258,7 +329,14 @@ function PosPage() {
       client_id: modePaiement === "credit" ? clientCredit!.id : undefined,
       date_echeance: modePaiement === "credit" ? dateEcheance : undefined,
       code_promo: codePromo.trim() || undefined,
-      lignes: cart.map((l) => ({ produit_id: l.produit_id, quantite: l.quantite })),
+      // Le prix n'est envoyé que si effectivement remisé — sinon le serveur
+      // recalcule normalement depuis le catalogue/promo en vigueur (plus
+      // fiable si le prix a changé pendant que la caisse était ouverte).
+      lignes: cart.map((l) => ({
+        produit_id: l.produit_id,
+        quantite: l.quantite,
+        ...(l.prix_usd !== l.prix_catalogue_usd ? { prix_unitaire_usd: l.prix_usd } : {}),
+      })),
     };
 
     const lignesVendues = [...cart]; // instantané avant vidage du panier (pour le reçu)
@@ -278,6 +356,7 @@ function PosPage() {
           nom: l.nom,
           quantite: l.quantite,
           prix_unitaire_usd: l.prix_usd,
+          prix_catalogue_usd: l.prix_catalogue_usd,
         })),
       });
       toast.success("Hors ligne : vente enregistrée localement, sera envoyée à la reconnexion.");
@@ -321,6 +400,7 @@ function PosPage() {
           nom: l.nom,
           quantite: l.quantite,
           prix_unitaire_usd: l.prix_usd,
+          prix_catalogue_usd: l.prix_catalogue_usd,
         })),
       });
       toast.error(
@@ -535,58 +615,138 @@ function PosPage() {
               Panier vide — tape un article dans la grille ou scanne un QR.
             </p>
           ) : (
-            cart.map((l) => (
-              <div key={l.produit_id} className="flex items-center gap-2 p-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{l.nom}</p>
-                  <p className="text-xs text-muted-foreground">{l.prix_usd} $ / unité</p>
+            cart.map((l) => {
+              const estRemise = l.prix_usd < l.prix_catalogue_usd;
+              return (
+                <div key={l.produit_id} className="p-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{l.nom}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {estRemise && (
+                          <span className="mr-1 text-muted-foreground line-through">
+                            {l.prix_catalogue_usd} $
+                          </span>
+                        )}
+                        <span className={estRemise ? "font-semibold text-destructive" : undefined}>
+                          {l.prix_usd} $
+                        </span>{" "}
+                        / unité
+                      </p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() =>
+                        setCart((prev) =>
+                          prev.map((x) =>
+                            x.produit_id === l.produit_id
+                              ? { ...x, quantite: Math.max(1, x.quantite - 1) }
+                              : x,
+                          ),
+                        )
+                      }
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="w-5 shrink-0 text-center text-sm">{l.quantite}</span>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() =>
+                        setCart((prev) =>
+                          prev.map((x) =>
+                            x.produit_id === l.produit_id ? { ...x, quantite: x.quantite + 1 } : x,
+                          ),
+                        )
+                      }
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                    <span className="w-14 shrink-0 text-right text-sm font-medium">
+                      {(l.prix_usd * l.quantite).toFixed(2)} $
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() =>
+                        setCart((prev) => prev.filter((x) => x.produit_id !== l.produit_id))
+                      }
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+
+                  <div className="mt-1.5 flex items-center gap-1.5 pl-0.5">
+                    {remiseOuvertePour === l.produit_id ? (
+                      <>
+                        <Input
+                          autoFocus
+                          type="number"
+                          step="0.01"
+                          min={l.prix_plancher_usd ?? 0}
+                          max={l.prix_catalogue_usd}
+                          value={remiseValeur}
+                          onChange={(e) => setRemiseValeur(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              appliquerRemise(l.produit_id);
+                            }
+                          }}
+                          className="h-7 w-24 text-sm"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => appliquerRemise(l.produit_id)}
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setRemiseOuvertePour(null)}
+                        >
+                          Annuler
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={l.prix_plancher_usd == null}
+                          onClick={() => ouvrirRemise(l)}
+                          title={
+                            l.prix_plancher_usd == null
+                              ? "Aucune remise possible — aucun prix plancher ni prix d'achat défini pour ce produit"
+                              : `Remise possible jusqu'à ${l.prix_plancher_usd} $`
+                          }
+                          className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Percent className="h-3 w-3" /> Remise
+                        </button>
+                        {estRemise && (
+                          <button
+                            type="button"
+                            onClick={() => annulerRemise(l.produit_id)}
+                            className="text-[11px] font-medium text-muted-foreground hover:text-destructive"
+                          >
+                            Annuler la remise
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() =>
-                    setCart((prev) =>
-                      prev.map((x) =>
-                        x.produit_id === l.produit_id
-                          ? { ...x, quantite: Math.max(1, x.quantite - 1) }
-                          : x,
-                      ),
-                    )
-                  }
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                <span className="w-5 shrink-0 text-center text-sm">{l.quantite}</span>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() =>
-                    setCart((prev) =>
-                      prev.map((x) =>
-                        x.produit_id === l.produit_id ? { ...x, quantite: x.quantite + 1 } : x,
-                      ),
-                    )
-                  }
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-                <span className="w-14 shrink-0 text-right text-sm font-medium">
-                  {(l.prix_usd * l.quantite).toFixed(2)} $
-                </span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() =>
-                    setCart((prev) => prev.filter((x) => x.produit_id !== l.produit_id))
-                  }
-                >
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

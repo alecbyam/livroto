@@ -38,7 +38,17 @@ export function PosOfflineBanner({ onSynced }: { onSynced?: () => void }) {
             client_id: v.client_id ?? undefined,
             mode_paiement: v.mode_paiement,
             code_promo: v.code_promo ?? undefined,
-            lignes: v.lignes.map((l) => ({ produit_id: l.produit_id, quantite: l.quantite })),
+            // Ne transmet le prix que s'il s'agit d'une VRAIE remise
+            // manuelle (prix < prix catalogue mémorisé à l'ajout) — sinon on
+            // laisse le serveur recalculer depuis le catalogue/promo en
+            // vigueur, potentiellement plus à jour qu'au moment hors-ligne.
+            lignes: v.lignes.map((l) => ({
+              produit_id: l.produit_id,
+              quantite: l.quantite,
+              ...(l.prix_unitaire_usd < l.prix_catalogue_usd
+                ? { prix_unitaire_usd: l.prix_unitaire_usd }
+                : {}),
+            })),
           },
         });
         posOfflineQueue.remove(v.id);

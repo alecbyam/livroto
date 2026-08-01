@@ -10,7 +10,17 @@ export type QueuedVente = {
   client_id?: string | null;
   mode_paiement: "cash" | "mobile_money" | "carte";
   code_promo?: string | null;
-  lignes: Array<{ produit_id: string; nom: string; quantite: number; prix_unitaire_usd: number }>;
+  lignes: Array<{
+    produit_id: string;
+    nom: string;
+    quantite: number;
+    prix_unitaire_usd: number; // prix réellement appliqué (remisé ou non) — pour le reçu imprimé hors-ligne
+    // Prix catalogue/promo au moment de l'ajout — sert à distinguer une VRAIE
+    // remise manuelle (à transmettre et faire valider par le serveur) d'un
+    // prix normal (qu'il vaut mieux laisser le serveur recalculer lui-même —
+    // plus fiable si le prix catalogue a changé pendant la coupure réseau).
+    prix_catalogue_usd: number;
+  }>;
 };
 
 const KEY = "livroto.boutique.pos.offline.ventes";

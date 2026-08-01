@@ -21,6 +21,7 @@ import {
   Store,
   LogOut,
   Users,
+  Wallet,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,7 @@ const SECTIONS: { to: string; label: string; icon: typeof Package; roles: Role[]
   { to: "/boutique/admin/factures", label: "Factures", icon: Receipt, roles: ["admin", "vendeur", "caissier"] },
   { to: "/boutique/admin/promo", label: "Promotions", icon: Tag, roles: ["admin", "vendeur"] },
   { to: "/boutique/admin/rapports", label: "Rapports", icon: BarChart3, roles: ["admin", "vendeur", "caissier"] },
+  { to: "/boutique/admin/charges", label: "Charges", icon: Wallet, roles: ["admin"] },
   { to: "/boutique/admin/equipe", label: "Équipe", icon: Users, roles: ["admin"] },
   { to: "/boutique/admin/parametres", label: "Paramètres", icon: Settings, roles: ["admin"] },
 ];

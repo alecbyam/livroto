@@ -77,11 +77,22 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         // produits déjà créés n'en ont pas, et un vendeur peut ne pas
         // connaître le coût exact au moment de la saisie.
         prix_achat_usd: z.number().min(0).max(100000).optional(),
+        // Prix plancher de remise — jamais utilisé pour un calcul automatique
+        // ici, seulement comme garde-fou côté encaissement
+        // (boutiqueEncaisserVente refuse toute remise sous ce prix). Nullable
+        // : si absent, le serveur retombe sur prix_achat_usd comme plancher.
+        prix_limite_vente_usd: z.number().min(0).max(100000).optional(),
+        // Indicatif uniquement (aucun calcul, aucun affichage facture/reçu
+        // cette itération) — cf. migration 56.
+        tva_applicable: z.boolean().default(false),
         // Prix barré (promotion) — optionnel, jamais actif par défaut : une
         // promotion doit être un choix explicite, pas un état accidentel.
-        prix_promo_usd: z.number().min(0).max(100000).optional(),
-        promo_debut: z.string().datetime().optional(),
-        promo_fin: z.string().datetime().optional(),
+        // Nullable comme la version "modifier" : le formulaire envoie
+        // explicitement `null` (pas juste l'absence du champ) quand la promo
+        // n'est pas configurée.
+        prix_promo_usd: z.number().min(0).max(100000).nullable().optional(),
+        promo_debut: z.string().datetime().nullable().optional(),
+        promo_fin: z.string().datetime().nullable().optional(),
         promo_actif: z.boolean().default(false),
         quantite: z.number().int().min(0).max(1000000).default(0),
         seuil_alerte: z.number().int().min(0).max(100000).default(3),
@@ -92,6 +103,16 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         // vitrine, panier) continuent de fonctionner sans rien changer.
         images: z.array(z.string().url().max(1000)).max(8).optional(),
       })
+      .refine(
+        (v) =>
+          v.prix_limite_vente_usd == null ||
+          v.prix_achat_usd == null ||
+          v.prix_limite_vente_usd >= v.prix_achat_usd,
+        {
+          message: "Le prix plancher doit être supérieur ou égal au prix d'achat.",
+          path: ["prix_limite_vente_usd"],
+        },
+      )
       .parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -108,6 +129,8 @@ export const boutiqueCreerProduit = createServerFn({ method: "POST" })
         couleur: rest.couleur ?? null,
         prix_usd: rest.prix_usd,
         prix_achat_usd: rest.prix_achat_usd ?? null,
+        prix_limite_vente_usd: rest.prix_limite_vente_usd ?? null,
+        tva_applicable: rest.tva_applicable,
         prix_promo_usd: rest.prix_promo_usd ?? null,
         promo_debut: rest.promo_debut ?? null,
         promo_fin: rest.promo_fin ?? null,
@@ -170,6 +193,8 @@ export const boutiqueModifierProduit = createServerFn({ method: "POST" })
         couleur: z.string().max(40).nullable().optional(),
         prix_usd: z.number().min(0).max(100000).optional(),
         prix_achat_usd: z.number().min(0).max(100000).nullable().optional(),
+        prix_limite_vente_usd: z.number().min(0).max(100000).nullable().optional(),
+        tva_applicable: z.boolean().optional(),
         prix_promo_usd: z.number().min(0).max(100000).nullable().optional(),
         promo_debut: z.string().datetime().nullable().optional(),
         promo_fin: z.string().datetime().nullable().optional(),
@@ -184,6 +209,29 @@ export const boutiqueModifierProduit = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur"]);
     const { boutique_id, produit_id, ...patch } = data;
+
+    // Le plancher et le coût d'achat peuvent être modifiés indépendamment
+    // l'un de l'autre — il faut valider contre les valeurs EFFECTIVES après
+    // patch, pas seulement contre ce qui est soumis dans CETTE requête. Le
+    // CHECK DB (produits_prix_limite_vente_check) reste le vrai filet de
+    // sécurité ; ceci sert seulement à renvoyer un message clair plutôt
+    // qu'une erreur Postgres brute.
+    if (patch.prix_achat_usd !== undefined || patch.prix_limite_vente_usd !== undefined) {
+      const { data: actuel, error: lireErr } = await context.supabase
+        .from("produits")
+        .select("prix_achat_usd, prix_limite_vente_usd")
+        .eq("id", produit_id)
+        .eq("boutique_id", boutique_id)
+        .single();
+      if (lireErr) throw new Error(lireErr.message);
+      const achat = patch.prix_achat_usd !== undefined ? patch.prix_achat_usd : actuel.prix_achat_usd;
+      const plancher =
+        patch.prix_limite_vente_usd !== undefined ? patch.prix_limite_vente_usd : actuel.prix_limite_vente_usd;
+      if (achat != null && plancher != null && plancher < achat) {
+        throw new Error("Le prix plancher doit être supérieur ou égal au prix d'achat.");
+      }
+    }
+
     // quantite n'est volontairement PAS modifiable ici : le garde-fou DB
     // (trg_produits_garde_quantite) rejetterait de toute façon un UPDATE
     // direct — tout changement de stock passe par boutiqueAjusterStock.

@@ -30,6 +30,13 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
             z.object({
               produit_id: z.string().uuid(),
               quantite: z.number().int().positive().max(10000),
+              // Remise manuelle : prix unitaire proposé par le staff à la
+              // caisse. Optionnel — absent = prix catalogue/promo normal.
+              // Jamais fait confiance au-delà de la vérification du plancher
+              // plus bas : un prix soumis AU-DESSUS du prix catalogue/promo
+              // est ignoré (jamais utilisé pour gonfler le prix), seule une
+              // baisse volontaire compte.
+              prix_unitaire_usd: z.number().min(0).max(100000).optional(),
             }),
           )
           .min(1)
@@ -69,7 +76,7 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
     const produitIds = Array.from(new Set(data.lignes.map((l) => l.produit_id)));
     const { data: produits, error: prodErr } = await context.supabase
       .from("produits")
-      .select("id,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin")
+      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd")
       .eq("boutique_id", data.boutique_id)
       .in("id", produitIds);
     if (prodErr) throw new Error(prodErr.message);
@@ -81,13 +88,35 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
       if (!p) throw new Error(`Produit introuvable dans cette boutique : ${l.produit_id}`);
       // Prix barré : le prix réellement facturé est le prix promo si la
       // promotion est en cours — jamais un affichage sans effet sur la caisse.
-      const prixUnitaire = getPrixEffectif(p).prix;
+      const effectif = getPrixEffectif(p).prix;
+      let prixUnitaire = effectif;
+      let remiseLigne = 0;
+
+      if (l.prix_unitaire_usd != null && l.prix_unitaire_usd < effectif) {
+        // Résolution du plancher : plancher explicite d'abord, sinon coût
+        // d'achat, sinon aucune remise possible pour ce produit.
+        const plancher = p.prix_limite_vente_usd ?? p.prix_achat_usd ?? null;
+        if (plancher == null) {
+          throw new Error(
+            `Aucune remise possible sur "${p.nom}" : aucun prix plancher ni prix d'achat n'est défini pour ce produit.`,
+          );
+        }
+        if (l.prix_unitaire_usd < plancher) {
+          throw new Error(
+            `Prix refusé pour "${p.nom}" : ${l.prix_unitaire_usd} $ est sous le prix plancher (${plancher} $).`,
+          );
+        }
+        prixUnitaire = l.prix_unitaire_usd;
+        remiseLigne = Math.round((effectif - prixUnitaire) * 100) / 100;
+      }
+
       const total_ligne_usd = Math.round(prixUnitaire * l.quantite * 100) / 100;
       sousTotal += total_ligne_usd;
       return {
         produit_id: l.produit_id,
         quantite: l.quantite,
         prix_unitaire_usd: prixUnitaire,
+        remise_ligne_usd: remiseLigne,
         total_ligne_usd,
       };
     });
@@ -194,7 +223,7 @@ export const boutiqueListerProduitsPos = createServerFn({ method: "POST" })
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur")
+      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
       .order("nom", { ascending: true })
@@ -222,7 +251,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
     if (data.qr_code_data) {
       const { data: produit, error } = await context.supabase
         .from("produits")
-        .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,quantite,image_url")
+        .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url")
         .eq("boutique_id", data.boutique_id)
         .eq("qr_code_data", data.qr_code_data)
         .eq("actif", true)
@@ -232,7 +261,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
     }
     const { data: rows, error } = await context.supabase
       .from("produits")
-      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,quantite,image_url")
+      .select("id,nom,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
       .ilike("nom", `%${data.recherche?.trim() ?? ""}%`)

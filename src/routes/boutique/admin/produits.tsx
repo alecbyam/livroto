@@ -359,6 +359,11 @@ function ProduitsAdminPage() {
                         </span>
                       </div>
                     )}
+                    {p.prix_limite_vente_usd != null && (
+                      <div className="text-[11px] text-muted-foreground">
+                        plancher {p.prix_limite_vente_usd} $
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     {p.stock_bas ? (
@@ -450,6 +455,8 @@ function ProduitsAdminPage() {
                 couleur: produitAModifier.couleur,
                 prix_usd: produitAModifier.prix_usd,
                 prix_achat_usd: produitAModifier.prix_achat_usd,
+                prix_limite_vente_usd: produitAModifier.prix_limite_vente_usd,
+                tva_applicable: produitAModifier.tva_applicable,
                 prix_promo_usd: produitAModifier.prix_promo_usd,
                 promo_debut: produitAModifier.promo_debut,
                 promo_fin: produitAModifier.promo_fin,
@@ -484,6 +491,8 @@ type ValeursProduit = {
   couleur?: string | null;
   prix_usd: number;
   prix_achat_usd?: number | null;
+  prix_limite_vente_usd?: number | null;
+  tva_applicable?: boolean | null;
   prix_promo_usd?: number | null;
   promo_debut?: string | null;
   promo_fin?: string | null;
@@ -519,6 +528,8 @@ function FormulaireProduit({
     couleur?: string;
     prix_usd: number;
     prix_achat_usd?: number;
+    prix_limite_vente_usd?: number | null;
+    tva_applicable?: boolean;
     prix_promo_usd?: number | null;
     promo_debut?: string | null;
     promo_fin?: string | null;
@@ -541,6 +552,10 @@ function FormulaireProduit({
   const [prixAchat, setPrixAchat] = useState(
     valeursInitiales?.prix_achat_usd != null ? String(valeursInitiales.prix_achat_usd) : "",
   );
+  const [prixLimiteVente, setPrixLimiteVente] = useState(
+    valeursInitiales?.prix_limite_vente_usd != null ? String(valeursInitiales.prix_limite_vente_usd) : "",
+  );
+  const [tvaApplicable, setTvaApplicable] = useState(!!valeursInitiales?.tva_applicable);
   const [prixPromo, setPrixPromo] = useState(
     valeursInitiales?.prix_promo_usd != null ? String(valeursInitiales.prix_promo_usd) : "",
   );
@@ -574,6 +589,10 @@ function FormulaireProduit({
             return;
           }
         }
+        if (prixLimiteVente && prixAchat && Number(prixLimiteVente) < Number(prixAchat)) {
+          toast.error("Le prix plancher doit être supérieur ou égal au prix d'achat.");
+          return;
+        }
         onSoumettre({
           nom,
           categorie_id: categorieId,
@@ -582,6 +601,8 @@ function FormulaireProduit({
           couleur: couleur || undefined,
           prix_usd: Number(prix),
           prix_achat_usd: prixAchat ? Number(prixAchat) : undefined,
+          prix_limite_vente_usd: prixLimiteVente ? Number(prixLimiteVente) : null,
+          tva_applicable: tvaApplicable,
           prix_promo_usd: prixPromo ? Number(prixPromo) : null,
           promo_debut: promoDebut ? new Date(promoDebut).toISOString() : null,
           promo_fin: promoFin ? new Date(promoFin).toISOString() : null,
@@ -660,6 +681,27 @@ function FormulaireProduit({
             onChange={(e) => setPrixAchat(e.target.value)}
             placeholder="Optionnel"
           />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="prix-limite">Prix plancher ($)</Label>
+          <Input
+            id="prix-limite"
+            type="number"
+            step="0.01"
+            min="0"
+            value={prixLimiteVente}
+            onChange={(e) => setPrixLimiteVente(e.target.value)}
+            placeholder="Optionnel — jamais de remise en dessous"
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border p-2.5">
+          <div>
+            <Label htmlFor="tva-applicable">TVA applicable</Label>
+            <p className="text-[11px] text-muted-foreground">Indicatif seulement, aucun calcul.</p>
+          </div>
+          <Switch id="tva-applicable" checked={tvaApplicable} onCheckedChange={setTvaApplicable} />
         </div>
       </div>
       <div className="rounded-lg border p-3">

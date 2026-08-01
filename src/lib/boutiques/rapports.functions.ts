@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertBoutiqueStaff } from "@/lib/boutiques/auth.server";
 
+const arrondir = (n: number) => Math.round(n * 100) / 100;
+
 // Rapports agrégés en JS à partir de ventes/vente_lignes plutôt qu'une
 // fonction SQL dédiée : volumes attendus pour une boutique (pas le
 // marketplace multi-vendeurs) restent modestes, et ça évite une migration
@@ -153,8 +155,6 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
       }
     }
 
-    const arrondir = (n: number) => Math.round(n * 100) / 100;
-
     return {
       valeur_stock_totale_usd: arrondir(rows.reduce((s, p) => s + p.quantite * valeurUnitaire(p), 0)),
       quantite_totale: rows.reduce((s, p) => s + p.quantite, 0),
@@ -179,6 +179,137 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
         quantite: c.quantite,
         valeur_usd: arrondir(c.valeur_usd),
       })),
+    };
+  });
+
+// Nombre de jours (inclusif) où une charge chevauche la période demandée —
+// utilisé pour le prorata jour/jour des charges récurrentes mensuelles.
+function joursActifsDansPeriode(
+  dateCharge: string,
+  dateFin: string | null,
+  periodeDebut: Date,
+  periodeFin: Date,
+): number {
+  const debutCharge = new Date(dateCharge);
+  const finCharge = dateFin ? new Date(dateFin) : null;
+  const debutIntersect = debutCharge > periodeDebut ? debutCharge : periodeDebut;
+  const finIntersect = finCharge && finCharge < periodeFin ? finCharge : periodeFin;
+  const jours = Math.floor((finIntersect.getTime() - debutIntersect.getTime()) / 86_400_000) + 1;
+  return Math.max(0, jours);
+}
+
+// Rentabilité réelle = chiffre d'affaires - coût des marchandises vendues -
+// charges d'exploitation (loyer/personnel/autre) de la période. Réservé aux
+// admins (contrairement aux autres rapports, ouverts à tout le staff) : le
+// détail par type de charge expose indirectement des données sensibles
+// (masse salariale, loyer). Le coût des marchandises utilise le
+// prix_achat_usd ACTUEL des produits (pas un instantané pris au moment de la
+// vente) — même compromis délibéré que la valorisation du stock ci-dessus ;
+// nb_lignes_cout_inconnu signale les lignes vendues sans prix d'achat connu.
+export const boutiqueObtenirRapportRentabilite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        depuis: z.string().datetime(),
+        jusqua: z.string().datetime(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBoutiqueStaff(context, data.boutique_id, ["admin"]);
+
+    const [
+      { data: ventes, error: ventesErr },
+      { data: lignes, error: lignesErr },
+      { data: charges, error: chargesErr },
+    ] = await Promise.all([
+      context.supabase
+        .from("ventes")
+        .select("total_usd")
+        .eq("boutique_id", data.boutique_id)
+        .eq("statut", "validee")
+        .gte("created_at", data.depuis)
+        .lte("created_at", data.jusqua),
+      context.supabase
+        .from("vente_lignes")
+        .select("quantite,remise_ligne_usd,produits(prix_achat_usd),ventes!inner(boutique_id,statut,created_at)")
+        .eq("ventes.boutique_id", data.boutique_id)
+        .eq("ventes.statut", "validee")
+        .gte("ventes.created_at", data.depuis)
+        .lte("ventes.created_at", data.jusqua),
+      // PAS de filtre actif=true ici : une charge désactivée doit rester
+      // comptée pour les périodes passées où elle était en vigueur (cf.
+      // date_fin, migration 57) — contrairement à boutiqueListerCharges qui,
+      // lui, ne montre que les charges "en cours" par défaut.
+      context.supabase
+        .from("boutique_charges")
+        .select("id,type,libelle,montant_usd,recurrence,date_charge,date_fin")
+        .eq("boutique_id", data.boutique_id),
+    ]);
+    if (ventesErr) throw new Error(ventesErr.message);
+    if (lignesErr) throw new Error(lignesErr.message);
+    if (chargesErr) throw new Error(chargesErr.message);
+
+    const revenuUsd = (ventes ?? []).reduce((s, v) => s + Number(v.total_usd), 0);
+
+    let cogsUsd = 0;
+    let remiseManuelleTotale = 0;
+    let nbLignesCoutInconnu = 0;
+    for (const l of lignes ?? []) {
+      const coutUnitaire = (l as any).produits?.prix_achat_usd;
+      if (coutUnitaire == null) nbLignesCoutInconnu++;
+      cogsUsd += l.quantite * Number(coutUnitaire ?? 0);
+      remiseManuelleTotale += l.quantite * Number(l.remise_ligne_usd ?? 0);
+    }
+
+    const periodeDebut = new Date(data.depuis);
+    const periodeFin = new Date(data.jusqua);
+    const chargesDetail = (charges ?? []).map((c) => {
+      let montantPeriode = 0;
+      if (c.recurrence === "ponctuelle") {
+        const d = new Date(c.date_charge);
+        montantPeriode = d >= periodeDebut && d <= periodeFin ? Number(c.montant_usd) : 0;
+      } else {
+        // Prorata jour/jour : montant_mensuel / 30 * jours actifs dans la
+        // période (convention fixe délibérée, pas le nombre réel de jours du
+        // mois calendaire — évite qu'une même charge fixe varie de mois en
+        // mois selon qu'il fait 28, 30 ou 31 jours).
+        const jours = joursActifsDansPeriode(c.date_charge, c.date_fin, periodeDebut, periodeFin);
+        montantPeriode = (Number(c.montant_usd) / 30) * jours;
+      }
+      return { ...c, montant_periode_usd: arrondir(montantPeriode) };
+    });
+    const chargesTotalUsd = arrondir(chargesDetail.reduce((s, c) => s + c.montant_periode_usd, 0));
+
+    const parType = new Map<string, number>();
+    for (const c of chargesDetail) parType.set(c.type, (parType.get(c.type) ?? 0) + c.montant_periode_usd);
+
+    const margeBrute = arrondir(revenuUsd - cogsUsd);
+    const margeNette = arrondir(margeBrute - chargesTotalUsd);
+
+    return {
+      periode: { depuis: data.depuis, jusqua: data.jusqua },
+      revenu_usd: arrondir(revenuUsd),
+      cout_marchandises_usd: arrondir(cogsUsd),
+      marge_brute_usd: margeBrute,
+      remises_manuelles_usd: arrondir(remiseManuelleTotale),
+      nb_lignes_cout_inconnu: nbLignesCoutInconnu,
+      charges: {
+        total_usd: chargesTotalUsd,
+        par_type: Array.from(parType.entries()).map(([type, total]) => ({ type, total_usd: arrondir(total) })),
+        detail: chargesDetail.map((c) => ({
+          id: c.id,
+          type: c.type,
+          libelle: c.libelle,
+          recurrence: c.recurrence,
+          montant_usd: Number(c.montant_usd),
+          montant_periode_usd: c.montant_periode_usd,
+        })),
+      },
+      marge_nette_usd: margeNette,
+      marge_nette_pourcentage: revenuUsd > 0 ? Math.round((margeNette / revenuUsd) * 100) : 0,
     };
   });
 

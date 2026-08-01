@@ -20,9 +20,11 @@ import { useBoutique } from "@/lib/boutiques/BoutiqueProvider";
 import {
   boutiqueObtenirRapports,
   boutiqueObtenirRapportStock,
+  boutiqueObtenirRapportRentabilite,
   boutiqueExporterVentesCsv,
 } from "@/lib/boutiques/rapports.functions";
 import { boutiqueObtenirRapportCredits } from "@/lib/boutiques/credits.functions";
+import { boutiqueObtenirMonRole } from "@/lib/boutiques/staff.functions";
 
 export const Route = createFileRoute("/boutique/admin/rapports")({
   component: RapportsAdminPage,
@@ -82,6 +84,30 @@ function RapportsAdminPage() {
     queryFn: () => creditsRapportFn({ data: { boutique_id: boutique.id } }),
   });
 
+  // L'onglet Rentabilité expose indirectement des données sensibles (loyer,
+  // masse salariale) — masqué côté client pour les rôles non-admin, en plus
+  // du garde-fou serveur (assertBoutiqueStaff(["admin"]) dans la serverFn).
+  const monRoleFn = useServerFn(boutiqueObtenirMonRole);
+  const { data: monRole } = useQuery({
+    queryKey: ["boutique-mon-role", boutique.id],
+    queryFn: () => monRoleFn({ data: { boutique_id: boutique.id } }),
+  });
+  const estAdmin = monRole?.role === "admin";
+
+  const rentabiliteFn = useServerFn(boutiqueObtenirRapportRentabilite);
+  const { data: rentabilite, isLoading: rentabiliteChargement } = useQuery({
+    queryKey: ["boutique-rapport-rentabilite", boutique.id, depuis, jusqua],
+    queryFn: () =>
+      rentabiliteFn({
+        data: {
+          boutique_id: boutique.id,
+          depuis: new Date(depuis).toISOString(),
+          jusqua: new Date(jusqua + "T23:59:59").toISOString(),
+        },
+      }),
+    enabled: estAdmin,
+  });
+
   const exporterFn = useServerFn(boutiqueExporterVentesCsv);
   async function exporter() {
     const { csv } = await exporterFn({
@@ -110,6 +136,7 @@ function RapportsAdminPage() {
           <TabsTrigger value="stock">Stock</TabsTrigger>
           <TabsTrigger value="credits">Crédits</TabsTrigger>
           <TabsTrigger value="general">Général</TabsTrigger>
+          {estAdmin && <TabsTrigger value="rentabilite">Rentabilité</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="ventes">
@@ -503,6 +530,103 @@ function RapportsAdminPage() {
             </div>
           )}
         </TabsContent>
+
+        {estAdmin && (
+          <TabsContent value="rentabilite">
+            {rentabiliteChargement || !rentabilite ? (
+              <div className="mt-2 h-64 animate-pulse rounded-xl bg-muted" />
+            ) : (
+              <div className="mt-2 space-y-6">
+                <p className="text-sm text-muted-foreground">
+                  Rentabilité réelle sur la période sélectionnée dans l'onglet Ventes ({depuis} → {jusqua}) —
+                  chiffre d'affaires moins coût des marchandises vendues moins charges d'exploitation.
+                </p>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Revenu</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-2xl font-bold">{rentabilite.revenu_usd.toFixed(2)} $</CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Coût des marchandises</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-2xl font-bold">
+                      {rentabilite.cout_marchandises_usd.toFixed(2)} $
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Marge brute</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-2xl font-bold">{rentabilite.marge_brute_usd.toFixed(2)} $</CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Charges (période)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-2xl font-bold">
+                      {rentabilite.charges.total_usd.toFixed(2)} $
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Marge nette</CardTitle>
+                    </CardHeader>
+                    <CardContent
+                      className={`text-2xl font-bold ${rentabilite.marge_nette_usd >= 0 ? "text-primary" : "text-destructive"}`}
+                    >
+                      {rentabilite.marge_nette_usd.toFixed(2)} $
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Marge nette %</CardTitle>
+                    </CardHeader>
+                    <CardContent
+                      className={`text-2xl font-bold ${rentabilite.marge_nette_pourcentage >= 0 ? "text-primary" : "text-destructive"}`}
+                    >
+                      {rentabilite.marge_nette_pourcentage}%
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {rentabilite.nb_lignes_cout_inconnu > 0 && (
+                  <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    {rentabilite.nb_lignes_cout_inconnu} ligne{rentabilite.nb_lignes_cout_inconnu > 1 ? "s" : ""}{" "}
+                    vendue{rentabilite.nb_lignes_cout_inconnu > 1 ? "s" : ""} sans prix d'achat connu — la marge
+                    est sous-estimée du coût réel de ces produits (renseigne le prix d'achat sur leur fiche).
+                  </p>
+                )}
+
+                {rentabilite.charges.detail.length > 0 && (
+                  <div>
+                    <h2 className="font-semibold">Détail des charges de la période</h2>
+                    <Table className="mt-2">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Libellé</TableHead>
+                          <TableHead>Montant proratisé</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rentabilite.charges.detail.map((c) => (
+                          <TableRow key={c.id}>
+                            <TableCell className="capitalize">{c.type}</TableCell>
+                            <TableCell>{c.libelle}</TableCell>
+                            <TableCell>{c.montant_periode_usd.toFixed(2)} $</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
