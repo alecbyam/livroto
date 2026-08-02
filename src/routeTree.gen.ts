@@ -42,6 +42,7 @@ import { Route as BoutiqueAdminPromoRouteImport } from './routes/boutique/admin/
 import { Route as BoutiqueAdminProduitsRouteImport } from './routes/boutique/admin/produits'
 import { Route as BoutiqueAdminPosRouteImport } from './routes/boutique/admin/pos'
 import { Route as BoutiqueAdminParametresRouteImport } from './routes/boutique/admin/parametres'
+import { Route as BoutiqueAdminMonCompteRouteImport } from './routes/boutique/admin/mon-compte'
 import { Route as BoutiqueAdminFournisseursRouteImport } from './routes/boutique/admin/fournisseurs'
 import { Route as BoutiqueAdminFacturesRouteImport } from './routes/boutique/admin/factures'
 import { Route as BoutiqueAdminEquipeRouteImport } from './routes/boutique/admin/equipe'
@@ -216,6 +217,11 @@ const BoutiqueAdminParametresRoute = BoutiqueAdminParametresRouteImport.update({
   path: '/parametres',
   getParentRoute: () => BoutiqueAdminRouteRoute,
 } as any)
+const BoutiqueAdminMonCompteRoute = BoutiqueAdminMonCompteRouteImport.update({
+  id: '/mon-compte',
+  path: '/mon-compte',
+  getParentRoute: () => BoutiqueAdminRouteRoute,
+} as any)
 const BoutiqueAdminFournisseursRoute =
   BoutiqueAdminFournisseursRouteImport.update({
     id: '/fournisseurs',
@@ -295,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/boutique/admin/equipe': typeof BoutiqueAdminEquipeRoute
   '/boutique/admin/factures': typeof BoutiqueAdminFacturesRoute
   '/boutique/admin/fournisseurs': typeof BoutiqueAdminFournisseursRoute
+  '/boutique/admin/mon-compte': typeof BoutiqueAdminMonCompteRoute
   '/boutique/admin/parametres': typeof BoutiqueAdminParametresRoute
   '/boutique/admin/pos': typeof BoutiqueAdminPosRoute
   '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
@@ -336,6 +343,7 @@ export interface FileRoutesByTo {
   '/boutique/admin/equipe': typeof BoutiqueAdminEquipeRoute
   '/boutique/admin/factures': typeof BoutiqueAdminFacturesRoute
   '/boutique/admin/fournisseurs': typeof BoutiqueAdminFournisseursRoute
+  '/boutique/admin/mon-compte': typeof BoutiqueAdminMonCompteRoute
   '/boutique/admin/parametres': typeof BoutiqueAdminParametresRoute
   '/boutique/admin/pos': typeof BoutiqueAdminPosRoute
   '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
@@ -380,6 +388,7 @@ export interface FileRoutesById {
   '/boutique/admin/equipe': typeof BoutiqueAdminEquipeRoute
   '/boutique/admin/factures': typeof BoutiqueAdminFacturesRoute
   '/boutique/admin/fournisseurs': typeof BoutiqueAdminFournisseursRoute
+  '/boutique/admin/mon-compte': typeof BoutiqueAdminMonCompteRoute
   '/boutique/admin/parametres': typeof BoutiqueAdminParametresRoute
   '/boutique/admin/pos': typeof BoutiqueAdminPosRoute
   '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
@@ -424,6 +433,7 @@ export interface FileRouteTypes {
     | '/boutique/admin/equipe'
     | '/boutique/admin/factures'
     | '/boutique/admin/fournisseurs'
+    | '/boutique/admin/mon-compte'
     | '/boutique/admin/parametres'
     | '/boutique/admin/pos'
     | '/boutique/admin/produits'
@@ -465,6 +475,7 @@ export interface FileRouteTypes {
     | '/boutique/admin/equipe'
     | '/boutique/admin/factures'
     | '/boutique/admin/fournisseurs'
+    | '/boutique/admin/mon-compte'
     | '/boutique/admin/parametres'
     | '/boutique/admin/pos'
     | '/boutique/admin/produits'
@@ -508,6 +519,7 @@ export interface FileRouteTypes {
     | '/boutique/admin/equipe'
     | '/boutique/admin/factures'
     | '/boutique/admin/fournisseurs'
+    | '/boutique/admin/mon-compte'
     | '/boutique/admin/parametres'
     | '/boutique/admin/pos'
     | '/boutique/admin/produits'
@@ -770,6 +782,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueAdminParametresRouteImport
       parentRoute: typeof BoutiqueAdminRouteRoute
     }
+    '/boutique/admin/mon-compte': {
+      id: '/boutique/admin/mon-compte'
+      path: '/mon-compte'
+      fullPath: '/boutique/admin/mon-compte'
+      preLoaderRoute: typeof BoutiqueAdminMonCompteRouteImport
+      parentRoute: typeof BoutiqueAdminRouteRoute
+    }
     '/boutique/admin/fournisseurs': {
       id: '/boutique/admin/fournisseurs'
       path: '/fournisseurs'
@@ -865,6 +884,7 @@ interface BoutiqueAdminRouteRouteChildren {
   BoutiqueAdminEquipeRoute: typeof BoutiqueAdminEquipeRoute
   BoutiqueAdminFacturesRoute: typeof BoutiqueAdminFacturesRoute
   BoutiqueAdminFournisseursRoute: typeof BoutiqueAdminFournisseursRoute
+  BoutiqueAdminMonCompteRoute: typeof BoutiqueAdminMonCompteRoute
   BoutiqueAdminParametresRoute: typeof BoutiqueAdminParametresRoute
   BoutiqueAdminPosRoute: typeof BoutiqueAdminPosRoute
   BoutiqueAdminProduitsRoute: typeof BoutiqueAdminProduitsRoute
@@ -880,6 +900,7 @@ const BoutiqueAdminRouteRouteChildren: BoutiqueAdminRouteRouteChildren = {
   BoutiqueAdminEquipeRoute: BoutiqueAdminEquipeRoute,
   BoutiqueAdminFacturesRoute: BoutiqueAdminFacturesRoute,
   BoutiqueAdminFournisseursRoute: BoutiqueAdminFournisseursRoute,
+  BoutiqueAdminMonCompteRoute: BoutiqueAdminMonCompteRoute,
   BoutiqueAdminParametresRoute: BoutiqueAdminParametresRoute,
   BoutiqueAdminPosRoute: BoutiqueAdminPosRoute,
   BoutiqueAdminProduitsRoute: BoutiqueAdminProduitsRoute,

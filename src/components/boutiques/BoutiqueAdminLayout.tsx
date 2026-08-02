@@ -22,6 +22,7 @@ import {
   LogOut,
   Users,
   Wallet,
+  UserCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +49,9 @@ const SECTIONS: { to: string; label: string; icon: typeof Package; roles: Role[]
   { to: "/boutique/admin/charges", label: "Charges", icon: Wallet, roles: ["admin"] },
   { to: "/boutique/admin/equipe", label: "Équipe", icon: Users, roles: ["admin"] },
   { to: "/boutique/admin/parametres", label: "Paramètres", icon: Settings, roles: ["admin"] },
+  // Contrairement aux autres sections admin-only ci-dessus, accessible aux 3
+  // rôles : chaque membre doit pouvoir changer son propre mot de passe.
+  { to: "/boutique/admin/mon-compte", label: "Mon compte", icon: UserCircle, roles: ["admin", "vendeur", "caissier"] },
 ];
 
 const LIBELLE_ROLE: Record<Role, string> = {
