@@ -335,14 +335,16 @@ function RapportsAdminPage() {
           ) : (
             <div className="mt-2 space-y-6">
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm text-muted-foreground">Valeur du stock</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-bold">
-                    {stock.valeur_stock_totale_usd.toFixed(2)} $
-                  </CardContent>
-                </Card>
+                {!stock.masquer_finances && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Valeur du stock</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-2xl font-bold">
+                      {stock.valeur_stock_totale_usd!.toFixed(2)} $
+                    </CardContent>
+                  </Card>
+                )}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm text-muted-foreground">Produits actifs</CardTitle>
@@ -373,7 +375,7 @@ function RapportsAdminPage() {
                       <TableHead>Catégorie</TableHead>
                       <TableHead>Produits</TableHead>
                       <TableHead>Quantité</TableHead>
-                      <TableHead>Valeur</TableHead>
+                      {!stock.masquer_finances && <TableHead>Valeur</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -385,7 +387,7 @@ function RapportsAdminPage() {
                         </TableCell>
                         <TableCell>{c.nb_produits}</TableCell>
                         <TableCell>{c.quantite}</TableCell>
-                        <TableCell>{c.valeur_usd.toFixed(2)} $</TableCell>
+                        {!stock.masquer_finances && <TableCell>{c.valeur_usd!.toFixed(2)} $</TableCell>}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -402,7 +404,7 @@ function RapportsAdminPage() {
                         <TableHead>Catégorie</TableHead>
                         <TableHead>Produits</TableHead>
                         <TableHead>Quantité</TableHead>
-                        <TableHead>Valeur</TableHead>
+                        {!stock.masquer_finances && <TableHead>Valeur</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -414,7 +416,7 @@ function RapportsAdminPage() {
                             <TableCell className="text-muted-foreground">{cat?.nom ?? "—"}</TableCell>
                             <TableCell>{sc.nb_produits}</TableCell>
                             <TableCell>{sc.quantite}</TableCell>
-                            <TableCell>{sc.valeur_usd.toFixed(2)} $</TableCell>
+                            {!stock.masquer_finances && <TableCell>{sc.valeur_usd!.toFixed(2)} $</TableCell>}
                           </TableRow>
                         );
                       })}
@@ -450,8 +452,12 @@ function RapportsAdminPage() {
                       <TableHead>Catégorie</TableHead>
                       <TableHead>Stock</TableHead>
                       <TableHead>Seuil d'alerte</TableHead>
-                      <TableHead>Prix d'achat</TableHead>
-                      <TableHead>Valeur</TableHead>
+                      {!stock.masquer_finances && (
+                        <>
+                          <TableHead>Prix d'achat</TableHead>
+                          <TableHead>Valeur</TableHead>
+                        </>
+                      )}
                       <TableHead />
                     </TableRow>
                   </TableHeader>
@@ -471,10 +477,14 @@ function RapportsAdminPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">{p.seuil_alerte}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {p.prix_achat_usd != null ? `${p.prix_achat_usd} $` : "—"}
-                        </TableCell>
-                        <TableCell>{p.valeur_usd.toFixed(2)} $</TableCell>
+                        {!stock.masquer_finances && (
+                          <>
+                            <TableCell className="text-muted-foreground">
+                              {p.prix_achat_usd != null ? `${p.prix_achat_usd} $` : "—"}
+                            </TableCell>
+                            <TableCell>{p.valeur_usd!.toFixed(2)} $</TableCell>
+                          </>
+                        )}
                         <TableCell>
                           <Button
                             size="icon"
@@ -560,14 +570,16 @@ function RapportsAdminPage() {
                   </CardHeader>
                   <CardContent className="text-2xl font-bold">{data.ca.total.toFixed(2)} $</CardContent>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm text-muted-foreground">Valeur du stock</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-2xl font-bold">
-                    {stock.valeur_stock_totale_usd.toFixed(2)} $
-                  </CardContent>
-                </Card>
+                {!stock.masquer_finances && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm text-muted-foreground">Valeur du stock</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-2xl font-bold">
+                      {stock.valeur_stock_totale_usd!.toFixed(2)} $
+                    </CardContent>
+                  </Card>
+                )}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm text-muted-foreground">Crédits restants</CardTitle>

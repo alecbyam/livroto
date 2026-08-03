@@ -108,6 +108,19 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ boutique_id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id);
+    // Un caissier voit les quantités (utile au comptoir) mais pas le prix
+    // d'achat ni la valeur du stock — données financières/marge qui ne le
+    // regardent pas, contrairement à admin/vendeur. Masqué ici (pas juste à
+    // l'affichage) pour qu'un caissier curieux ne les récupère pas via le
+    // réseau (onglet réseau du navigateur) : le serveur reste l'autorité.
+    const { data: roleRow } = await context.supabase
+      .from("boutique_users")
+      .select("role")
+      .eq("boutique_id", data.boutique_id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    const masquerFinances = roleRow?.role === "caissier";
+
     const { data: produits, error } = await context.supabase
       .from("produits")
       .select(
@@ -156,7 +169,10 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
     }
 
     return {
-      valeur_stock_totale_usd: arrondir(rows.reduce((s, p) => s + p.quantite * valeurUnitaire(p), 0)),
+      masquer_finances: masquerFinances,
+      valeur_stock_totale_usd: masquerFinances
+        ? null
+        : arrondir(rows.reduce((s, p) => s + p.quantite * valeurUnitaire(p), 0)),
       quantite_totale: rows.reduce((s, p) => s + p.quantite, 0),
       nb_produits: rows.length,
       nb_stock_bas: rows.filter((p) => p.stock_bas).length,
@@ -169,7 +185,7 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
         icone: c.icone,
         nb_produits: c.nb_produits,
         quantite: c.quantite,
-        valeur_usd: arrondir(c.valeur_usd),
+        valeur_usd: masquerFinances ? null : arrondir(c.valeur_usd),
       })),
       par_sous_categorie: Array.from(parSousCategorie.entries()).map(([id, c]) => ({
         id,
@@ -177,7 +193,7 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
         nom: c.nom,
         nb_produits: c.nb_produits,
         quantite: c.quantite,
-        valeur_usd: arrondir(c.valeur_usd),
+        valeur_usd: masquerFinances ? null : arrondir(c.valeur_usd),
       })),
       // Détail complet par produit — trié stock croissant en premier (les plus
       // critiques à regarder d'abord), demandé pour un vrai suivi d'inventaire
@@ -190,9 +206,9 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
           categorie_nom: (p as any).boutique_categories?.nom ?? null,
           quantite: p.quantite,
           seuil_alerte: p.seuil_alerte,
-          prix_achat_usd: p.prix_achat_usd,
+          prix_achat_usd: masquerFinances ? null : p.prix_achat_usd,
           prix_usd: p.prix_usd,
-          valeur_usd: arrondir(p.quantite * valeurUnitaire(p)),
+          valeur_usd: masquerFinances ? null : arrondir(p.quantite * valeurUnitaire(p)),
           stock_bas: p.stock_bas,
         }))
         .sort((a, b) => a.quantite - b.quantite),
