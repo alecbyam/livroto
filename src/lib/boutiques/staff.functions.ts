@@ -162,6 +162,41 @@ export const boutiqueChangerRoleStaff = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Définir/réinitialiser le mot de passe d'un membre du staff SANS dépendre
+// de l'email d'invitation — un admin peut donner directement un mot de
+// passe dictable (par téléphone/WhatsApp) à un membre qui n'a pas un accès
+// email pratique ou dont l'email d'invitation n'est jamais arrivé. Même
+// besoin que les scripts manuels historiques (inviter-admin-boutique.mjs +
+// definir-mdp-utilisateur.mjs), maintenant exposé dans l'interface.
+export const boutiqueDefinirMotDePasseStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        boutique_id: z.string().uuid(),
+        membre_id: z.string().uuid(),
+        mot_de_passe: z.string().min(6).max(72),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBoutiqueStaff(context, data.boutique_id, ["admin"]);
+
+    const { data: cible, error: cibleErr } = await context.supabase
+      .from("boutique_users")
+      .select("user_id")
+      .eq("id", data.membre_id)
+      .eq("boutique_id", data.boutique_id)
+      .single();
+    if (cibleErr || !cible) throw new Error("Membre introuvable.");
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(cible.user_id, {
+      password: data.mot_de_passe,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const boutiqueRetirerStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
