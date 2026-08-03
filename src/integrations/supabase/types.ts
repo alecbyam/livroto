@@ -771,6 +771,7 @@ export type Database = {
           id: string
           montant_paye_usd: number
           montant_total_usd: number
+          notes: string | null
           statut: string
           vente_id: string
         }
@@ -782,6 +783,7 @@ export type Database = {
           id?: string
           montant_paye_usd?: number
           montant_total_usd: number
+          notes?: string | null
           statut?: string
           vente_id: string
         }
@@ -793,6 +795,7 @@ export type Database = {
           id?: string
           montant_paye_usd?: number
           montant_total_usd?: number
+          notes?: string | null
           statut?: string
           vente_id?: string
         }

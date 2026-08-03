@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { History } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -21,6 +23,7 @@ import {
   boutiqueObtenirRapports,
   boutiqueObtenirRapportStock,
   boutiqueObtenirRapportRentabilite,
+  boutiqueObtenirMouvementsStock,
   boutiqueExporterVentesCsv,
 } from "@/lib/boutiques/rapports.functions";
 import { boutiqueObtenirRapportCredits } from "@/lib/boutiques/credits.functions";
@@ -76,6 +79,16 @@ function RapportsAdminPage() {
   const { data: stock, isLoading: stockChargement } = useQuery({
     queryKey: ["boutique-rapport-stock", boutique.id],
     queryFn: () => stockFn({ data: { boutique_id: boutique.id } }),
+  });
+
+  // Historique des mouvements d'UN produit — chargé seulement quand on ouvre
+  // sa fiche (pas de sur-fetch pour tous les produits d'un coup).
+  const [produitMouvements, setProduitMouvements] = useState<{ id: string; nom: string } | null>(null);
+  const mouvementsFn = useServerFn(boutiqueObtenirMouvementsStock);
+  const { data: mouvements, isLoading: mouvementsChargement } = useQuery({
+    queryKey: ["boutique-mouvements-stock", boutique.id, produitMouvements?.id],
+    queryFn: () => mouvementsFn({ data: { boutique_id: boutique.id, produit_id: produitMouvements!.id } }),
+    enabled: !!produitMouvements,
   });
 
   const creditsRapportFn = useServerFn(boutiqueObtenirRapportCredits);
@@ -422,6 +435,61 @@ function RapportsAdminPage() {
                   </div>
                 </div>
               )}
+
+              <div>
+                <h2 className="font-semibold">Détail du stock par produit</h2>
+                <p className="text-xs text-muted-foreground">
+                  Trié du stock le plus bas au plus élevé — clique sur l'historique pour voir les
+                  mouvements (ventes, entrées, réévaluations...) d'un produit.
+                </p>
+                <Table className="mt-2">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Référence</TableHead>
+                      <TableHead>Produit</TableHead>
+                      <TableHead>Catégorie</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead>Seuil d'alerte</TableHead>
+                      <TableHead>Prix d'achat</TableHead>
+                      <TableHead>Valeur</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stock.produits.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {p.reference ?? "—"}
+                        </TableCell>
+                        <TableCell className="font-medium">{p.nom}</TableCell>
+                        <TableCell className="text-muted-foreground">{p.categorie_nom ?? "—"}</TableCell>
+                        <TableCell>
+                          {p.stock_bas ? (
+                            <Badge variant="destructive">{p.quantite}</Badge>
+                          ) : (
+                            <Badge variant="secondary">{p.quantite}</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{p.seuil_alerte}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {p.prix_achat_usd != null ? `${p.prix_achat_usd} $` : "—"}
+                        </TableCell>
+                        <TableCell>{p.valeur_usd.toFixed(2)} $</TableCell>
+                        <TableCell>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Historique des mouvements"
+                            onClick={() => setProduitMouvements({ id: p.id, nom: p.nom })}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </TabsContent>
@@ -628,6 +696,55 @@ function RapportsAdminPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog open={!!produitMouvements} onOpenChange={(open) => !open && setProduitMouvements(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mouvements de stock — {produitMouvements?.nom}</DialogTitle>
+          </DialogHeader>
+          {mouvementsChargement || !mouvements ? (
+            <div className="h-40 animate-pulse rounded-xl bg-muted" />
+          ) : mouvements.mouvements.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun mouvement enregistré pour ce produit.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Qté</TableHead>
+                  <TableHead>Après</TableHead>
+                  <TableHead>Motif</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mouvements.mouvements.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(m.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                    </TableCell>
+                    <TableCell>{LIBELLE_TYPE_MOUVEMENT[m.type_mouvement] ?? m.type_mouvement}</TableCell>
+                    <TableCell className={m.quantite > 0 ? "text-primary" : "text-destructive"}>
+                      {m.quantite > 0 ? `+${m.quantite}` : m.quantite}
+                    </TableCell>
+                    <TableCell>{m.quantite_apres}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{m.motif ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+const LIBELLE_TYPE_MOUVEMENT: Record<string, string> = {
+  entree: "Entrée manuelle",
+  sortie: "Sortie manuelle",
+  ajustement: "Réévaluation",
+  vente: "Vente",
+  reception_fournisseur: "Réception fournisseur",
+  annulation: "Annulation",
+};

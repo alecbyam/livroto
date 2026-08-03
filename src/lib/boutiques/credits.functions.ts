@@ -24,7 +24,7 @@ export const boutiqueListerCredits = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("credits")
       .select(
-        "id,montant_total_usd,montant_paye_usd,date_echeance,statut,created_at,vente_id,ventes(numero),clients_boutique(id,nom,telephone)",
+        "id,montant_total_usd,montant_paye_usd,date_echeance,statut,notes,created_at,vente_id,ventes(numero),clients_boutique(id,nom,telephone)",
       )
       .eq("boutique_id", data.boutique_id);
     if (data.filtre !== "tous" && data.filtre !== "en_retard") q = q.eq("statut", data.filtre);
@@ -81,6 +81,26 @@ export const boutiqueEnregistrerPaiementCredit = createServerFn({ method: "POST"
     });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// Historique des paiements partiels d'un crédit — les données existaient
+// déjà (credit_paiements est alimenté à chaque encaissement partiel) mais
+// n'étaient jamais relues/affichées nulle part avant ce serverFn.
+export const boutiqueListerPaiementsCredit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ boutique_id: z.string().uuid(), credit_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBoutiqueStaff(context, data.boutique_id);
+    const { data: paiements, error } = await context.supabase
+      .from("credit_paiements")
+      .select("id,montant_usd,mode_paiement,note,created_at")
+      .eq("boutique_id", data.boutique_id)
+      .eq("credit_id", data.credit_id)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { paiements: paiements ?? [] };
   });
 
 export const boutiqueObtenirRapportCredits = createServerFn({ method: "POST" })

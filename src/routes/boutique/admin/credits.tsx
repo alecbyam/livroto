@@ -6,7 +6,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Wallet } from "lucide-react";
+import { History, MessageCircle, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,9 @@ import {
   boutiqueListerCredits,
   boutiqueEnregistrerPaiementCredit,
   boutiqueObtenirRapportCredits,
+  boutiqueListerPaiementsCredit,
 } from "@/lib/boutiques/credits.functions";
+import { whatsAppRelanceCreditUrl } from "@/lib/boutiques/whatsapp-links";
 
 export const Route = createFileRoute("/boutique/admin/credits")({
   component: CreditsAdminPage,
@@ -62,6 +64,7 @@ type Credit = {
   date_echeance: string;
   statut: "en_attente" | "partiellement_paye" | "paye";
   en_retard: boolean;
+  notes: string | null;
   ventes: { numero: string | null } | null;
   clients_boutique: { id: string; nom: string; telephone: string } | null;
 };
@@ -71,10 +74,12 @@ function CreditsAdminPage() {
   const qc = useQueryClient();
   const [filtre, setFiltre] = useState<(typeof FILTRES)[number]["id"]>("tous");
   const [creditAPayer, setCreditAPayer] = useState<Credit | null>(null);
+  const [creditHistorique, setCreditHistorique] = useState<Credit | null>(null);
 
   const invalider = () => {
     qc.invalidateQueries({ queryKey: ["boutique-credits", boutique.id] });
     qc.invalidateQueries({ queryKey: ["boutique-rapport-credits", boutique.id] });
+    qc.invalidateQueries({ queryKey: ["boutique-paiements-credit", boutique.id] });
   };
 
   const listerFn = useServerFn(boutiqueListerCredits);
@@ -88,6 +93,14 @@ function CreditsAdminPage() {
   const { data: rapport } = useQuery({
     queryKey: ["boutique-rapport-credits", boutique.id],
     queryFn: () => rapportFn({ data: { boutique_id: boutique.id } }),
+  });
+
+  const paiementsFn = useServerFn(boutiqueListerPaiementsCredit);
+  const { data: paiements, isLoading: paiementsChargement } = useQuery({
+    queryKey: ["boutique-paiements-credit", boutique.id, creditHistorique?.id],
+    queryFn: () =>
+      paiementsFn({ data: { boutique_id: boutique.id, credit_id: creditHistorique!.id } }),
+    enabled: !!creditHistorique,
   });
 
   const paiementFn = useServerFn(boutiqueEnregistrerPaiementCredit);
@@ -162,6 +175,7 @@ function CreditsAdminPage() {
                 <TableCell>
                   <div className="font-medium">{c.clients_boutique?.nom ?? "—"}</div>
                   <div className="text-xs text-muted-foreground">{c.clients_boutique?.telephone}</div>
+                  {c.notes && <div className="text-xs italic text-muted-foreground">{c.notes}</div>}
                 </TableCell>
                 <TableCell className="font-mono text-xs">{c.ventes?.numero ?? "—"}</TableCell>
                 <TableCell>{c.montant_total_usd} $</TableCell>
@@ -180,11 +194,43 @@ function CreditsAdminPage() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {c.statut !== "paye" && (
-                    <Button size="sm" onClick={() => setCreditAPayer(c)}>
-                      Encaisser
+                  <div className="flex items-center gap-1">
+                    {c.statut !== "paye" && (
+                      <Button size="sm" onClick={() => setCreditAPayer(c)}>
+                        Encaisser
+                      </Button>
+                    )}
+                    {c.statut !== "paye" && c.clients_boutique?.telephone && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Relancer par WhatsApp"
+                        asChild
+                      >
+                        <a
+                          href={whatsAppRelanceCreditUrl({
+                            telephoneClient: c.clients_boutique.telephone,
+                            boutiqueNom: boutique.nom,
+                            nomClient: c.clients_boutique.nom,
+                            montantRestantUsd: c.montant_restant_usd,
+                            dateEcheance: c.date_echeance,
+                          })}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <MessageCircle className="h-4 w-4 text-green-600" />
+                        </a>
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Historique des paiements"
+                      onClick={() => setCreditHistorique(c)}
+                    >
+                      <History className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -210,9 +256,53 @@ function CreditsAdminPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!creditHistorique} onOpenChange={(open) => !open && setCreditHistorique(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Historique des paiements — {creditHistorique?.clients_boutique?.nom ?? ""}
+            </DialogTitle>
+          </DialogHeader>
+          {paiementsChargement || !paiements ? (
+            <div className="h-32 animate-pulse rounded-xl bg-muted" />
+          ) : paiements.paiements.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun paiement enregistré pour ce crédit.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Montant</TableHead>
+                  <TableHead>Mode</TableHead>
+                  <TableHead>Note</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paiements.paiements.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(p.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                    </TableCell>
+                    <TableCell className="font-medium">{p.montant_usd} $</TableCell>
+                    <TableCell>{LIBELLE_MODE_PAIEMENT[p.mode_paiement] ?? p.mode_paiement}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{p.note ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+const LIBELLE_MODE_PAIEMENT: Record<string, string> = {
+  cash: "Cash",
+  mobile_money: "Mobile Money",
+  carte: "Carte",
+};
 
 function CarteChiffre({
   label,

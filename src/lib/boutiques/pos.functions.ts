@@ -24,6 +24,10 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
         // exprimer "requis seulement si mode_paiement === credit" sans
         // .superRefine).
         date_echeance: z.string().max(10).optional(),
+        // Motif libre de la dette (ex. "client régulier", "urgence
+        // famille") — jamais obligatoire, purement informatif pour le staff
+        // qui gère les relances plus tard.
+        credit_notes: z.string().max(300).optional(),
         code_promo: z.string().max(40).optional(),
         lignes: z
           .array(
@@ -179,6 +183,7 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
         client_id: data.client_id!,
         montant_total_usd: total,
         date_echeance: data.date_echeance!,
+        notes: data.credit_notes || null,
       });
       if (creditErr) throw new Error(creditErr.message);
     }

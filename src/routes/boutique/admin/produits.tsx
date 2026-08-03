@@ -6,11 +6,13 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Package, Pencil, Search, Trash2, X } from "lucide-react";
+import { ClipboardCheck, Package, Pencil, Search, Trash2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -118,12 +120,18 @@ function ProduitsAdminPage() {
   // l'appel serveur échoue en cours de route — jamais perdu. L'affichage du
   // stock intègre immédiatement le delta en attente (optimiste), corrigé par
   // la vraie valeur serveur dès que la synchro aboutit.
-  async function ajusterStock(produitId: string, type: "entree" | "sortie", quantiteDelta: number) {
+  async function ajusterStock(
+    produitId: string,
+    type: "entree" | "sortie" | "ajustement",
+    quantiteDelta: number,
+    motif?: string,
+  ) {
     const payload = {
       boutique_id: boutique.id,
       produit_id: produitId,
       type,
       quantite_delta: quantiteDelta,
+      motif,
     };
     // Généré UNE SEULE FOIS pour cette tentative logique : si l'appel en ligne
     // échoue côté client alors qu'il a en fait abouti côté serveur (accusé de
@@ -146,6 +154,14 @@ function ProduitsAdminPage() {
       toast.error(`Échec réseau (${(err as Error).message}) — ajustement mis en attente.`);
     }
   }
+
+  // Réévaluation de stock (inventaire physique) : le staff tape la quantité
+  // RÉELLEMENT comptée, pas un delta — fn_mouvement_stock n'accepte qu'un
+  // delta signé (type "ajustement"), donc on le calcule ici avant d'appeler
+  // le même chemin que les boutons +1/-1 (offline-safe inclus).
+  const [reevaluation, setReevaluation] = useState<{ id: string; nom: string; quantiteActuelle: number } | null>(
+    null,
+  );
 
   const plancheFn = useServerFn(boutiqueProduitsPourPlancheQr);
   const imprimerPlanche = async () => {
@@ -364,7 +380,7 @@ function ProduitsAdminPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                       <Button
                         size="sm"
                         variant="outline"
@@ -378,6 +394,16 @@ function ProduitsAdminPage() {
                         onClick={() => ajusterStock(p.id, "sortie", 1)}
                       >
                         -1
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title="Réévaluer le stock (inventaire physique)"
+                        onClick={() =>
+                          setReevaluation({ id: p.id, nom: p.nom, quantiteActuelle: quantiteAffichee })
+                        }
+                      >
+                        <ClipboardCheck className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </TableCell>
@@ -470,6 +496,93 @@ function ProduitsAdminPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!reevaluation} onOpenChange={(open) => !open && setReevaluation(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Réévaluer le stock — {reevaluation?.nom}</DialogTitle>
+          </DialogHeader>
+          {reevaluation && (
+            <FormulaireReevaluation
+              quantiteActuelle={reevaluation.quantiteActuelle}
+              onValider={(quantiteCompteee, motif) => {
+                const delta = quantiteCompteee - reevaluation.quantiteActuelle;
+                if (delta === 0) {
+                  toast.info("Quantité inchangée — aucun ajustement nécessaire.");
+                  setReevaluation(null);
+                  return;
+                }
+                ajusterStock(reevaluation.id, "ajustement", delta, motif);
+                setReevaluation(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// Réévaluation de stock (inventaire physique) : le staff tape la quantité
+// RÉELLEMENT comptée dans le magasin, pas un delta — plus fiable qu'un
+// compteur +1/-1 répété quand l'écart est important (ex. après un
+// inventaire complet).
+function FormulaireReevaluation({
+  quantiteActuelle,
+  onValider,
+}: {
+  quantiteActuelle: number;
+  onValider: (quantiteCompteee: number, motif: string) => void;
+}) {
+  const [quantite, setQuantite] = useState(String(quantiteActuelle));
+  const [motif, setMotif] = useState("Inventaire physique");
+  const delta = Number(quantite) - quantiteActuelle;
+
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const n = Number(quantite);
+        if (!Number.isInteger(n) || n < 0) {
+          toast.error("Quantité invalide.");
+          return;
+        }
+        onValider(n, motif.trim() || "Inventaire physique");
+      }}
+    >
+      <p className="text-sm text-muted-foreground">
+        Stock actuel affiché : <span className="font-medium text-foreground">{quantiteActuelle}</span>
+      </p>
+      <div>
+        <Label htmlFor="qte-comptee">Quantité réellement comptée</Label>
+        <Input
+          id="qte-comptee"
+          type="number"
+          min="0"
+          autoFocus
+          value={quantite}
+          onChange={(e) => setQuantite(e.target.value)}
+          required
+        />
+      </div>
+      {delta !== 0 && !Number.isNaN(delta) && (
+        <p className={`text-sm font-medium ${delta > 0 ? "text-primary" : "text-destructive"}`}>
+          {delta > 0 ? `+${delta}` : delta} par rapport au stock actuel
+        </p>
+      )}
+      <div>
+        <Label htmlFor="motif-reeval">Motif</Label>
+        <Input
+          id="motif-reeval"
+          value={motif}
+          onChange={(e) => setMotif(e.target.value)}
+          placeholder="Ex. Inventaire physique, casse, vol..."
+        />
+      </div>
+      <DialogFooter>
+        <Button type="submit">Valider la réévaluation</Button>
+      </DialogFooter>
+    </form>
   );
 }

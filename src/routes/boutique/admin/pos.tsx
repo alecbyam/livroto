@@ -101,6 +101,7 @@ function PosPage() {
   const [codePromo, setCodePromo] = useState("");
   const [clientCredit, setClientCredit] = useState<{ id: string; nom: string } | null>(null);
   const [dateEcheance, setDateEcheance] = useState("");
+  const [motifCredit, setMotifCredit] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [camActive, setCamActive] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
@@ -380,6 +381,7 @@ function PosPage() {
       mode_paiement: modePaiement,
       client_id: modePaiement === "credit" ? clientCredit!.id : undefined,
       date_echeance: modePaiement === "credit" ? dateEcheance : undefined,
+      credit_notes: modePaiement === "credit" ? motifCredit.trim() || undefined : undefined,
       code_promo: codePromo.trim() || undefined,
       // Le prix n'est envoyé que si effectivement remisé — sinon le serveur
       // recalcule normalement depuis le catalogue/promo en vigueur (plus
@@ -428,6 +430,7 @@ function PosPage() {
       setCodePromo("");
       setClientCredit(null);
       setDateEcheance("");
+      setMotifCredit("");
       qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
     } catch (err) {
       if (modePaiement === "credit") {
@@ -844,6 +847,15 @@ function PosPage() {
                 value={dateEcheance}
                 onChange={(e) => setDateEcheance(e.target.value)}
                 min={new Date().toISOString().slice(0, 10)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="motif-credit">Motif (optionnel)</Label>
+              <Input
+                id="motif-credit"
+                value={motifCredit}
+                onChange={(e) => setMotifCredit(e.target.value)}
+                placeholder="Ex. client régulier, urgence..."
               />
             </div>
           </div>

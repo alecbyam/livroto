@@ -30,6 +30,21 @@ export function whatsAppCommanderProduitUrl(params: {
   return `https://wa.me/${digits}?text=${encodeURIComponent(texte)}`;
 }
 
+// Relance d'un client qui doit encore de l'argent sur une vente à crédit —
+// message pré-rempli avec le montant restant et l'échéance, envoyé au
+// numéro DU CLIENT (pas de la boutique, contrairement aux autres helpers).
+export function whatsAppRelanceCreditUrl(params: {
+  telephoneClient: string;
+  boutiqueNom: string;
+  nomClient: string;
+  montantRestantUsd: number;
+  dateEcheance: string;
+}): string {
+  const digits = phoneDigits(params.telephoneClient);
+  const texte = `Bonjour ${params.nomClient}, c'est ${params.boutiqueNom}. Petit rappel : il reste ${params.montantRestantUsd} $ à payer sur votre achat (échéance : ${params.dateEcheance}). Merci !`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(texte)}`;
+}
+
 export function whatsAppCommanderPanierUrl(params: {
   telephoneBoutique: string;
   boutiqueNom: string;

@@ -111,7 +111,7 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
     const { data: produits, error } = await context.supabase
       .from("produits")
       .select(
-        "id,nom,quantite,prix_usd,prix_achat_usd,stock_bas,categorie_id,sous_categorie_id,boutique_categories(nom,icone),sous_categories(nom)",
+        "id,nom,reference,quantite,seuil_alerte,prix_usd,prix_achat_usd,stock_bas,categorie_id,sous_categorie_id,boutique_categories(nom,icone),sous_categories(nom)",
       )
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true);
@@ -179,7 +179,46 @@ export const boutiqueObtenirRapportStock = createServerFn({ method: "POST" })
         quantite: c.quantite,
         valeur_usd: arrondir(c.valeur_usd),
       })),
+      // Détail complet par produit — trié stock croissant en premier (les plus
+      // critiques à regarder d'abord), demandé pour un vrai suivi d'inventaire
+      // plutôt que seulement des totaux par catégorie.
+      produits: rows
+        .map((p) => ({
+          id: p.id,
+          nom: p.nom,
+          reference: p.reference,
+          categorie_nom: (p as any).boutique_categories?.nom ?? null,
+          quantite: p.quantite,
+          seuil_alerte: p.seuil_alerte,
+          prix_achat_usd: p.prix_achat_usd,
+          prix_usd: p.prix_usd,
+          valeur_usd: arrondir(p.quantite * valeurUnitaire(p)),
+          stock_bas: p.stock_bas,
+        }))
+        .sort((a, b) => a.quantite - b.quantite),
     };
+  });
+
+// Historique des mouvements de stock d'un produit (entrées/sorties/ventes/
+// ajustements/réévaluations) — stock_movements est déjà en lecture pour tout
+// le staff (RLS), mais rien ne l'affichait encore côté client avant ce
+// rapport détaillé.
+export const boutiqueObtenirMouvementsStock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ boutique_id: z.string().uuid(), produit_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBoutiqueStaff(context, data.boutique_id);
+    const { data: mouvements, error } = await context.supabase
+      .from("stock_movements")
+      .select("id,type_mouvement,quantite,quantite_apres,motif,reference_type,created_at")
+      .eq("boutique_id", data.boutique_id)
+      .eq("produit_id", data.produit_id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return { mouvements: mouvements ?? [] };
   });
 
 // Nombre de jours (inclusif) où une charge chevauche la période demandée —
