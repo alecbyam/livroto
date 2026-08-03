@@ -10,11 +10,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { posOfflineQueue } from "@/lib/boutiques/pos-offline-queue";
 import { boutiqueEncaisserVente } from "@/lib/boutiques/pos.functions";
+import { boutiqueTrouverOuCreerClient } from "@/lib/boutiques/clients.functions";
 
 const MAX_SYNC_ATTEMPTS = 5;
 
 export function PosOfflineBanner({ onSynced }: { onSynced?: () => void }) {
   const encaisser = useServerFn(boutiqueEncaisserVente);
+  const trouverOuCreerClient = useServerFn(boutiqueTrouverOuCreerClient);
   const [online, setOnline] = useState(true);
   const [queueCount, setQueueCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
@@ -31,13 +33,32 @@ export function PosOfflineBanner({ onSynced }: { onSynced?: () => void }) {
 
     for (const v of ventes) {
       try {
+        // Vente à crédit prise hors-ligne : le client n'a pas pu être
+        // recherché/créé sans réseau, donc seuls nom+téléphone ont été
+        // mémorisés (v.credit) — on les résout maintenant (find-or-create,
+        // même mécanisme qu'en ligne) avant d'encaisser. Si client_id est
+        // déjà connu (échec en cours de route après résolution en ligne),
+        // on ne refait pas cette étape.
+        let clientId = v.client_id ?? undefined;
+        if (v.mode_paiement === "credit" && !clientId && v.credit?.client_nom && v.credit?.client_telephone) {
+          const { client } = await trouverOuCreerClient({
+            data: { boutique_id: v.boutique_id, nom: v.credit.client_nom, telephone: v.credit.client_telephone },
+          });
+          clientId = client.id;
+        }
+
         await encaisser({
           data: {
             boutique_id: v.boutique_id,
             hors_ligne_id: v.id,
-            client_id: v.client_id ?? undefined,
+            client_id: clientId,
             mode_paiement: v.mode_paiement,
             code_promo: v.code_promo ?? undefined,
+            date_echeance: v.mode_paiement === "credit" ? v.credit?.date_echeance : undefined,
+            credit_notes: v.mode_paiement === "credit" ? v.credit?.notes ?? undefined : undefined,
+            avance_usd: v.mode_paiement === "credit" ? v.credit?.avance_usd ?? undefined : undefined,
+            avance_mode_paiement:
+              v.mode_paiement === "credit" ? v.credit?.avance_mode_paiement ?? undefined : undefined,
             // Ne transmet le prix que s'il s'agit d'une VRAIE remise
             // manuelle (prix < prix catalogue mémorisé à l'ajout) — sinon on
             // laisse le serveur recalculer depuis le catalogue/promo en

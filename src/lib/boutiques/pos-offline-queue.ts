@@ -8,7 +8,7 @@ export type QueuedVente = {
   attempts?: number;
   boutique_id: string;
   client_id?: string | null;
-  mode_paiement: "cash" | "mobile_money" | "carte";
+  mode_paiement: "cash" | "mobile_money" | "carte" | "credit";
   code_promo?: string | null;
   lignes: Array<{
     produit_id: string;
@@ -21,6 +21,22 @@ export type QueuedVente = {
     // plus fiable si le prix catalogue a changé pendant la coupure réseau).
     prix_catalogue_usd: number;
   }>;
+  // Rempli UNIQUEMENT si mode_paiement === "credit". `client_id` (champ
+  // ci-dessus) est déjà résolu si la vente avait pu joindre le serveur en
+  // ligne pour trouver/créer le client puis a échoué plus loin — sinon
+  // (vente commencée hors-ligne d'entrée) le client ne peut pas être
+  // recherché/créé sans réseau : nom+téléphone sont saisis à la main ici et
+  // résolus en find-or-create (boutiqueTrouverOuCreerClient) au moment de la
+  // resynchronisation, juste avant l'appel à boutiqueEncaisserVente — jamais
+  // de client_id local inventé, toujours résolu en confiance côté serveur.
+  credit?: {
+    client_nom?: string;
+    client_telephone?: string;
+    date_echeance: string;
+    notes?: string | null;
+    avance_usd?: number | null;
+    avance_mode_paiement?: "cash" | "mobile_money" | "carte" | null;
+  };
 };
 
 const KEY = "livroto.boutique.pos.offline.ventes";

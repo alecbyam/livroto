@@ -104,6 +104,12 @@ function PosPage() {
   const [motifCredit, setMotifCredit] = useState("");
   const [avanceCredit, setAvanceCredit] = useState("");
   const [avanceModePaiement, setAvanceModePaiement] = useState<"cash" | "mobile_money" | "carte">("cash");
+  // Saisie manuelle nom/téléphone quand le crédit est pris HORS-LIGNE — pas de
+  // recherche/création serveur possible sans réseau (cf. SelecteurClientCredit,
+  // qui reste utilisé quand la connexion est là). Résolu en find-or-create à
+  // la resynchronisation (PosOfflineBanner).
+  const [clientCreditNomHorsLigne, setClientCreditNomHorsLigne] = useState("");
+  const [clientCreditTelHorsLigne, setClientCreditTelHorsLigne] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [camActive, setCamActive] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
@@ -111,6 +117,22 @@ function PosPage() {
 
   useEffect(() => {
     scanInputRef.current?.focus();
+  }, []);
+
+  // État réactif (pas juste isOnline() lu au clic) pour basculer l'UI crédit
+  // entre le sélecteur client en ligne (recherche/création serveur) et la
+  // saisie manuelle nom/téléphone hors-ligne, sans réseau disponible.
+  const [enLigne, setEnLigne] = useState(true);
+  useEffect(() => {
+    setEnLigne(isOnline());
+    const surLigne = () => setEnLigne(true);
+    const horsLigne = () => setEnLigne(false);
+    window.addEventListener("online", surLigne);
+    window.addEventListener("offline", horsLigne);
+    return () => {
+      window.removeEventListener("online", surLigne);
+      window.removeEventListener("offline", horsLigne);
+    };
   }, []);
 
   // Modifier/supprimer un produit sans quitter la caisse — même formulaire et
@@ -358,12 +380,27 @@ function PosPage() {
       return;
     }
     // Une vente à crédit doit toujours être liée à un client ET une échéance
-    // — jamais l'un sans l'autre. Le mode hors-ligne n'est volontairement pas
-    // supporté pour le crédit (il faut le client_id résolu côté serveur avant
-    // d'ouvrir la dette), contrairement aux autres modes de paiement.
+    // — jamais l'un sans l'autre. Hors-ligne, le client ne peut pas être
+    // recherché/créé côté serveur : nom+téléphone saisis à la main servent à
+    // le résoudre (find-or-create) à la resynchronisation, une fois le
+    // réseau revenu — cf. PosOfflineBanner.
+    const resetChampsCredit = () => {
+      setClientCredit(null);
+      setClientCreditNomHorsLigne("");
+      setClientCreditTelHorsLigne("");
+      setDateEcheance("");
+      setMotifCredit("");
+      setAvanceCredit("");
+      setAvanceModePaiement("cash");
+    };
+
     if (modePaiement === "credit") {
-      if (!clientCredit) {
+      if (enLigne && !clientCredit) {
         toast.error("Sélectionne ou crée un client pour une vente à crédit.");
+        return;
+      }
+      if (!enLigne && (!clientCreditNomHorsLigne.trim() || !clientCreditTelHorsLigne.trim())) {
+        toast.error("Indique le nom et le téléphone du client (hors ligne, pas de recherche possible).");
         return;
       }
       if (!dateEcheance) {
@@ -374,10 +411,6 @@ function PosPage() {
         toast.error("L'avance ne peut pas couvrir la totalité — utilise Cash ou Mobile Money si le client paie tout maintenant.");
         return;
       }
-      if (!isOnline()) {
-        toast.error("Vente à crédit impossible hors ligne — reconnecte-toi.");
-        return;
-      }
     }
     setEnCours(true);
     const horsLigneId = crypto.randomUUID();
@@ -385,7 +418,7 @@ function PosPage() {
       boutique_id: boutique.id,
       hors_ligne_id: horsLigneId,
       mode_paiement: modePaiement,
-      client_id: modePaiement === "credit" ? clientCredit!.id : undefined,
+      client_id: modePaiement === "credit" && clientCredit ? clientCredit.id : undefined,
       date_echeance: modePaiement === "credit" ? dateEcheance : undefined,
       credit_notes: modePaiement === "credit" ? motifCredit.trim() || undefined : undefined,
       avance_usd: modePaiement === "credit" && avanceCredit.trim() ? Number(avanceCredit) : undefined,
@@ -403,15 +436,13 @@ function PosPage() {
 
     const lignesVendues = [...cart]; // instantané avant vidage du panier (pour le reçu)
 
-    if (!isOnline()) {
-      // modePaiement ne peut pas valoir "credit" ici : le bloc plus haut
-      // retourne systématiquement dès que le crédit est hors-ligne — la file
-      // (QueuedVente) ne sait de toute façon pas porter client_id/date_echeance.
+    const mettreEnFile = (clientIdConnu?: string) => {
       posOfflineQueue.add({
         id: horsLigneId,
         createdAt: new Date().toISOString(),
         boutique_id: boutique.id,
-        mode_paiement: modePaiement as Exclude<typeof modePaiement, "credit">,
+        client_id: clientIdConnu ?? null,
+        mode_paiement: modePaiement,
         code_promo: codePromo.trim() || null,
         lignes: cart.map((l) => ({
           produit_id: l.produit_id,
@@ -420,12 +451,32 @@ function PosPage() {
           prix_unitaire_usd: l.prix_usd,
           prix_catalogue_usd: l.prix_catalogue_usd,
         })),
+        credit:
+          modePaiement === "credit"
+            ? {
+                client_nom: clientIdConnu ? undefined : clientCreditNomHorsLigne.trim(),
+                client_telephone: clientIdConnu ? undefined : clientCreditTelHorsLigne.trim(),
+                date_echeance: dateEcheance,
+                notes: motifCredit.trim() || null,
+                avance_usd: avanceCredit.trim() ? Number(avanceCredit) : null,
+                avance_mode_paiement: avanceCredit.trim() ? avanceModePaiement : null,
+              }
+            : undefined,
       });
-      toast.success("Hors ligne : vente enregistrée localement, sera envoyée à la reconnexion.");
+    };
+
+    if (!isOnline()) {
+      mettreEnFile();
+      toast.success(
+        modePaiement === "credit"
+          ? "Hors ligne : vente à crédit enregistrée localement — le client sera lié/créé à la reconnexion."
+          : "Hors ligne : vente enregistrée localement, sera envoyée à la reconnexion.",
+      );
       // Reçu sans numéro (attribué à la synchro) ni remise promo (validée serveur).
       imprimerRecuVente(lignesVendues, null, sousTotal);
       setCart([]);
       setCodePromo("");
+      if (modePaiement === "credit") resetChampsCredit();
       setEnCours(false);
       return;
     }
@@ -436,44 +487,21 @@ function PosPage() {
       imprimerRecuVente(lignesVendues, vente.numero, Number(vente.total_usd));
       setCart([]);
       setCodePromo("");
-      setClientCredit(null);
-      setDateEcheance("");
-      setMotifCredit("");
-      setAvanceCredit("");
-      setAvanceModePaiement("cash");
+      resetChampsCredit();
       qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
     } catch (err) {
-      if (modePaiement === "credit") {
-        // Le crédit n'est jamais mis en file hors-ligne (le format de la file
-        // ne sait pas porter client_id/date_echeance, et on ne veut surtout
-        // pas rejouer une ouverture de dette sans garantie de lien client) —
-        // on laisse le panier intact pour que le staff puisse réessayer.
-        toast.error(`Échec d'envoi (${(err as Error).message}) — réessaie, le panier est conservé.`);
-        setEnCours(false);
-        return;
-      }
       // Échec réseau en cours de route (pas juste "hors ligne" détecté à
-      // l'avance) : on ne perd pas la vente, on la met en file elle aussi.
-      posOfflineQueue.add({
-        id: horsLigneId,
-        createdAt: new Date().toISOString(),
-        boutique_id: boutique.id,
-        mode_paiement: modePaiement,
-        code_promo: codePromo.trim() || null,
-        lignes: cart.map((l) => ({
-          produit_id: l.produit_id,
-          nom: l.nom,
-          quantite: l.quantite,
-          prix_unitaire_usd: l.prix_usd,
-          prix_catalogue_usd: l.prix_catalogue_usd,
-        })),
-      });
+      // l'avance) : on ne perd pas la vente, on la met en file — pour le
+      // crédit, le client_id est déjà résolu (l'appel en ligne a échoué APRÈS
+      // cette résolution), donc pas besoin de nom/téléphone à la resynchro.
+      mettreEnFile(modePaiement === "credit" ? clientCredit!.id : undefined);
       toast.error(
         `Échec d'envoi (${(err as Error).message}) — vente mise en attente, sera réessayée.`,
       );
       imprimerRecuVente(lignesVendues, null, sousTotal);
       setCart([]);
       setCodePromo("");
+      if (modePaiement === "credit") resetChampsCredit();
     } finally {
       setEnCours(false);
     }
@@ -843,11 +871,31 @@ function PosPage() {
           <div className="mt-3 space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
             <div>
               <Label>Client</Label>
-              <SelecteurClientCredit
-                boutiqueId={boutique.id}
-                client={clientCredit}
-                onChange={setClientCredit}
-              />
+              {enLigne ? (
+                <SelecteurClientCredit
+                  boutiqueId={boutique.id}
+                  client={clientCredit}
+                  onChange={setClientCredit}
+                />
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">
+                    Hors ligne — pas de recherche possible, saisis le nom et le téléphone.
+                  </p>
+                  <Input
+                    id="client-credit-nom-hors-ligne"
+                    value={clientCreditNomHorsLigne}
+                    onChange={(e) => setClientCreditNomHorsLigne(e.target.value)}
+                    placeholder="Nom du client"
+                  />
+                  <Input
+                    id="client-credit-tel-hors-ligne"
+                    value={clientCreditTelHorsLigne}
+                    onChange={(e) => setClientCreditTelHorsLigne(e.target.value)}
+                    placeholder="Téléphone"
+                  />
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="date-echeance">Échéance de paiement</Label>
