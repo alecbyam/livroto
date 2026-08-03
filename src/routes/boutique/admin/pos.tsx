@@ -102,6 +102,8 @@ function PosPage() {
   const [clientCredit, setClientCredit] = useState<{ id: string; nom: string } | null>(null);
   const [dateEcheance, setDateEcheance] = useState("");
   const [motifCredit, setMotifCredit] = useState("");
+  const [avanceCredit, setAvanceCredit] = useState("");
+  const [avanceModePaiement, setAvanceModePaiement] = useState<"cash" | "mobile_money" | "carte">("cash");
   const [enCours, setEnCours] = useState(false);
   const [camActive, setCamActive] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
@@ -368,6 +370,10 @@ function PosPage() {
         toast.error("Indique une échéance de paiement.");
         return;
       }
+      if (avanceCredit.trim() && Number(avanceCredit) >= sousTotal) {
+        toast.error("L'avance ne peut pas couvrir la totalité — utilise Cash ou Mobile Money si le client paie tout maintenant.");
+        return;
+      }
       if (!isOnline()) {
         toast.error("Vente à crédit impossible hors ligne — reconnecte-toi.");
         return;
@@ -382,6 +388,8 @@ function PosPage() {
       client_id: modePaiement === "credit" ? clientCredit!.id : undefined,
       date_echeance: modePaiement === "credit" ? dateEcheance : undefined,
       credit_notes: modePaiement === "credit" ? motifCredit.trim() || undefined : undefined,
+      avance_usd: modePaiement === "credit" && avanceCredit.trim() ? Number(avanceCredit) : undefined,
+      avance_mode_paiement: modePaiement === "credit" && avanceCredit.trim() ? avanceModePaiement : undefined,
       code_promo: codePromo.trim() || undefined,
       // Le prix n'est envoyé que si effectivement remisé — sinon le serveur
       // recalcule normalement depuis le catalogue/promo en vigueur (plus
@@ -431,6 +439,8 @@ function PosPage() {
       setClientCredit(null);
       setDateEcheance("");
       setMotifCredit("");
+      setAvanceCredit("");
+      setAvanceModePaiement("cash");
       qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
     } catch (err) {
       if (modePaiement === "credit") {
@@ -858,6 +868,45 @@ function PosPage() {
                 placeholder="Ex. client régulier, urgence..."
               />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="avance-credit">Avance versée (optionnel)</Label>
+                <Input
+                  id="avance-credit"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={avanceCredit}
+                  onChange={(e) => setAvanceCredit(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>Mode de paiement de l'avance</Label>
+                <Select
+                  value={avanceModePaiement}
+                  onValueChange={(v) => setAvanceModePaiement(v as typeof avanceModePaiement)}
+                  disabled={!avanceCredit.trim()}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                    <SelectItem value="carte">Carte bancaire</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {avanceCredit.trim() && !Number.isNaN(Number(avanceCredit)) && (
+              <p className="text-xs text-muted-foreground">
+                Reste à devoir après cette vente :{" "}
+                <span className="font-semibold">
+                  {Math.max(0, sousTotal - Number(avanceCredit)).toFixed(2)} $
+                </span>
+              </p>
+            )}
           </div>
         )}
         <div className="mt-3">

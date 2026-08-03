@@ -28,6 +28,12 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
         // famille") — jamais obligatoire, purement informatif pour le staff
         // qui gère les relances plus tard.
         credit_notes: z.string().max(300).optional(),
+        // Avance versée immédiatement à la caisse sur une vente à crédit (ex.
+        // acompte) — optionnelle. Validée contre le total réel (calculé
+        // serveur après résolution des prix/promo/remise) dans le handler,
+        // pas ici : le sous-total n'est pas encore connu au moment du parse.
+        avance_usd: z.number().min(0).max(100000).optional(),
+        avance_mode_paiement: z.enum(["cash", "mobile_money", "carte"]).optional(),
         code_promo: z.string().max(40).optional(),
         lignes: z
           .array(
@@ -177,15 +183,43 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
     if (data.mode_paiement === "credit") {
       // client_id/date_echeance sont garantis présents ici par le
       // .superRefine() du schéma Zod ci-dessus (requis si mode_paiement === "credit").
-      const { error: creditErr } = await context.supabase.from("credits").insert({
-        boutique_id: data.boutique_id,
-        vente_id: vente.id,
-        client_id: data.client_id!,
-        montant_total_usd: total,
-        date_echeance: data.date_echeance!,
-        notes: data.credit_notes || null,
-      });
+      if (data.avance_usd != null && data.avance_usd > 0 && data.avance_usd >= total) {
+        throw new Error(
+          "L'avance ne peut pas couvrir la totalité de la vente — utilise Cash ou Mobile Money si le client paie tout maintenant.",
+        );
+      }
+
+      const { data: creditRow, error: creditErr } = await context.supabase
+        .from("credits")
+        .insert({
+          boutique_id: data.boutique_id,
+          vente_id: vente.id,
+          client_id: data.client_id!,
+          montant_total_usd: total,
+          date_echeance: data.date_echeance!,
+          notes: data.credit_notes || null,
+        })
+        .select("id")
+        .single();
       if (creditErr) throw new Error(creditErr.message);
+
+      // Avance versée immédiatement à la caisse (acompte) : même mécanisme
+      // que les paiements ultérieurs (boutiqueEnregistrerPaiementCredit) —
+      // une ligne credit_paiements, le trigger tg_credits_appliquer_paiement
+      // (migration 50) recalcule automatiquement montant_paye_usd/statut.
+      // Jamais un montant_paye_usd posé à la main sur `credits` : la vérité
+      // vit dans les lignes, même philosophie que fn_mouvement_stock.
+      if (data.avance_usd != null && data.avance_usd > 0) {
+        const { error: avanceErr } = await context.supabase.from("credit_paiements").insert({
+          credit_id: creditRow.id,
+          boutique_id: data.boutique_id,
+          montant_usd: data.avance_usd,
+          mode_paiement: data.avance_mode_paiement ?? "cash",
+          encaisse_par: context.userId,
+          note: "Avance versée à la vente",
+        });
+        if (avanceErr) throw new Error(avanceErr.message);
+      }
     }
 
     if (codePromoId) {
