@@ -36,11 +36,17 @@ function renderPdf(params: {
     // En-tête : logo à gauche (best-effort — un logo illisible/absent ne doit
     // jamais empêcher la génération de la facture) + identité légale à droite
     // du logo, sur la même ligne, façon papier à en-tête classique.
-    const texteX = logo ? 110 : 50;
+    // Boîte plus large que haute (70x40) plutôt qu'un carré 50x50 : la
+    // plupart des logos avec texte intégré (comme celui-ci, une fois
+    // recadré par trim() dans telechargerLogo) sont en format paysage —
+    // un carré sous-utiliserait la largeur et laisserait le logo minuscule.
+    const LOGO_LARGEUR = 70;
+    const LOGO_HAUTEUR = 40;
+    const texteX = logo ? 50 + LOGO_LARGEUR + 10 : 50;
     let logoOk = false;
     if (logo) {
       try {
-        doc.image(logo, 50, 45, { fit: [50, 50] });
+        doc.image(logo, 50, 45, { fit: [LOGO_LARGEUR, LOGO_HAUTEUR] });
         logoOk = true;
       } catch {
         /* format d'image illisible par pdfkit (rare) — on continue sans logo */
@@ -64,7 +70,7 @@ function renderPdf(params: {
     doc.fillColor("#000");
     // Le texte peut être plus court que le logo (50pt) : on repart toujours
     // sous le plus grand des deux blocs pour ne jamais chevaucher la suite.
-    doc.y = Math.max(doc.y, logoOk ? 45 + 50 : hautEnTete);
+    doc.y = Math.max(doc.y, logoOk ? 45 + LOGO_HAUTEUR : hautEnTete);
     doc.x = 50;
 
     doc.moveDown(1.5);
@@ -151,10 +157,22 @@ async function telechargerLogo(logoUrl: string | null): Promise<Buffer | null> {
     // .jpeg()/.png() n'est appelée après .grayscale(). Best-effort comme le
     // reste de cette fonction : un échec de conversion renvoie le logo
     // couleur plutôt que de faire échouer toute la facture.
+    //
+    // .trim() : beaucoup de logos fournis par les boutiques ont une grosse
+    // marge unie autour du dessin (ex. Hugo Collection : carré 1080x1080
+    // avec le vrai logo centré sur ~40% de la surface, fond noir uni tout
+    // autour) — sans recadrage, ce fond devient un gros pavé noir/gris sur
+    // la facture ("le logo occupe une grande place"). trim() détecte et
+    // retire automatiquement les bords de couleur uniforme ; sans effet sur
+    // un logo déjà bien cadré (rien à retirer).
     try {
-      return await sharp(original).toColourspace("b-w").toBuffer();
+      return await sharp(original).trim().toColourspace("b-w").toBuffer();
     } catch {
-      return original;
+      try {
+        return await sharp(original).toColourspace("b-w").toBuffer();
+      } catch {
+        return original;
+      }
     }
   } catch {
     return null;

@@ -231,6 +231,10 @@ export const boutiqueListerProduitsPos = createServerFn({ method: "POST" })
       .select("id,nom,reference,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url,categorie_id,boutique_categories(id,nom,icone),taille,couleur,images")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
+      // Un produit en rupture n'a rien à vendre — ne pas l'afficher du tout
+      // à la caisse (plutôt qu'une vignette grisée "Rupture" inutilisable),
+      // même logique que la vitrine cliente.
+      .gt("quantite", 0)
       .order("nom", { ascending: true })
       .limit(300);
     if (error) throw new Error(error.message);
@@ -260,6 +264,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
         .eq("boutique_id", data.boutique_id)
         .eq("qr_code_data", data.qr_code_data)
         .eq("actif", true)
+        .gt("quantite", 0)
         .maybeSingle();
       if (error) throw new Error(error.message);
       return { produits: produit ? [produit] : [] };
@@ -269,6 +274,7 @@ export const boutiqueRechercherProduitPos = createServerFn({ method: "POST" })
       .select("id,nom,reference,prix_usd,prix_promo_usd,promo_actif,promo_debut,promo_fin,prix_achat_usd,prix_limite_vente_usd,quantite,image_url")
       .eq("boutique_id", data.boutique_id)
       .eq("actif", true)
+      .gt("quantite", 0)
       .ilike("nom", `%${data.recherche?.trim() ?? ""}%`)
       .limit(20);
     if (error) throw new Error(error.message);
