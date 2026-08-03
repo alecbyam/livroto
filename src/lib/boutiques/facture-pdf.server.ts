@@ -136,6 +136,14 @@ function renderPdf(params: {
 
     doc.moveDown(2);
     doc.fontSize(9).fillColor("#888").text(`Merci pour votre confiance — ${boutique.nom}`, 50, doc.y, { width: 450, align: "center" });
+    // Reprise du slogan en pied de page comme phrase d'accroche de clôture
+    // (déjà affiché une fois dans l'en-tête, à côté du logo) — un client garde
+    // souvent la facture en main un moment après le passage en caisse, c'est
+    // l'endroit naturel pour laisser une dernière impression de marque.
+    if (boutique.slogan) {
+      doc.fontSize(8).font("Helvetica-Oblique").text(boutique.slogan, 50, doc.y, { width: 450, align: "center" });
+      doc.font("Helvetica");
+    }
     doc.fillColor("#000");
 
     doc.end();
