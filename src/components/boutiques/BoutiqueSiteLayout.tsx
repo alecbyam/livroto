@@ -33,7 +33,7 @@ function EnTete() {
       <div className="container mx-auto flex items-center gap-3 px-4 py-4">
         <Link to="/boutique" search={{ boutique: boutique.slug }} className="flex flex-1 items-center gap-3">
           {boutique.logo_url ? (
-            <img src={boutique.logo_url} alt={boutique.nom} className="h-10 w-10 rounded-md object-cover" />
+            <img src={boutique.logo_url} alt={boutique.nom} className="h-10 w-auto max-w-[9rem] shrink-0 object-contain" />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
               {boutique.nom.charAt(0)}

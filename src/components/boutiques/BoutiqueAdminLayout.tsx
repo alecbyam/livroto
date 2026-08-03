@@ -93,7 +93,7 @@ export function BoutiqueAdminLayout({ children }: { children: ReactNode }) {
               <img
                 src={boutique.logo_url}
                 alt={boutique.nom}
-                className="h-9 w-9 shrink-0 rounded-md object-cover"
+                className="h-9 w-auto max-w-[8rem] shrink-0 object-contain"
               />
             ) : (
               <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary font-bold text-primary-foreground">

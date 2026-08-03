@@ -49,7 +49,7 @@ function ConnexionBoutique() {
             <img
               src={boutique.logo_url}
               alt={boutique.nom}
-              className="h-16 w-16 rounded-xl object-cover"
+              className="h-16 w-auto max-w-full object-contain"
             />
           ) : (
             <div className="grid h-16 w-16 place-items-center rounded-xl bg-primary text-2xl font-bold text-primary-foreground">
