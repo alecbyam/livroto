@@ -26,6 +26,7 @@ import {
 import { AdminIntegrationsPanel } from "@/components/livroto/AdminIntegrationsPanel";
 import { AiAssistantPanel } from "./AiAssistantPanel";
 import { AgentDraftsPanel } from "./AgentDraftsPanel";
+import { ErrorLogsPanel } from "./ErrorLogsPanel";
 import { statusColor, Stat } from "./shared";
 
 // Graphique recharts (~500 kB) chargé à la demande -> bundle dashboard plus léger.
@@ -112,6 +113,8 @@ export function AdminPanel() {
 
   return (
     <div className="space-y-6">
+      <ErrorLogsPanel />
+
       <AdminOverviewPanel />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

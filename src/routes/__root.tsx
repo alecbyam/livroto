@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Outlet,
   Link,
@@ -10,7 +11,8 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { reportError, installGlobalErrorReporting, setCurrentUserIdForErrorReporting } from "../lib/error-reporting";
+import { reportClientError } from "../lib/error-reporting.functions";
 import { I18nProvider } from "@/lib/i18n";
 import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/lib/cart";
@@ -53,8 +55,9 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const report = useServerFn(reportClientError);
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportError(error, { source: "client_boundary", context: { boundary: "tanstack_root_error_component" }, report });
   }, [error]);
 
   return (
@@ -193,6 +196,7 @@ function RootComponent() {
     runAuthWatchdog();
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       authLog(event, session ? `user=${session.user?.id} exp=${session.expires_at}` : "no session");
+      setCurrentUserIdForErrorReporting(session?.user?.id ?? null);
       if (event === "SIGNED_OUT") {
         const onAuth = window.location.pathname.startsWith("/auth");
         if (!onAuth) {
@@ -204,6 +208,13 @@ function RootComponent() {
     });
     return () => sub.subscription.unsubscribe();
   }, [router]);
+
+  // Erreurs hors du boundary React (handlers d'event, code async non-catché) — le
+  // errorComponent de la route ci-dessus ne voit que les erreurs de rendu. Gap identifié
+  // lors de l'audit du 5/08/2026 : jusqu'ici, aucune de ces erreurs n'était persistée nulle
+  // part en production (voir error-reporting.ts/error-reporting.functions.ts).
+  const reportClient = useServerFn(reportClientError);
+  useEffect(() => installGlobalErrorReporting(reportClient), [reportClient]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;

@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { logServerError } from "./lib/error-reporting.functions";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -30,7 +31,16 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
     return response;
   }
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
+  const captured = consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`);
+  console.error(captured);
+  // Fire-and-forget : ne jamais retarder la réponse d'erreur pour l'utilisateur en attendant
+  // l'écriture du log (le process Node reste vivant après le retour, contrairement à un
+  // Worker edge — l'insertion a le temps de partir).
+  void logServerError({
+    source: "ssr",
+    message: captured instanceof Error ? captured.message : String(captured),
+    stack: captured instanceof Error ? captured.stack ?? null : null,
+  });
   return new Response(renderErrorPage(), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },
@@ -45,6 +55,12 @@ export default {
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
+      void logServerError({
+        source: "ssr",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack ?? null : null,
+        url: request.url,
+      });
       return new Response(renderErrorPage(), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },
