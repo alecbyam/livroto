@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { runAgentDraft, runSalesInsight } from "@/lib/agents.functions";
 import { AGENT_LABELS, type AgentType } from "@/lib/agents/prompts";
 
-type Result = { agent: AgentType; output: any; orderCount?: number; days?: number };
+// Exporté pour réutilisation par AgentDraftsPanel (historique/validation) — même rendu que
+// le résultat "à chaud" ici, pour ne pas dupliquer le mapping par agent à deux endroits.
+export type Result = { agent: AgentType; output: any; orderCount?: number; days?: number };
 
 const PLACEHOLDERS: Record<AgentType, string> = {
   orchestrateur: "Ex : Un client se plaint d'un retard ET je veux un post pour lancer le chargeur en promo.",
@@ -60,7 +62,7 @@ function Notes({ notes }: { notes?: string | null }) {
   );
 }
 
-function ResultView({ result }: { result: Result }) {
+export function ResultView({ result }: { result: Result }) {
   const o = result.output;
   switch (result.agent) {
     case "commercial":
@@ -243,7 +245,9 @@ export function AiAssistantPanel() {
         <div>
           <h3 className="font-display text-lg font-bold">Assistant IA</h3>
           <p className="text-xs text-muted-foreground">
-            Génère des brouillons (messages, posts, analyses). Tu valides toujours avant d'envoyer.
+            Génère des brouillons (messages, posts, analyses). Chaque brouillon est aussi
+            enregistré dans l'historique ci-dessous, où tu peux le valider, le rejeter ou le
+            marquer comme envoyé.
           </p>
         </div>
       </div>

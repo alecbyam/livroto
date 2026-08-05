@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_drafts: {
+        Row: {
+          agent: string
+          created_at: string
+          created_by: string
+          id: string
+          input_message: string | null
+          notes: string | null
+          output: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          agent: string
+          created_at?: string
+          created_by: string
+          id?: string
+          input_message?: string | null
+          notes?: string | null
+          output: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          agent?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          input_message?: string | null
+          notes?: string | null
+          output?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string

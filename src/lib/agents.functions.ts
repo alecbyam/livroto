@@ -17,6 +17,39 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   }
 }
 
+/**
+ * Enregistre un brouillon généré dans agent_drafts (historique persistant, backbone du
+ * panneau de validation). Best-effort volontaire : si la table n'existe pas encore (migration
+ * 60 pas encore appliquée en prod) ou si l'insert échoue pour une autre raison, le brouillon
+ * généré est quand même renvoyé à l'UI — même philosophie que les notifications WhatsApp
+ * ailleurs dans l'app (n'échoue jamais la fonctionnalité principale pour un souci annexe).
+ */
+async function saveDraft(input: {
+  agent: (typeof AGENT_TYPES)[number];
+  inputMessage: string | null;
+  output: unknown;
+  userId: string;
+}) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("agent_drafts")
+      .insert({
+        agent: input.agent,
+        input_message: input.inputMessage,
+        output: input.output as any, // AgentOutputs[T] est un objet JSON-compatible (structured outputs), pas besoin de revalider ici
+        created_by: input.userId,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return data.id as string;
+  } catch (e) {
+    console.error("[agent_drafts] échec d'enregistrement (brouillon quand même renvoyé) :", e);
+    return null;
+  }
+}
+
 /** Fait tourner un agent sur un message libre et renvoie son brouillon JSON validé. */
 export const runAgentDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -32,7 +65,13 @@ export const runAgentDraft = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { runAgent } = await import("@/lib/agents/claude.server");
     const output = await runAgent(data.agent, data.message);
-    return { agent: data.agent, output };
+    const draftId = await saveDraft({
+      agent: data.agent,
+      inputMessage: data.message,
+      output,
+      userId: context.userId,
+    });
+    return { agent: data.agent, output, draftId };
   });
 
 /**
@@ -64,5 +103,73 @@ export const runSalesInsight = createServerFn({ method: "POST" })
       `Données de ventes réelles (JSON Supabase, une ligne par commande) :\n` +
       JSON.stringify(rows);
     const output = await runAgent("analytics", message);
-    return { agent: "analytics" as const, output, orderCount: rows.length, days: data.days };
+    const draftId = await saveDraft({
+      agent: "analytics",
+      inputMessage: `Analyse automatique · ${data.days} derniers jours · ${rows.length} commande(s)`,
+      output,
+      userId: context.userId,
+    });
+    return { agent: "analytics" as const, output, orderCount: rows.length, days: data.days, draftId };
+  });
+
+// ---------- Historique / validation des brouillons ----------
+
+const DRAFT_STATUSES = ["en_attente", "valide", "rejete", "envoye"] as const;
+const DRAFTS_PAGE_SIZE = 20;
+
+/** Liste paginée des brouillons enregistrés, filtrable par statut et/ou agent. */
+export const listAgentDrafts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        status: z.enum(DRAFT_STATUSES).optional(),
+        agent: z.enum(AGENT_TYPES).optional(),
+        offset: z.number().int().min(0).default(0),
+      })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let query = supabaseAdmin
+      .from("agent_drafts")
+      .select("id,agent,input_message,output,status,notes,created_at,reviewed_at", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + DRAFTS_PAGE_SIZE - 1);
+    if (data.status) query = query.eq("status", data.status);
+    if (data.agent) query = query.eq("agent", data.agent);
+    const { data: rows, count, error } = await query;
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], total: count ?? 0 };
+  });
+
+/** Change le statut d'un brouillon (validation humaine) + note optionnelle du validateur. */
+export const updateAgentDraftStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        draftId: z.string().uuid(),
+        status: z.enum(DRAFT_STATUSES),
+        notes: z.string().trim().max(2000).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("agent_drafts")
+      .update({
+        status: data.status,
+        // notes omis du payload si non fourni -> ne pas écraser une note existante en changeant
+        // juste le statut (ex: passer "en_attente" -> "valide" sans repasser par le champ note).
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        reviewed_by: context.userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", data.draftId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

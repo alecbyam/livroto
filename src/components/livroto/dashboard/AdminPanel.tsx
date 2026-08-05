@@ -25,6 +25,7 @@ import {
 } from "@/lib/admin.functions";
 import { AdminIntegrationsPanel } from "@/components/livroto/AdminIntegrationsPanel";
 import { AiAssistantPanel } from "./AiAssistantPanel";
+import { AgentDraftsPanel } from "./AgentDraftsPanel";
 import { statusColor, Stat } from "./shared";
 
 // Graphique recharts (~500 kB) chargé à la demande -> bundle dashboard plus léger.
@@ -128,6 +129,8 @@ export function AdminPanel() {
       <AdminIntegrationsPanel />
 
       <AiAssistantPanel />
+
+      <AgentDraftsPanel />
 
       <Suspense fallback={<ChartFallback />}><AdminAnalyticsPanel /></Suspense>
 
