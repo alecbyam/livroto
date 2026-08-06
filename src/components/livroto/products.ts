@@ -13,18 +13,25 @@ export type Category = {
   sort_order: number;
 };
 
-export function useCategories() {
+/** Requête brute réutilisable côté serveur (loader de route) — voir catalog.tsx. */
+export async function fetchCategories(): Promise<Category[]> {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id,slug,name,icon,sort_order")
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Category[];
+}
+
+// `initialData` optionnel : permet à une route avec loader SSR (catalog.tsx) de seeder le
+// cache dès le premier rendu, sans flash de chargement des pastilles de catégorie — sans
+// impact sur les autres appelants (VendorPanel, index.tsx), le paramètre est facultatif.
+export function useCategories(initialData?: Category[]) {
   return useQuery({
     queryKey: ["categories"],
     staleTime: 10 * 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id,slug,name,icon,sort_order")
-        .eq("active", true)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Category[];
-    },
+    initialData,
+    queryFn: fetchCategories,
   });
 }

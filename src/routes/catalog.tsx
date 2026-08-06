@@ -9,12 +9,12 @@ import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
-import { useCategories } from "@/components/livroto/products";
+import { useCategories, fetchCategories, type Category } from "@/components/livroto/products";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 import { PRODUCT_CATALOG_SELECT } from "@/lib/products";
 import { supabase } from "@/integrations/supabase/client";
 
-// Taille de page du catalogue paginé côté serveur (voir CatalogProducts ci-dessous).
+// Taille de page du catalogue paginé côté serveur (voir fetchCatalogProductsPage ci-dessous).
 // Divise proprement les 3 largeurs de grille (2/3/4 colonnes selon l'écran).
 const PAGE_SIZE = 24;
 
@@ -31,6 +31,162 @@ const catalogSearchSchema = z.object({
   promo: fallback(z.coerce.boolean(), false).default(false),
 });
 
+type CatalogSearch = z.infer<typeof catalogSearchSchema>;
+type Subcat = { id: string; name: string; emoji: string | null; category_id: string };
+type CatProduct = DisplayProduct & { subcategory_id: string };
+type VendorMeta = Map<string, { shopName: string; zoneIds: Set<string> }>;
+type Facets = { subcats: Subcat[]; zones: { id: string; name: string }[]; vendorMeta: VendorMeta };
+type ProductsPage = { rows: CatProduct[]; total: number };
+
+// Références vides stables -> évitent de recalculer les useMemo à chaque rendu.
+const EMPTY_PRODUCTS: CatProduct[] = [];
+const EMPTY_SUBCATS: Subcat[] = [];
+const EMPTY_ZONES: { id: string; name: string }[] = [];
+const EMPTY_META: VendorMeta = new Map();
+
+// ---------------------------------------------------------------------------------------
+// Fonctions pures partagées entre le loader de route (SSR, exécuté une fois à l'entrée sur
+// la page) et les hooks react-query du composant (client, exécutés à chaque changement de
+// filtre) — une seule implémentation de la logique de requête, jamais deux qui pourraient
+// diverger silencieusement entre le premier rendu serveur et les rendus client suivants.
+// ---------------------------------------------------------------------------------------
+
+async function fetchCatalogFacets(): Promise<Facets> {
+  const [{ data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
+    supabase
+      .from("product_subcategories")
+      .select("id,name,emoji,category_id,sort_order")
+      .eq("active", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("zones")
+      .select("id,name")
+      .eq("active", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("vendors")
+      .select("id,owner_id,shop_name,base_zone_id")
+      .eq("status", "approved"),
+    supabase
+      .from("vendor_zones")
+      .select("vendor_id,zone_id"),
+  ]);
+
+  // Quartiers desservis par chaque boutique : base_zone_id + vendor_zones,
+  // indexés par owner_id car products.vendor_id = owner_id du vendeur.
+  const zonesByVendorRowId = new Map<string, Set<string>>();
+  (vzRows ?? []).forEach((vz: any) => {
+    const set = zonesByVendorRowId.get(vz.vendor_id) ?? new Set<string>();
+    set.add(vz.zone_id);
+    zonesByVendorRowId.set(vz.vendor_id, set);
+  });
+  const meta: VendorMeta = new Map();
+  (vendorRows ?? []).forEach((v: any) => {
+    const zoneIds = new Set<string>(zonesByVendorRowId.get(v.id) ?? []);
+    if (v.base_zone_id) zoneIds.add(v.base_zone_id);
+    meta.set(v.owner_id, { shopName: v.shop_name ?? "", zoneIds });
+  });
+
+  return {
+    subcats: (subs ?? []) as Subcat[],
+    zones: (zoneRows ?? []) as { id: string; name: string }[],
+    vendorMeta: meta,
+  };
+}
+
+/** Catégorie->sous-catégories : déduit toujours de la sous-catégorie, jamais dupliqué sur `products`. */
+function resolveSubcatIds(cat: string, categories: Category[], subcats: Subcat[]) {
+  const selectedCategoryId = cat === "all" ? null : categories.find((c) => c.slug === cat)?.id ?? null;
+  const subcatIds = selectedCategoryId ? subcats.filter((s) => s.category_id === selectedCategoryId).map((s) => s.id) : [];
+  return { selectedCategoryId, subcatIds };
+}
+
+/** Quartier -> ids vendeurs (owner_id) qui y livrent, résolu depuis les facettes. */
+function resolveVendorIdsInZone(zone: string, vendorMeta: VendorMeta): string[] | null {
+  if (zone === "all") return null;
+  const ids: string[] = [];
+  vendorMeta.forEach((m, vendorId) => { if (m.zoneIds.has(zone)) ids.push(vendorId); });
+  return ids;
+}
+
+async function fetchCatalogProductsPage(
+  search: CatalogSearch,
+  resolved: { selectedCategoryId: string | null; subcatIds: string[]; vendorIdsInZone: string[] | null },
+  offset: number,
+): Promise<ProductsPage> {
+  // Zone sélectionnée mais aucun vendeur ne la dessert -> aucun résultat, inutile
+  // d'interroger products (et .in("vendor_id", []) renverrait tout, pas rien, en PostgREST).
+  if (resolved.vendorIdsInZone && resolved.vendorIdsInZone.length === 0) return { rows: [], total: 0 };
+
+  let q = supabase
+    .from("products")
+    .select(PRODUCT_CATALOG_SELECT, { count: "exact" })
+    .eq("approved", true);
+
+  if (search.sub !== "all") q = q.eq("subcategory_id", search.sub);
+  else if (resolved.selectedCategoryId) q = q.in("subcategory_id", resolved.subcatIds);
+  if (resolved.vendorIdsInZone) q = q.in("vendor_id", resolved.vendorIdsInZone);
+  if (search.stk) q = q.gt("stock", 0);
+  if (search.min > 0) q = q.gte("price_usd", search.min);
+  if (search.max > 0) q = q.lte("price_usd", search.max);
+  if (search.rate > 0) q = q.gte("rating_avg", search.rate);
+  if (search.promo) {
+    // Reproduit getPromo().active (src/lib/promo.ts), sauf la garde
+    // promo_price_usd < price_usd (comparaison colonne-à-colonne, pas exprimable en
+    // filtre PostgREST simple) — en pratique l'admin bloque déjà ce cas à la validation
+    // de la promo, donc cette garde ne change quasiment jamais le résultat réel.
+    const nowIso = new Date().toISOString();
+    q = q
+      .eq("promo_active", true)
+      .eq("promo_approved", true)
+      .not("promo_price_usd", "is", null)
+      .gt("promo_price_usd", 0)
+      .or(`promo_starts_at.is.null,promo_starts_at.lte.${nowIso}`)
+      .or(`promo_ends_at.is.null,promo_ends_at.gte.${nowIso}`);
+  }
+  const searchKey = search.q.trim().toLowerCase();
+  if (searchKey) {
+    // Valeur entre guillemets doubles (échappement PostgREST) : une virgule ou parenthèse
+    // dans le terme cherché casserait sinon la syntaxe de la liste .or().
+    const safe = searchKey.replace(/"/g, '\\"');
+    q = q.or(`name.ilike."%${safe}%",description.ilike."%${safe}%"`);
+    // Note : ne cherche plus dans le nom de la boutique (contrairement à avant le
+    // 6/08/2026) — croiser ça proprement avec pagination serveur demanderait une requête
+    // supplémentaire à chaque frappe ; accepté comme perte mineure, la recherche par nom
+    // de produit reste le cas d'usage très majoritaire.
+  }
+
+  switch (search.sort) {
+    case "price_asc": q = q.order("price_usd", { ascending: true }); break;
+    case "price_desc": q = q.order("price_usd", { ascending: false }); break;
+    case "rating": q = q.order("rating_avg", { ascending: false }); break;
+    case "popular": q = q.order("rating_count", { ascending: false }); break;
+    default: q = q.order("created_at", { ascending: false }); break;
+  }
+
+  const { data, error, count } = await q.range(offset, offset + PAGE_SIZE - 1);
+  if (error) throw error;
+  const rows: CatProduct[] = (data ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    price_usd: Number(p.price_usd),
+    stock: p.stock,
+    emoji: p.emoji,
+    image_url: p.image_url,
+    subcategory_id: p.subcategory_id,
+    vendor_id: p.vendor_id,
+    rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
+    rating_count: p.rating_count ?? 0,
+    promo_price_usd: p.promo_price_usd != null ? Number(p.promo_price_usd) : null,
+    promo_active: p.promo_active ?? null,
+    promo_approved: p.promo_approved ?? null,
+    promo_starts_at: p.promo_starts_at ?? null,
+    promo_ends_at: p.promo_ends_at ?? null,
+  }));
+  return { rows, total: count ?? 0 };
+}
+
 export const Route = createFileRoute("/catalog")({
   validateSearch: zodValidator(catalogSearchSchema),
   head: () => ({
@@ -41,24 +197,31 @@ export const Route = createFileRoute("/catalog")({
       { property: "og:description", content: "Tout ce qu'il te faut, livré à Bunia et dans toute l'Ituri." },
     ],
   }),
+  // SSR du 1er écran (gap identifié le 5/08/2026 : contrairement à index.tsx, cette route
+  // n'avait pas de loader — 1er affichage = skeleton client, aller-retour Supabase après le
+  // JS, sur un réseau 2G/3G où chaque round-trip compte). Chargé UNE fois, pour les
+  // paramètres de recherche présents dans l'URL au moment de l'entrée sur la page — les
+  // interactions suivantes (changer un filtre, taper une recherche) restent gérées par
+  // useInfiniteQuery côté client (déjà rapide depuis la pagination serveur ci-dessus) ; ce
+  // loader ne se redéclenche pas dessus (pas de loaderDeps sur `search`, volontairement,
+  // pour ne pas avoir deux mécanismes de fetch qui se marchent dessus).
+  loader: async ({ location }) => {
+    const search = location.search as CatalogSearch;
+    const [categories, facets] = await Promise.all([fetchCategories(), fetchCatalogFacets()]);
+    const { selectedCategoryId, subcatIds } = resolveSubcatIds(search.cat, categories, facets.subcats);
+    const vendorIdsInZone = resolveVendorIdsInZone(search.zone, facets.vendorMeta);
+    const firstPage = await fetchCatalogProductsPage(search, { selectedCategoryId, subcatIds, vendorIdsInZone }, 0);
+    return { search, categories, facets, firstPage };
+  },
   component: Catalog,
 });
 
-type Subcat = { id: string; name: string; emoji: string | null; category_id: string };
-type CatProduct = DisplayProduct & { subcategory_id: string };
-type VendorMeta = Map<string, { shopName: string; zoneIds: Set<string> }>;
-
-// Références vides stables -> évitent de recalculer les useMemo à chaque rendu.
-const EMPTY_PRODUCTS: CatProduct[] = [];
-const EMPTY_SUBCATS: Subcat[] = [];
-const EMPTY_ZONES: { id: string; name: string }[] = [];
-const EMPTY_META: VendorMeta = new Map();
-
 function Catalog() {
   const { t } = useI18n();
+  const loaderData = Route.useLoaderData();
   const { cat, sub: subId, zone, q: query, sort, min, max, rate, stk, promo } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
-  const { data: categories } = useCategories();
+  const { data: categories } = useCategories(loaderData.categories);
   const setCat = (next: string) =>
     navigate({ search: (p: any) => ({ ...p, cat: next, sub: "all" }) });
   const setSubId = (next: "all" | string) =>
@@ -79,58 +242,14 @@ function Catalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
-  // Facettes du catalogue (sous-catégories, quartiers, métadonnées vendeur) — petites tables,
-  // bornées par le nombre de vendeurs/zones (PAS par le nombre de produits), donc chargées en
-  // une fois comme avant. Sert à peupler les filtres ET à résoudre catégorie->sous-catégories /
-  // quartier->vendeurs pour la requête produits paginée ci-dessous (CatalogProducts).
-  // Avant le 6/08/2026 : cette même requête chargeait TOUS les produits approuvés d'un coup,
-  // sans .limit() ni recherche/tri côté serveur — coûteux en bande passante 2G dès quelques
-  // centaines de produits. La liste de produits elle-même est maintenant dans CatalogProducts.
+  // Facettes (sous-catégories, quartiers, métadonnées vendeur) — petites tables, bornées par
+  // le nombre de vendeurs/zones (PAS par le nombre de produits). Amorcées avec les données du
+  // loader SSR (voir Route ci-dessus) : pas de flash de chargement au 1er affichage.
   const { data: facets } = useQuery({
     queryKey: ["catalog-facets"],
     staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const [{ data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
-        supabase
-          .from("product_subcategories")
-          .select("id,name,emoji,category_id,sort_order")
-          .eq("active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("zones")
-          .select("id,name")
-          .eq("active", true)
-          .order("name", { ascending: true }),
-        supabase
-          .from("vendors")
-          .select("id,owner_id,shop_name,base_zone_id")
-          .eq("status", "approved"),
-        supabase
-          .from("vendor_zones")
-          .select("vendor_id,zone_id"),
-      ]);
-
-      // Quartiers desservis par chaque boutique : base_zone_id + vendor_zones,
-      // indexés par owner_id car products.vendor_id = owner_id du vendeur.
-      const zonesByVendorRowId = new Map<string, Set<string>>();
-      (vzRows ?? []).forEach((vz: any) => {
-        const set = zonesByVendorRowId.get(vz.vendor_id) ?? new Set<string>();
-        set.add(vz.zone_id);
-        zonesByVendorRowId.set(vz.vendor_id, set);
-      });
-      const meta: VendorMeta = new Map();
-      (vendorRows ?? []).forEach((v: any) => {
-        const zoneIds = new Set<string>(zonesByVendorRowId.get(v.id) ?? []);
-        if (v.base_zone_id) zoneIds.add(v.base_zone_id);
-        meta.set(v.owner_id, { shopName: v.shop_name ?? "", zoneIds });
-      });
-
-      return {
-        subcats: (subs ?? []) as Subcat[],
-        zones: (zoneRows ?? []) as { id: string; name: string }[],
-        vendorMeta: meta,
-      };
-    },
+    initialData: loaderData.facets,
+    queryFn: fetchCatalogFacets,
   });
 
   const subcats = facets?.subcats ?? EMPTY_SUBCATS;
@@ -142,9 +261,9 @@ function Catalog() {
     [categories],
   );
 
-  const selectedCategoryId = useMemo(
-    () => (cat === "all" ? null : (categories ?? []).find((c) => c.slug === cat)?.id ?? null),
-    [cat, categories],
+  const { selectedCategoryId, subcatIds: subcatIdsInCategory } = useMemo(
+    () => resolveSubcatIds(cat, categories ?? [], subcats),
+    [cat, categories, subcats],
   );
 
   const visibleSubcats = useMemo(
@@ -152,106 +271,32 @@ function Catalog() {
     [selectedCategoryId, subcats],
   );
 
-  // Sous-catégories de la catégorie sélectionnée -> permet de filtrer les
-  // produits par catégorie sans dupliquer category_id sur `products`
-  // (la catégorie d'un produit se déduit toujours de sa sous-catégorie).
-  const subcatIdsInCategory = useMemo(
-    () => new Set(visibleSubcats.map((s) => s.id)),
-    [visibleSubcats],
-  );
+  const vendorIdsInZone = useMemo(() => resolveVendorIdsInZone(zone, vendorMeta), [zone, vendorMeta]);
 
-  // Quartier -> ids vendeurs qui y livrent (owner_id, car products.vendor_id = owner_id).
-  // Résolu depuis les facettes (petite table), utilisé pour filtrer la requête produits
-  // paginée ci-dessous sans avoir à charger tous les produits pour les filtrer en JS.
-  const vendorIdsInZone = useMemo(() => {
-    if (zone === "all") return null;
-    const ids: string[] = [];
-    vendorMeta.forEach((m, vendorId) => { if (m.zoneIds.has(zone)) ids.push(vendorId); });
-    return ids;
-  }, [zone, vendorMeta]);
+  const currentSearch: CatalogSearch = { cat, sub: subId, zone, q: query, sort, min, max, rate, stk, promo };
 
-  const searchKey = query.trim().toLowerCase();
+  // Vrai seulement pour le tout 1er rendu (mêmes paramètres que ceux utilisés par le loader
+  // SSR) : au-delà, dès qu'un filtre change, cette clé ne correspond plus aux données du
+  // loader et il ne faut PAS les réutiliser comme initialData pour la nouvelle combinaison de
+  // filtres (sinon on afficherait les résultats de l'ancien filtre pendant le chargement du
+  // nouveau — pire que pas de initialData du tout).
+  const isInitialSearch = useMemo(() => {
+    const keys = ["cat", "sub", "zone", "q", "sort", "min", "max", "rate", "stk", "promo"] as const;
+    return keys.every((k) => loaderData.search[k] === currentSearch[k]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cat, subId, zone, query, sort, min, max, rate, stk, promo]);
 
   const productsQuery = useInfiniteQuery({
     queryKey: [
       "catalog-products",
-      { subIds: subId !== "all" ? [subId] : Array.from(subcatIdsInCategory).sort(),
+      { subIds: subId !== "all" ? [subId] : [...subcatIdsInCategory].sort(),
         zoneVendors: vendorIdsInZone ? [...vendorIdsInZone].sort() : null,
-        q: searchKey, sort, min, max, rate, stk, promo },
+        q: query.trim().toLowerCase(), sort, min, max, rate, stk, promo },
     ],
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      // Zone sélectionnée mais aucun vendeur ne la dessert -> aucun résultat, inutile
-      // d'interroger products (et .in("vendor_id", []) renverrait tout, pas rien, en PostgREST).
-      if (vendorIdsInZone && vendorIdsInZone.length === 0) return { rows: [] as CatProduct[], total: 0 };
-
-      let q = supabase
-        .from("products")
-        .select(PRODUCT_CATALOG_SELECT, { count: "exact" })
-        .eq("approved", true);
-
-      if (subId !== "all") q = q.eq("subcategory_id", subId);
-      else if (selectedCategoryId) q = q.in("subcategory_id", Array.from(subcatIdsInCategory));
-      if (vendorIdsInZone) q = q.in("vendor_id", vendorIdsInZone);
-      if (stk) q = q.gt("stock", 0);
-      if (min > 0) q = q.gte("price_usd", min);
-      if (max > 0) q = q.lte("price_usd", max);
-      if (rate > 0) q = q.gte("rating_avg", rate);
-      if (promo) {
-        // Reproduit getPromo().active (src/lib/promo.ts), sauf la garde
-        // promo_price_usd < price_usd (comparaison colonne-à-colonne, pas exprimable en
-        // filtre PostgREST simple) — en pratique l'admin bloque déjà ce cas à la validation
-        // de la promo, donc cette garde ne change quasiment jamais le résultat réel.
-        const nowIso = new Date().toISOString();
-        q = q
-          .eq("promo_active", true)
-          .eq("promo_approved", true)
-          .not("promo_price_usd", "is", null)
-          .gt("promo_price_usd", 0)
-          .or(`promo_starts_at.is.null,promo_starts_at.lte.${nowIso}`)
-          .or(`promo_ends_at.is.null,promo_ends_at.gte.${nowIso}`);
-      }
-      if (searchKey) {
-        // Valeur entre guillemets doubles (échappement PostgREST) : une virgule ou parenthèse
-        // dans le terme cherché casserait sinon la syntaxe de la liste .or().
-        const safe = searchKey.replace(/"/g, '\\"');
-        q = q.or(`name.ilike."%${safe}%",description.ilike."%${safe}%"`);
-        // Note : ne cherche plus dans le nom de la boutique (contrairement à avant le
-        // 6/08/2026) — croiser ça proprement avec pagination serveur demanderait une requête
-        // supplémentaire à chaque frappe ; accepté comme perte mineure, la recherche par nom
-        // de produit reste le cas d'usage très majoritaire.
-      }
-
-      switch (sort) {
-        case "price_asc": q = q.order("price_usd", { ascending: true }); break;
-        case "price_desc": q = q.order("price_usd", { ascending: false }); break;
-        case "rating": q = q.order("rating_avg", { ascending: false }); break;
-        case "popular": q = q.order("rating_count", { ascending: false }); break;
-        default: q = q.order("created_at", { ascending: false }); break;
-      }
-
-      const { data, error, count } = await q.range(pageParam, pageParam + PAGE_SIZE - 1);
-      if (error) throw error;
-      const rows: CatProduct[] = (data ?? []).map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        price_usd: Number(p.price_usd),
-        stock: p.stock,
-        emoji: p.emoji,
-        image_url: p.image_url,
-        subcategory_id: p.subcategory_id,
-        vendor_id: p.vendor_id,
-        rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
-        rating_count: p.rating_count ?? 0,
-        promo_price_usd: p.promo_price_usd != null ? Number(p.promo_price_usd) : null,
-        promo_active: p.promo_active ?? null,
-        promo_approved: p.promo_approved ?? null,
-        promo_starts_at: p.promo_starts_at ?? null,
-        promo_ends_at: p.promo_ends_at ?? null,
-      }));
-      return { rows, total: count ?? 0 };
-    },
+    initialData: isInitialSearch ? { pages: [loaderData.firstPage], pageParams: [0] } : undefined,
+    queryFn: ({ pageParam }) =>
+      fetchCatalogProductsPage(currentSearch, { selectedCategoryId, subcatIds: subcatIdsInCategory, vendorIdsInZone }, pageParam),
     getNextPageParam: (lastPage, allPages) => {
       const loaded = allPages.reduce((s, p) => s + p.rows.length, 0);
       return loaded < lastPage.total ? loaded : undefined;
