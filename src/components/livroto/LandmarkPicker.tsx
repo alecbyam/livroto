@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MapPin, Navigation, X } from "lucide-react";
+import { MapPin, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { searchLandmarks, type Landmark } from "@/lib/bunia-landmarks";
 
@@ -20,7 +20,6 @@ export function LandmarkPicker({
 }: Props) {
   const [suggestions, setSuggestions] = useState<Landmark[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [gpsLoading, setGpsLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,43 +44,18 @@ export function LandmarkPicker({
     setShowSuggestions(false);
   };
 
-  const shareGPS = () => {
-    if (!navigator.geolocation) {
-      alert("La géolocalisation n'est pas disponible sur cet appareil.");
-      return;
-    }
-    setGpsLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
-        onChange(`📍 Coordonnées GPS : ${lat.toFixed(5)}, ${lng.toFixed(5)} — ${mapsUrl}`);
-        setGpsLoading(false);
-      },
-      () => {
-        alert("Impossible d'obtenir ta position. Active la géolocalisation.");
-        setGpsLoading(false);
-      },
-      { timeout: 10000, maximumAge: 60000 }
-    );
-  };
+  // Le partage GPS structuré vit maintenant uniquement dans le bloc dédié sous ce champ
+  // (cart.tsx / order.$productId.tsx, src/lib/geolocation.ts) — avant le 6/08/2026, ce
+  // composant avait SA PROPRE version (alert() + coordonnées mushées en texte libre dans le
+  // champ adresse au lieu de customer_lat/customer_lng structurés), redondante et de moins
+  // bonne qualité que celle juste en dessous dans le même formulaire. Un seul mécanisme
+  // maintenant, plus clair pour l'utilisateur.
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="flex items-center justify-between mb-1.5">
-        <Label>
-          {label} {required && <span className="text-destructive">*</span>}
-        </Label>
-        <button
-          type="button"
-          onClick={shareGPS}
-          disabled={gpsLoading}
-          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-        >
-          <Navigation className="h-3 w-3" />
-          {gpsLoading ? "Localisation…" : "Utiliser ma position GPS"}
-        </button>
-      </div>
+      <Label className="mb-1.5 block">
+        {label} {required && <span className="text-destructive">*</span>}
+      </Label>
 
       <div className="relative">
         <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />

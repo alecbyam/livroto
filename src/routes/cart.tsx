@@ -42,6 +42,7 @@ import { validateCoupon } from "@/lib/coupons.functions";
 import { createCartOrders } from "@/lib/checkout.functions";
 import { getMyReferral, redeemCreditForOrder } from "@/lib/referrals.functions";
 import { getMyAddresses, saveAddress, type SavedAddress } from "@/lib/addresses.functions";
+import { captureGeolocation, classifyGeoError, googleMapsUrl } from "@/lib/geolocation";
 
 type Zone = { id: string; name: string; delivery_fee_usd: number };
 type Payment = "cash" | "mpesa" | "airtel_money" | "orange_money";
@@ -79,6 +80,7 @@ function CartPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [saveThis, setSaveThis] = useState(false);
   const [saveLabel, setSaveLabel] = useState("");
@@ -227,24 +229,25 @@ function CartPage() {
     setCouponInput("");
   };
 
-  const captureLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error(t("cart.toast.gpsOff"));
-      return;
-    }
+  const captureLocation = async () => {
     setGeoBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6) });
-        setGeoBusy(false);
-        toast.success(t("cart.toast.gpsOk"));
-      },
-      () => {
-        setGeoBusy(false);
-        toast.error(t("cart.toast.gpsFail"));
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+    try {
+      const pos = await captureGeolocation();
+      setCoords({ lat: pos.lat, lng: pos.lng });
+      setAccuracy(pos.accuracy);
+      toast.success(t("cart.toast.gpsOk"));
+    } catch (e) {
+      // Messages distincts (permission refusée / timeout réseau lent / indisponible) — avant,
+      // les 3 causes affichaient le même message générique, peu utile pour savoir quoi faire.
+      const kind = classifyGeoError(e);
+      toast.error(
+        kind === "denied" ? t("cart.toast.gpsDenied")
+        : kind === "timeout" ? t("cart.toast.gpsTimeout")
+        : t(kind === "unsupported" ? "cart.toast.gpsOff" : "cart.toast.gpsFail"),
+      );
+    } finally {
+      setGeoBusy(false);
+    }
   };
 
   const checkout = async () => {
@@ -622,12 +625,30 @@ function CartPage() {
                     <p className="text-sm font-medium text-[color:var(--brand-dark)]">
                       {t("cart.gpsShared")}
                       <span className="block text-[11px] font-normal text-muted-foreground">
-                        {coords.lat}, {coords.lng}
+                        <a
+                          href={googleMapsUrl(coords.lat, coords.lng)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline underline-offset-2 hover:text-foreground"
+                        >
+                          {t("cart.viewOnMap")}
+                        </a>
+                        {accuracy != null && ` · ${t("cart.gpsAccuracy").replace("{m}", String(accuracy))}`}
                       </span>
                     </p>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setCoords(null)}>
-                      {t("cart.remove")}
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button type="button" size="sm" variant="ghost" onClick={captureLocation} disabled={geoBusy}>
+                        {geoBusy ? t("cart.locating") : t("cart.refreshGps")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setCoords(null); setAccuracy(null); }}
+                      >
+                        {t("cart.remove")}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <button

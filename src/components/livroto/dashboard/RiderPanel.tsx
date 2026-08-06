@@ -13,6 +13,7 @@ import {
 } from "@/lib/rider.functions";
 import { notifyOrderStatusChanged } from "@/lib/notifications.functions";
 import { useI18n } from "@/lib/i18n";
+import { classifyGeoError } from "@/lib/geolocation";
 import { statusColor, Stat, CallMeBotCard } from "./shared";
 
 /* ---------------- RIDER ---------------- */
@@ -213,7 +214,20 @@ function RiderLiveShareCard() {
           .then(() => setLastSent(new Date()))
           .catch(() => {});
       },
-      () => { toast.error(t("rider.liveShare.enableGps")); stop(); },
+      (err) => {
+        // Avant : on arrêtait le partage sur N'IMPORTE QUELLE erreur — un simple timeout GPS
+        // transitoire (courant sur le réseau 2G/3G instable de Bunia) coupait tout le suivi
+        // en direct côté client sans que le livreur s'en rende vraiment compte. Maintenant :
+        // seul un vrai refus de permission arrête réellement le partage (relancer ne servirait
+        // à rien tant que l'utilisateur n'a pas changé les réglages) ; les autres cas (timeout,
+        // position indisponible) se contentent d'avertir et watchPosition continue d'essayer.
+        if (classifyGeoError(err) === "denied") {
+          toast.error(t("rider.liveShare.enableGps"));
+          stop();
+        } else {
+          toast.error(t("rider.liveShare.searching"));
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
     );
   };

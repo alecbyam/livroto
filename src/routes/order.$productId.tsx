@@ -22,6 +22,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { notifyOrderCreated } from "@/lib/notifications.functions";
 import { createDirectOrder } from "@/lib/checkout.functions";
 import { getMyAddresses, saveAddress, type SavedAddress } from "@/lib/addresses.functions";
+import { captureGeolocation, classifyGeoError, googleMapsUrl } from "@/lib/geolocation";
 
 type Zone = { id: string; name: string; delivery_fee_usd: number };
 type Product = {
@@ -80,8 +81,32 @@ function OrderPage() {
   >("cash");
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [geoBusy, setGeoBusy] = useState(false);
   const [saveThis, setSaveThis] = useState(false);
   const [saveLabel, setSaveLabel] = useState("");
+
+  // Partage de position GPS — manquait entièrement sur ce flux "Commander maintenant" avant
+  // le 6/08/2026 (n'existait que sur le panier complet cart.tsx). Aide le livreur à localiser
+  // le client même sans adresse exacte, désormais utile sur toute la zone Bunia + Ituri.
+  const captureLocation = async () => {
+    setGeoBusy(true);
+    try {
+      const pos = await captureGeolocation();
+      setCoords({ lat: pos.lat, lng: pos.lng });
+      setAccuracy(pos.accuracy);
+      toast.success(t("cart.toast.gpsOk"));
+    } catch (e) {
+      const kind = classifyGeoError(e);
+      toast.error(
+        kind === "denied" ? t("cart.toast.gpsDenied")
+        : kind === "timeout" ? t("cart.toast.gpsTimeout")
+        : t(kind === "unsupported" ? "cart.toast.gpsOff" : "cart.toast.gpsFail"),
+      );
+    } finally {
+      setGeoBusy(false);
+    }
+  };
 
   useEffect(() => {
     let cancel = false;
@@ -383,6 +408,52 @@ function OrderPage() {
                 )}
               </div>
             )}
+
+            {/* Partage de position GPS — aide le livreur à localiser (adresses informelles) */}
+            <div className="rounded-xl border border-dashed border-[color:var(--brand-dark)]/40 bg-[color:var(--brand-light)]/40 p-3">
+              {coords ? (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-[color:var(--brand-dark)]">
+                    {t("cart.gpsShared")}
+                    <span className="block text-[11px] font-normal text-muted-foreground">
+                      <a
+                        href={googleMapsUrl(coords.lat, coords.lng)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-2 hover:text-foreground"
+                      >
+                        {t("cart.viewOnMap")}
+                      </a>
+                      {accuracy != null && ` · ${t("cart.gpsAccuracy").replace("{m}", String(accuracy))}`}
+                    </span>
+                  </p>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button type="button" size="sm" variant="ghost" onClick={captureLocation} disabled={geoBusy}>
+                      {geoBusy ? t("cart.locating") : t("cart.refreshGps")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setCoords(null); setAccuracy(null); }}
+                    >
+                      {t("cart.remove")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={captureLocation}
+                  disabled={geoBusy}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--brand-dark)] px-3 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-60 min-h-[44px]"
+                >
+                  {geoBusy ? t("cart.locating") : t("cart.shareGps")}
+                </button>
+              )}
+              <p className="mt-1.5 text-[11px] text-muted-foreground">{t("cart.gpsHint")}</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="o-zone">{t("order.zone")}</Label>
