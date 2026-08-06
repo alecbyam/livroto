@@ -1,18 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { Search, Loader2, X, SlidersHorizontal, Star } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { useCategories } from "@/components/livroto/products";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
-import { getPromo } from "@/lib/promo";
 import { PRODUCT_CATALOG_SELECT } from "@/lib/products";
 import { supabase } from "@/integrations/supabase/client";
+
+// Taille de page du catalogue paginé côté serveur (voir CatalogProducts ci-dessous).
+// Divise proprement les 3 largeurs de grille (2/3/4 colonnes selon l'écran).
+const PAGE_SIZE = 24;
 
 const catalogSearchSchema = z.object({
   cat: fallback(z.string(), "all").default("all"),
@@ -75,17 +79,18 @@ function Catalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
-  // Données du catalogue, mises en cache (react-query) -> retour instantané + moins de data.
-  const { data: catalog, isLoading: loading } = useQuery({
-    queryKey: ["catalog-data"],
-    staleTime: 2 * 60_000,
+  // Facettes du catalogue (sous-catégories, quartiers, métadonnées vendeur) — petites tables,
+  // bornées par le nombre de vendeurs/zones (PAS par le nombre de produits), donc chargées en
+  // une fois comme avant. Sert à peupler les filtres ET à résoudre catégorie->sous-catégories /
+  // quartier->vendeurs pour la requête produits paginée ci-dessous (CatalogProducts).
+  // Avant le 6/08/2026 : cette même requête chargeait TOUS les produits approuvés d'un coup,
+  // sans .limit() ni recherche/tri côté serveur — coûteux en bande passante 2G dès quelques
+  // centaines de produits. La liste de produits elle-même est maintenant dans CatalogProducts.
+  const { data: facets } = useQuery({
+    queryKey: ["catalog-facets"],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
-      const [{ data, error }, { data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
-        supabase
-          .from("products")
-          .select(PRODUCT_CATALOG_SELECT)
-          .eq("approved", true)
-          .order("created_at", { ascending: false }),
+      const [{ data: subs }, { data: zoneRows }, { data: vendorRows }, { data: vzRows }] = await Promise.all([
         supabase
           .from("product_subcategories")
           .select("id,name,emoji,category_id,sort_order")
@@ -120,27 +125,7 @@ function Catalog() {
         meta.set(v.owner_id, { shopName: v.shop_name ?? "", zoneIds });
       });
 
-      const products: CatProduct[] = (!error && data ? data : []).map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        price_usd: Number(p.price_usd),
-        stock: p.stock,
-        emoji: p.emoji,
-        image_url: p.image_url,
-        subcategory_id: p.subcategory_id,
-        vendor_id: p.vendor_id,
-        rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
-        rating_count: p.rating_count ?? 0,
-        promo_price_usd: p.promo_price_usd != null ? Number(p.promo_price_usd) : null,
-        promo_active: p.promo_active ?? null,
-        promo_approved: p.promo_approved ?? null,
-        promo_starts_at: p.promo_starts_at ?? null,
-        promo_ends_at: p.promo_ends_at ?? null,
-      }));
-
       return {
-        products,
         subcats: (subs ?? []) as Subcat[],
         zones: (zoneRows ?? []) as { id: string; name: string }[],
         vendorMeta: meta,
@@ -148,10 +133,9 @@ function Catalog() {
     },
   });
 
-  const products = catalog?.products ?? EMPTY_PRODUCTS;
-  const subcats = catalog?.subcats ?? EMPTY_SUBCATS;
-  const zones = catalog?.zones ?? EMPTY_ZONES;
-  const vendorMeta = catalog?.vendorMeta ?? EMPTY_META;
+  const subcats = facets?.subcats ?? EMPTY_SUBCATS;
+  const zones = facets?.zones ?? EMPTY_ZONES;
+  const vendorMeta = facets?.vendorMeta ?? EMPTY_META;
 
   const catPills = useMemo(
     () => [{ slug: "all", name: "Tout", icon: "✨" }, ...(categories ?? [])],
@@ -176,34 +160,110 @@ function Catalog() {
     [visibleSubcats],
   );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = products.filter((p) => {
-      if (selectedCategoryId && !subcatIdsInCategory.has(p.subcategory_id)) return false;
-      if (subId !== "all" && p.subcategory_id !== subId) return false;
-      const meta = p.vendor_id ? vendorMeta.get(p.vendor_id) : undefined;
-      if (zone !== "all" && !(meta?.zoneIds.has(zone))) return false;
-      if (stk && p.stock <= 0) return false;
-      if (promo && !getPromo(p).active) return false;
-      if (min > 0 && p.price_usd < min) return false;
-      if (max > 0 && p.price_usd > max) return false;
-      if (rate > 0 && Number(p.rating_avg ?? 0) < rate) return false;
-      if (q) {
-        const hay = `${p.name} ${p.description ?? ""} ${meta?.shopName ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
+  // Quartier -> ids vendeurs qui y livrent (owner_id, car products.vendor_id = owner_id).
+  // Résolu depuis les facettes (petite table), utilisé pour filtrer la requête produits
+  // paginée ci-dessous sans avoir à charger tous les produits pour les filtrer en JS.
+  const vendorIdsInZone = useMemo(() => {
+    if (zone === "all") return null;
+    const ids: string[] = [];
+    vendorMeta.forEach((m, vendorId) => { if (m.zoneIds.has(zone)) ids.push(vendorId); });
+    return ids;
+  }, [zone, vendorMeta]);
+
+  const searchKey = query.trim().toLowerCase();
+
+  const productsQuery = useInfiniteQuery({
+    queryKey: [
+      "catalog-products",
+      { subIds: subId !== "all" ? [subId] : Array.from(subcatIdsInCategory).sort(),
+        zoneVendors: vendorIdsInZone ? [...vendorIdsInZone].sort() : null,
+        q: searchKey, sort, min, max, rate, stk, promo },
+    ],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      // Zone sélectionnée mais aucun vendeur ne la dessert -> aucun résultat, inutile
+      // d'interroger products (et .in("vendor_id", []) renverrait tout, pas rien, en PostgREST).
+      if (vendorIdsInZone && vendorIdsInZone.length === 0) return { rows: [] as CatProduct[], total: 0 };
+
+      let q = supabase
+        .from("products")
+        .select(PRODUCT_CATALOG_SELECT, { count: "exact" })
+        .eq("approved", true);
+
+      if (subId !== "all") q = q.eq("subcategory_id", subId);
+      else if (selectedCategoryId) q = q.in("subcategory_id", Array.from(subcatIdsInCategory));
+      if (vendorIdsInZone) q = q.in("vendor_id", vendorIdsInZone);
+      if (stk) q = q.gt("stock", 0);
+      if (min > 0) q = q.gte("price_usd", min);
+      if (max > 0) q = q.lte("price_usd", max);
+      if (rate > 0) q = q.gte("rating_avg", rate);
+      if (promo) {
+        // Reproduit getPromo().active (src/lib/promo.ts), sauf la garde
+        // promo_price_usd < price_usd (comparaison colonne-à-colonne, pas exprimable en
+        // filtre PostgREST simple) — en pratique l'admin bloque déjà ce cas à la validation
+        // de la promo, donc cette garde ne change quasiment jamais le résultat réel.
+        const nowIso = new Date().toISOString();
+        q = q
+          .eq("promo_active", true)
+          .eq("promo_approved", true)
+          .not("promo_price_usd", "is", null)
+          .gt("promo_price_usd", 0)
+          .or(`promo_starts_at.is.null,promo_starts_at.lte.${nowIso}`)
+          .or(`promo_ends_at.is.null,promo_ends_at.gte.${nowIso}`);
       }
-      return true;
-    });
-    const sorted = [...list];
-    switch (sort) {
-      case "price_asc": sorted.sort((a, b) => a.price_usd - b.price_usd); break;
-      case "price_desc": sorted.sort((a, b) => b.price_usd - a.price_usd); break;
-      case "rating": sorted.sort((a, b) => Number(b.rating_avg ?? 0) - Number(a.rating_avg ?? 0)); break;
-      case "popular": sorted.sort((a, b) => Number(b.rating_count ?? 0) - Number(a.rating_count ?? 0)); break;
-      default: break;
-    }
-    return sorted;
-  }, [query, selectedCategoryId, subcatIdsInCategory, subId, zone, products, vendorMeta, sort, min, max, rate, stk, promo]);
+      if (searchKey) {
+        // Valeur entre guillemets doubles (échappement PostgREST) : une virgule ou parenthèse
+        // dans le terme cherché casserait sinon la syntaxe de la liste .or().
+        const safe = searchKey.replace(/"/g, '\\"');
+        q = q.or(`name.ilike."%${safe}%",description.ilike."%${safe}%"`);
+        // Note : ne cherche plus dans le nom de la boutique (contrairement à avant le
+        // 6/08/2026) — croiser ça proprement avec pagination serveur demanderait une requête
+        // supplémentaire à chaque frappe ; accepté comme perte mineure, la recherche par nom
+        // de produit reste le cas d'usage très majoritaire.
+      }
+
+      switch (sort) {
+        case "price_asc": q = q.order("price_usd", { ascending: true }); break;
+        case "price_desc": q = q.order("price_usd", { ascending: false }); break;
+        case "rating": q = q.order("rating_avg", { ascending: false }); break;
+        case "popular": q = q.order("rating_count", { ascending: false }); break;
+        default: q = q.order("created_at", { ascending: false }); break;
+      }
+
+      const { data, error, count } = await q.range(pageParam, pageParam + PAGE_SIZE - 1);
+      if (error) throw error;
+      const rows: CatProduct[] = (data ?? []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price_usd: Number(p.price_usd),
+        stock: p.stock,
+        emoji: p.emoji,
+        image_url: p.image_url,
+        subcategory_id: p.subcategory_id,
+        vendor_id: p.vendor_id,
+        rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
+        rating_count: p.rating_count ?? 0,
+        promo_price_usd: p.promo_price_usd != null ? Number(p.promo_price_usd) : null,
+        promo_active: p.promo_active ?? null,
+        promo_approved: p.promo_approved ?? null,
+        promo_starts_at: p.promo_starts_at ?? null,
+        promo_ends_at: p.promo_ends_at ?? null,
+      }));
+      return { rows, total: count ?? 0 };
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((s, p) => s + p.rows.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
+  });
+
+  const filtered = useMemo(
+    () => productsQuery.data ? productsQuery.data.pages.flatMap((p) => p.rows) : EMPTY_PRODUCTS,
+    [productsQuery.data],
+  );
+  const total = productsQuery.data?.pages[0]?.total ?? 0;
+  const loading = productsQuery.isLoading;
 
   const activeFiltersCount = (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) + (rate > 0 ? 1 : 0) + (stk ? 1 : 0) + (zone !== "all" ? 1 : 0) + (promo ? 1 : 0);
   const resetFilters = () => patchSearch({ min: 0, max: 0, rate: 0, stk: false, sort: "new", zone: "all", promo: false });
@@ -344,7 +404,7 @@ function Catalog() {
                 <X className="h-3.5 w-3.5" /> Réinitialiser
               </button>
             )}
-            <span className="ml-auto text-xs text-muted-foreground">{filtered.length} résultat{filtered.length > 1 ? "s" : ""}</span>
+            <span className="ml-auto text-xs text-muted-foreground">{total} résultat{total > 1 ? "s" : ""}</span>
           </div>
 
           {openFilters && (
@@ -431,13 +491,27 @@ function Catalog() {
             )}
           </div>
         ) : (
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filtered.map((p, i) => (
-              <div key={p.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
-                <ProductCard product={p} verified={!!(p.vendor_id && vendorMeta.has(p.vendor_id))} />
+          <>
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {filtered.map((p, i) => (
+                <div key={p.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
+                  <ProductCard product={p} verified={!!(p.vendor_id && vendorMeta.has(p.vendor_id))} />
+                </div>
+              ))}
+            </div>
+            {productsQuery.hasNextPage && (
+              <div className="mt-8 text-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => productsQuery.fetchNextPage()}
+                  disabled={productsQuery.isFetchingNextPage}
+                >
+                  {productsQuery.isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Voir plus de produits"}
+                </Button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </section>
     </SiteLayout>
