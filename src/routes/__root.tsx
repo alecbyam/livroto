@@ -100,25 +100,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Livroto — Bunia livre à ta porte" },
+      { title: "Livroto — Bunia et l'Ituri livrent à ta porte" },
       {
         name: "description",
         content:
-          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp.",
+          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison — partout à Bunia et dans toute la province de l'Ituri. Cash à la livraison via WhatsApp.",
       },
-      { property: "og:title", content: "Livroto — Bunia livre à ta porte" },
+      { property: "og:title", content: "Livroto — Bunia et l'Ituri livrent à ta porte" },
       {
         property: "og:description",
         content:
-          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp.",
+          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison — partout à Bunia et dans toute la province de l'Ituri. Cash à la livraison via WhatsApp.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Livroto — Bunia livre à ta porte" },
+      { name: "twitter:title", content: "Livroto — Bunia et l'Ituri livrent à ta porte" },
       {
         name: "twitter:description",
         content:
-          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison. Cash à la livraison via WhatsApp.",
+          "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison — partout à Bunia et dans toute la province de l'Ituri. Cash à la livraison via WhatsApp.",
       },
       {
         property: "og:image",

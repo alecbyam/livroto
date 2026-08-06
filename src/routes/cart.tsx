@@ -187,8 +187,11 @@ function CartPage() {
   );
   const creditApplied = Math.min(credit, firstGroupPayable);
   const finalPayable = Math.max(0, payable - creditApplied);
-  // Frais de livraison FIXE par zone (transparent) — un frais par livraison (par groupe vendeur).
-  const deliveryFee = selectedZone?.delivery_fee_usd ?? 0;
+  // Plus de frais fixe par zone (demande explicite 6/08) : la livraison couvre toute la ville
+  // de Bunia et la province de l'Ituri, le tarif ne peut plus être un forfait par quartier.
+  // Le frais est communiqué par le livreur après validation de la commande — d'où 0 ici, ce
+  // qui bascule automatiquement l'affichage sur t("cart.deliveryTBD") partout (déjà en place).
+  const deliveryFee = 0;
   const deliveryTotal = deliveryFee * Math.max(1, groups.length);
 
   const applyCoupon = async () => {

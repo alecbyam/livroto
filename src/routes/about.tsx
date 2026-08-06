@@ -9,7 +9,7 @@ export const Route = createFileRoute("/about")({
       {
         name: "description",
         content:
-          "Livroto connecte vendeurs, livreurs et clients à Bunia (Ituri, RDC). Commande locale, livraison rapide, paiement à la porte.",
+          "Livroto connecte vendeurs, livreurs et clients à Bunia et dans toute la province de l'Ituri (RDC). Commande locale, livraison rapide, paiement à la porte.",
       },
       { property: "og:title", content: "À propos — Livroto" },
       {
@@ -59,7 +59,8 @@ function AboutPage() {
         <p className="mt-6 text-lg text-muted-foreground max-w-2xl">
           Livroto est née à Bunia, en Ituri (RDC), pour donner aux commerçants locaux les outils du
           e-commerce moderne — sans complications. Une commande, un livreur du quartier, et tu paies
-          à la livraison.
+          à la livraison. On livre aujourd'hui dans toute la ville de Bunia et dans toute la
+          province de l'Ituri.
         </p>
 
         <div className="mt-12 grid gap-5 md:grid-cols-3">
@@ -77,10 +78,10 @@ function AboutPage() {
         <div className="mt-16 rounded-3xl border border-border bg-card p-8 md:p-10">
           <h2 className="font-display text-2xl md:text-3xl font-bold">Notre mission</h2>
           <p className="mt-4 text-muted-foreground">
-            Faire de Bunia une ville où acheter local est rapide, fiable et accessible à tous —
-            depuis ton téléphone, en français, swahili ou lingala. On veut que chaque vendeur de
-            quartier puisse vivre dignement de son travail, et que chaque famille reçoive ce qu'elle
-            veut, là où elle est.
+            Faire de Bunia et de toute la province de l'Ituri une région où acheter local est
+            rapide, fiable et accessible à tous — depuis ton téléphone, en français, swahili ou
+            lingala. On veut que chaque vendeur de quartier puisse vivre dignement de son travail,
+            et que chaque famille reçoive ce qu'elle veut, là où elle est.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">

@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { useI18n } from "@/lib/i18n";
-import { useCurrency } from "@/lib/currency";
 import { useCategories } from "@/components/livroto/products";
 import { genericWhatsAppUrl } from "@/lib/whatsapp";
 import { toast } from "sonner";
@@ -29,13 +28,13 @@ import { PRODUCT_LIST_SELECT } from "@/lib/products";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Livroto — Bunia livre à ta porte" },
+      { title: "Livroto — Bunia et l'Ituri livrent à ta porte" },
       {
         name: "description",
         content:
-          "Première marketplace locale de Bunia, Ituri. Accessoires, cuisine et livraison — cash à la porte.",
+          "Première marketplace locale de Bunia et de toute la province de l'Ituri. Accessoires, cuisine et livraison — cash à la porte.",
       },
-      { property: "og:title", content: "Livroto — Bunia livre à ta porte" },
+      { property: "og:title", content: "Livroto — Bunia et l'Ituri livrent à ta porte" },
       { property: "og:description", content: "Commande. Livroto arrive." },
     ],
   }),
@@ -70,15 +69,12 @@ async function fetchFeaturedProducts(): Promise<DisplayProduct[]> {
   })) as DisplayProduct[];
 }
 
-type HomeZone = { id: string; name: string; delivery_fee_usd: number };
+type HomeZone = { id: string; name: string };
 
+// Plus de tri par tarif (retiré 6/08/2026, voir Zones() ci-dessous) — ordre alphabétique.
 async function fetchHomeZones(): Promise<HomeZone[]> {
-  const { data } = await supabase
-    .from("zones")
-    .select("id,name,delivery_fee_usd")
-    .eq("active", true)
-    .order("delivery_fee_usd", { ascending: true });
-  return (data ?? []).map((z) => ({ ...z, delivery_fee_usd: Number(z.delivery_fee_usd) }));
+  const { data } = await supabase.from("zones").select("id,name").eq("active", true).order("name");
+  return data ?? [];
 }
 
 type HomeTestimonial = {
@@ -304,13 +300,12 @@ function HowItWorks() {
 
 function Zones() {
   const { t } = useI18n();
-  const { fmt } = useCurrency();
-  // Zones réelles depuis la DB (chargées côté serveur) → l'estimation affichée colle au panier.
+  // Zones réelles depuis la DB (chargées côté serveur) — sert uniquement à lister les
+  // quartiers déjà connus, plus aucun tarif affiché (demande explicite 6/08/2026 : livraison
+  // sur toute la ville de Bunia et la province de l'Ituri, un forfait par quartier n'a plus
+  // de sens à cette échelle — le tarif est confirmé par le livreur après validation).
   const { homeZones: dbZones } = Route.useLoaderData();
-  const list =
-    dbZones.length > 0
-      ? dbZones
-      : zones.map((z) => ({ id: z.name, name: z.name, delivery_fee_usd: z.fee }));
+  const list = dbZones.length > 0 ? dbZones : zones.map((z) => ({ id: z.name, name: z.name }));
 
   return (
     <section id="zones" className="container mx-auto px-4 py-16 md:py-24">
@@ -328,15 +323,14 @@ function Zones() {
               <MapPin className="h-5 w-5 text-primary" />
               <span className="font-medium">{z.name}</span>
             </div>
-            <span className="text-xs font-semibold text-[color:var(--brand-dark)]">
-              {z.delivery_fee_usd > 0 ? `≈ ${fmt(z.delivery_fee_usd)}` : "à confirmer"}
-            </span>
+            <Check className="h-4 w-4 shrink-0 text-[color:var(--brand-dark)]" />
           </div>
         ))}
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
-        Estimation indicative. Le tarif final se confirme avec le livreur selon la distance, la
-        charge et l'urgence.
+        Et bien plus : Livroto livre partout à Bunia et dans toute la province de l'Ituri.
+        Le tarif de livraison t'est communiqué par le livreur juste après la validation de ta
+        commande.
       </p>
     </section>
   );

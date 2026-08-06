@@ -45,18 +45,26 @@ type ProductRow = {
   promo_ends_at: string | null;
 };
 
+// Plus de frais de livraison forfaitaire par zone (demande explicite 6/08/2026) : Livroto
+// livre désormais toute la ville de Bunia ET la province de l'Ituri, un tarif fixe par
+// quartier n'a plus de sens à cette échelle. `deliveryFee` reste à 0 dans la commande — le
+// livreur communique le tarif réel au client après validation de la commande (WhatsApp/appel).
+// `zone_id`/`zoneName` restent capturés : toujours utiles pour situer l'adresse et assigner
+// un livreur, seul le calcul du FRAIS a été retiré. `zones.delivery_fee_usd` reste en base
+// (panneau admin inchangé) mais n'est plus lu ici — laissé en place au cas où une grille
+// tarifaire indicative redevienne utile plus tard.
 async function resolveZone(admin: any, zoneId: string | null) {
   if (!zoneId) return { zoneName: "", deliveryFee: 0, zoneRowId: null as string | null };
   const { data: zone } = await admin
     .from("zones")
-    .select("id,name,delivery_fee_usd")
+    .select("id,name")
     .eq("id", zoneId)
     .eq("active", true)
     .maybeSingle();
   if (!zone) return { zoneName: "", deliveryFee: 0, zoneRowId: null as string | null };
   return {
     zoneName: zone.name as string,
-    deliveryFee: Number(zone.delivery_fee_usd),
+    deliveryFee: 0,
     zoneRowId: zone.id as string,
   };
 }

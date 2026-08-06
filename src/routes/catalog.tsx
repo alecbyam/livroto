@@ -32,9 +32,9 @@ export const Route = createFileRoute("/catalog")({
   head: () => ({
     meta: [
       { title: "Catalogue — Livroto" },
-      { name: "description", content: "Parcours les produits Livroto : accessoires téléphone, cuisine locale, livraison à Bunia." },
+      { name: "description", content: "Parcours les produits Livroto : accessoires téléphone, cuisine locale, livraison à Bunia et dans toute la province de l'Ituri." },
       { property: "og:title", content: "Catalogue — Livroto" },
-      { property: "og:description", content: "Tout ce qu'il te faut, livré à Bunia." },
+      { property: "og:description", content: "Tout ce qu'il te faut, livré à Bunia et dans toute l'Ituri." },
     ],
   }),
   component: Catalog,

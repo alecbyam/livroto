@@ -169,8 +169,9 @@ function OrderPage() {
   const promo = getPromo(product);
   const subtotal = promo.price * qty;
   const total = subtotal;
-  // Frais de livraison FIXE par zone (transparent).
-  const deliveryFee = selectedZone?.delivery_fee_usd ?? 0;
+  // Plus de frais fixe par zone (demande explicite 6/08) : livraison sur toute la ville de
+  // Bunia et la province de l'Ituri, tarif communiqué par le livreur après validation.
+  const deliveryFee = 0;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
