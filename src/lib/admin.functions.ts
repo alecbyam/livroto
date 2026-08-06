@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { logAdminAction } from "@/lib/audit-log.server";
 
 // Garde d'accès admin centralisée — évite de dupliquer la vérification de rôle
 // dans chaque handler admin (une copie oubliée/mal faite = trou de sécurité).
@@ -197,6 +198,13 @@ export const adminResolveReport = createServerFn({ method: "POST" })
       })
       .eq("id", data.report_id);
     if (error) throw new Error(error.message);
+    await logAdminAction({
+      adminId: userId,
+      action: "report_resolve",
+      targetType: "report",
+      targetId: data.report_id,
+      details: { status: data.status, resolution_note: data.resolution_note ?? null },
+    });
     return { ok: true };
   });
 
@@ -218,6 +226,13 @@ export const adminUpdateVendorStatus = createServerFn({ method: "POST" })
       await supabaseAdmin.from("user_roles")
         .upsert({ user_id: vendor.owner_id, role: "vendor" }, { onConflict: "user_id,role" });
     }
+    await logAdminAction({
+      adminId: context.userId,
+      action: "vendor_status_change",
+      targetType: "vendor",
+      targetId: data.vendor_id,
+      details: { status: data.status },
+    });
     return { ok: true };
   });
 
@@ -238,6 +253,13 @@ export const adminUpdateRiderStatus = createServerFn({ method: "POST" })
       await supabaseAdmin.from("user_roles")
         .upsert({ user_id: rider.user_id, role: "rider" }, { onConflict: "user_id,role" });
     }
+    await logAdminAction({
+      adminId: context.userId,
+      action: "rider_status_change",
+      targetType: "rider",
+      targetId: data.rider_id,
+      details: { status: data.status },
+    });
     return { ok: true };
   });
 
@@ -251,6 +273,13 @@ export const adminApproveProduct = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("products")
       .update({ approved: data.approved }).eq("id", data.product_id);
     if (error) throw new Error(error.message);
+    await logAdminAction({
+      adminId: context.userId,
+      action: "product_approve",
+      targetType: "product",
+      targetId: data.product_id,
+      details: { approved: data.approved },
+    });
     return { ok: true };
   });
 
@@ -265,6 +294,13 @@ export const adminSetPromoApproved = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("products")
       .update({ promo_approved: data.approved } as never).eq("id", data.product_id);
     if (error) throw new Error(error.message);
+    await logAdminAction({
+      adminId: context.userId,
+      action: "promo_approve",
+      targetType: "product",
+      targetId: data.product_id,
+      details: { approved: data.approved },
+    });
     return { ok: true };
   });
 
@@ -290,6 +326,13 @@ export const adminUpsertZone = createServerFn({ method: "POST" })
       });
       if (error) throw new Error(error.message);
     }
+    await logAdminAction({
+      adminId: context.userId,
+      action: data.id ? "zone_update" : "zone_create",
+      targetType: "zone",
+      targetId: data.id ?? null,
+      details: { name: data.name, delivery_fee_usd: data.delivery_fee_usd, active: data.active },
+    });
     return { ok: true };
   });
 
@@ -308,6 +351,12 @@ export const adminUpdateCdfRate = createServerFn({ method: "POST" })
         { onConflict: "key" },
       );
     if (error) throw new Error(error.message);
+    await logAdminAction({
+      adminId: context.userId,
+      action: "cdf_rate_update",
+      targetType: "app_settings",
+      details: { rate: data.rate },
+    });
     return { ok: true, rate: data.rate };
   });
 
@@ -347,6 +396,13 @@ export const adminGrantRole = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("user_roles")
       .upsert({ user_id: data.user_id, role: data.role }, { onConflict: "user_id,role" });
     if (error) throw new Error(error.message);
+    await logAdminAction({
+      adminId: context.userId,
+      action: "role_grant",
+      targetType: "user",
+      targetId: data.user_id,
+      details: { role: data.role },
+    });
     return { ok: true };
   });
 
@@ -364,6 +420,13 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("user_roles")
       .delete().eq("user_id", data.user_id).eq("role", data.role);
     if (error) throw new Error(error.message);
+    await logAdminAction({
+      adminId: context.userId,
+      action: "role_revoke",
+      targetType: "user",
+      targetId: data.user_id,
+      details: { role: data.role },
+    });
     return { ok: true };
   });
 
@@ -495,5 +558,35 @@ export const adminUpsertCoupon = createServerFn({ method: "POST" })
       const { error } = await supabaseAdmin.from("coupons").insert(payload);
       if (error) throw new Error(error.message);
     }
+    await logAdminAction({
+      adminId: context.userId,
+      action: data.id ? "coupon_update" : "coupon_create",
+      targetType: "coupon",
+      targetId: data.id ?? code,
+      details: { code, type: data.type, value: data.value, active: data.active },
+    });
     return { ok: true };
+  });
+
+// ---------- ADMIN: journal d'audit (lecture seule — voir audit-log.server.ts) ----------
+export const adminListActionsPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ offset: z.number().int().min(0).default(0) }).parse(input ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("admin_actions")
+      .select("id,admin_id,action,target_type,target_id,details,created_at", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(data.offset, data.offset + ADMIN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const adminIds = Array.from(new Set((rows ?? []).map((r: any) => r.admin_id)));
+    const { data: admins } = adminIds.length
+      ? await supabaseAdmin.from("profiles").select("id,name,phone").in("id", adminIds)
+      : { data: [] as any[] };
+    const adminMap = new Map((admins ?? []).map((a: any) => [a.id, a]));
+    return {
+      rows: (rows ?? []).map((r: any) => ({ ...r, admin: adminMap.get(r.admin_id) ?? null })),
+      total: count ?? 0,
+    };
   });
