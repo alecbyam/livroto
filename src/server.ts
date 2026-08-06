@@ -8,16 +8,52 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
-// Durcissement sécurité (audit du 5/08/2026) : aucun en-tête de ce type n'était posé avant.
-// Volontairement PAS de Content-Security-Policy ici — trop de surface à auditer d'abord
-// (WebUSB/Bluetooth imprimante + caméra scan côté module boutique, script inline anti-flash
-// du thème dans __root.tsx, Supabase Realtime en WebSocket...) pour la poser sans risque de
-// casser une fonctionnalité en prod à l'aveugle. À faire dans une passe dédiée, testée.
+// Durcissement sécurité (audit du 5/08/2026, CSP ajoutée le 6/08 après audit dédié complet
+// des origines réellement contactées par le navigateur — voir le message du commit qui
+// introduit cette CSP pour le détail). Constat clé de l'audit : FlexPay, Africa's Talking,
+// CallMeBot et WhatsApp Business (Graph API) sont TOUS appelés côté serveur uniquement
+// (*.server.ts / *.functions.ts, jamais fetch() côté navigateur) — la seule origine externe
+// réellement contactée depuis le navigateur est Supabase (REST + Realtime WebSocket).
+const SUPABASE_ORIGIN = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
+const SUPABASE_WSS_ORIGIN = SUPABASE_ORIGIN.replace(/^https:/, "wss:");
+
+const CSP = [
+  "default-src 'self'",
+  // 'unsafe-inline' assumé (pas de nonce par requête) : JSON-LD dynamique (about/produit/
+  // vendeur) + script anti-flash du thème dans __root.tsx sont des <script> inline légitimes
+  // dont le contenu change à chaque page/requête (donc pas hashable statiquement). Un nonce
+  // par requête demanderait de le faire transiter de server.ts jusqu'à 4 sites de rendu React
+  // — architecture pas encore utilisée dans ce repo, jugé trop risqué à poser sans navigateur
+  // réel pour vérifier (décision utilisateur du 6/08). Reste protecteur malgré tout : bloque
+  // le chargement de script depuis un domaine étranger, et connect-src/img-src stricts
+  // ci-dessous limitent fortement l'exfiltration même si un script inline s'exécutait.
+  "script-src 'self' 'unsafe-inline'",
+  // 'unsafe-inline' nécessaire : attributs style={{...}} inline utilisés partout dans l'app
+  // React (animations, couleurs de graphique dynamiques...) — aucune alternative réaliste
+  // sans réécrire tous les composants. Risque bien moindre que script-src (pas d'exécution de
+  // code arbitraire via une valeur CSS).
+  "style-src 'self' 'unsafe-inline'",
+  // data:/blob: : compression d'image côté navigateur (aperçu avant upload) et export CSV —
+  // aucune donnée n'en sort, ce sont des ressources déjà locales au navigateur.
+  `img-src 'self' data: blob:${SUPABASE_ORIGIN ? ` ${SUPABASE_ORIGIN}` : ""}`,
+  "font-src 'self'", // polices auto-hébergées (public/fonts/), aucun CDN externe
+  `connect-src 'self'${SUPABASE_ORIGIN ? ` ${SUPABASE_ORIGIN} ${SUPABASE_WSS_ORIGIN}` : ""}`,
+  "media-src 'self'",
+  "object-src 'none'", // aucun plugin/Flash, toujours sûr à bloquer entièrement
+  "base-uri 'self'", // empêche l'injection d'une balise <base> qui détournerait les chemins relatifs
+  "form-action 'self'", // tous les formulaires soumettent en interne (serverFn), jamais vers un domaine tiers
+  "frame-src 'none'", // aucun <iframe> dans l'app
+  "frame-ancestors 'none'", // défense en profondeur, redondant avec X-Frame-Options: DENY déjà posé
+  "worker-src 'self'", // service worker (public/sw.js)
+  "upgrade-insecure-requests",
+].join("; ");
+
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+  "Content-Security-Policy": CSP,
 };
 
 function withSecurityHeaders(response: Response): Response {
