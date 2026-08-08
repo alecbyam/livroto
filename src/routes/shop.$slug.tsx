@@ -9,7 +9,7 @@ import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, Store, MessageCircle, Plus, Minus, ShoppingBag, X } from "lucide-react";
-import { SiteLayout } from "@/components/livroto/SiteLayout";
+import { ShopSiteLayout } from "@/components/shops/ShopSiteLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -29,12 +29,12 @@ import { useShopPwaBranding } from "@/lib/shops/usePwaBranding";
 export const Route = createFileRoute("/shop/$slug")({
   component: ShopStorefrontPage,
   notFoundComponent: () => (
-    <SiteLayout>
+    <ShopSiteLayout shop={null}>
       <div className="container mx-auto px-4 py-16 text-center">
         <h1 className="font-display text-2xl font-bold">Boutique introuvable</h1>
         <p className="mt-2 text-muted-foreground">Cette boutique n'existe pas ou n'est plus active.</p>
       </div>
-    </SiteLayout>
+    </ShopSiteLayout>
   ),
 });
 
@@ -106,17 +106,17 @@ function ShopStorefrontPage() {
 
   if (loading) {
     return (
-      <SiteLayout>
+      <ShopSiteLayout shop={null}>
         <div className="container mx-auto px-4 py-16 grid place-items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </SiteLayout>
+      </ShopSiteLayout>
     );
   }
   if (notFoundState || !shop) throw notFound();
 
   return (
-    <SiteLayout>
+    <ShopSiteLayout shop={shop}>
       <div className="relative h-40 sm:h-52 w-full overflow-hidden bg-gradient-to-br from-[color:var(--brand-dark)] to-[color:var(--brand-light)]">
         {shop.cover_url && <img src={shop.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-80" />}
       </div>
@@ -185,7 +185,7 @@ function ShopStorefrontPage() {
 
       <ShopCartSheet shop={shop} cart={cart} open={cartOpen} onOpenChange={setCartOpen} onOrdered={(orderId) => navigate({ to: "/shop-order/$orderId", params: { orderId } })} />
       {cart.count === 0 && <ShopInstallPWA shopId={shop.id} shopName={shop.name} />}
-    </SiteLayout>
+    </ShopSiteLayout>
   );
 }
 
@@ -232,7 +232,7 @@ function ShopCartSheet({
     if (!session.session) {
       toast.message("Connecte-toi pour valider ta commande — ton panier est conservé.");
       onOpenChange(false);
-      window.location.href = "/auth";
+      window.location.href = `/shop/${shop.slug}/connexion`;
       return;
     }
     setBusy(true);

@@ -8,7 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Store } from "lucide-react";
-import { SiteLayout } from "@/components/livroto/SiteLayout";
+import { ShopSiteLayout } from "@/components/shops/ShopSiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,9 +47,9 @@ function ShopOrderTrackingPage() {
 
   if (isLoading) {
     return (
-      <SiteLayout>
+      <ShopSiteLayout shop={null}>
         <div className="container mx-auto px-4 py-16 grid place-items-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      </SiteLayout>
+      </ShopSiteLayout>
     );
   }
   if (!data?.order) return null;
@@ -60,7 +60,7 @@ function ShopOrderTrackingPage() {
   const currentIdx = STATUS_FLOW.indexOf(order.status);
 
   return (
-    <SiteLayout>
+    <ShopSiteLayout shop={shop.slug ? shop : null}>
       <div className="container mx-auto max-w-2xl px-4 py-8">
         <button onClick={() => window.history.back()} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Retour
@@ -137,6 +137,6 @@ function ShopOrderTrackingPage() {
           </div>
         )}
       </div>
-    </SiteLayout>
+    </ShopSiteLayout>
   );
 }

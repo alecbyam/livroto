@@ -25,7 +25,7 @@ export function useShopPwaBranding(shop: { slug: string; name: string; logo_url:
     if (appleIcon && shop.logo_url) appleIcon.setAttribute("href", shop.logo_url);
 
     const prevTitle = document.title;
-    document.title = `${shop.name} — Livroto`;
+    document.title = shop.name;
 
     return () => {
       if (manifestLink && prevManifestHref) manifestLink.setAttribute("href", prevManifestHref);

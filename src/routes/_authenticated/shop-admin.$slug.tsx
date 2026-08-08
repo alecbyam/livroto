@@ -9,8 +9,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Pencil, Store, KeyRound, UserPlus } from "lucide-react";
-import { SiteLayout } from "@/components/livroto/SiteLayout";
+import { Loader2, Plus, Trash2, Pencil, KeyRound, UserPlus } from "lucide-react";
+import { ShopSiteLayout } from "@/components/shops/ShopSiteLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,34 +54,29 @@ function ShopAdminPage() {
   useShopPwaBranding(data?.shop); // installable avec le nom/logo de SA boutique, même dans le back-office
 
   if (isLoading) {
-    return <SiteLayout><div className="container mx-auto px-4 py-16 grid place-items-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></SiteLayout>;
+    return <ShopSiteLayout shop={null}><div className="container mx-auto px-4 py-16 grid place-items-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></ShopSiteLayout>;
   }
   const shop = data?.shop;
   const role = data?.role; // 'owner' | 'manager' | 'staff' | null
   if (!shop || shop.slug !== slug) {
     return (
-      <SiteLayout>
+      <ShopSiteLayout shop={null}>
         <div className="container mx-auto px-4 py-16 text-center">
           <h1 className="font-display text-2xl font-bold">Accès refusé</h1>
           <p className="mt-2 text-muted-foreground">Tu ne fais pas partie de l'équipe de cette boutique.</p>
         </div>
-      </SiteLayout>
+      </ShopSiteLayout>
     );
   }
   const isOwner = role === "owner";
   const canEditMenu = role === "owner" || role === "manager";
 
   return (
-    <SiteLayout>
+    <ShopSiteLayout shop={shop} backHref={`/shop-admin/${shop.slug}`}>
       <div className="container mx-auto max-w-5xl px-4 py-8">
-        <div className="flex items-center gap-3">
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-muted overflow-hidden">
-            {shop.logo_url ? <img src={shop.logo_url} alt="" className="h-full w-full object-cover" /> : <Store className="h-6 w-6" />}
-          </div>
-          <div>
-            <h1 className="font-display text-2xl font-bold">{shop.name}</h1>
-            <p className="text-sm text-muted-foreground">/shop/{shop.slug} · {role === "owner" ? "Propriétaire" : role === "manager" ? "Manager" : "Équipe"}</p>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="font-display text-2xl font-bold">Back-office</h1>
+          <Badge variant="outline">{role === "owner" ? "Propriétaire" : role === "manager" ? "Manager" : "Équipe"}</Badge>
         </div>
 
         <Tabs defaultValue="orders" className="mt-6">
@@ -100,7 +95,7 @@ function ShopAdminPage() {
         </Tabs>
       </div>
       <ShopInstallPWA shopId={shop.id} shopName={shop.name} />
-    </SiteLayout>
+    </ShopSiteLayout>
   );
 }
 
