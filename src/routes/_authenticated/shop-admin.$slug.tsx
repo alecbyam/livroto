@@ -9,7 +9,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Pencil, KeyRound, UserPlus } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, KeyRound, UserPlus, Settings2 } from "lucide-react";
 import { ShopSiteLayout } from "@/components/shops/ShopSiteLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,10 @@ import { getMyShop, ownerUpdateShop } from "@/lib/shops/shops.functions";
 import {
   getShopMenuForOwner, ownerCreateMenuSection, ownerDeleteMenuSection,
   ownerCreateProduct, ownerUpdateProduct, ownerDeleteProduct,
+  ownerCreateProductOption, ownerUpdateProductOption, ownerDeleteProductOption,
+  ownerCreateOptionChoice, ownerDeleteOptionChoice,
 } from "@/lib/shops/menu.functions";
+import { DAY_LABELS, ORDERED_DAY_KEYS } from "@/lib/shops/hours";
 import { getOwnerShopOrders, ownerUpdateShopOrderStatus } from "@/lib/shops/orders.functions";
 import {
   ownerListStaff, ownerCreateStaffUser, ownerUpdateStaffRole, ownerRemoveStaff, ownerResetStaffPassword,
@@ -319,6 +322,7 @@ function MenuTab({ shopId }: { shopId: string }) {
 
   const [newSection, setNewSection] = useState("");
   const [editing, setEditing] = useState<any | null>(null); // produit en édition (ou {} pour création)
+  const [optionsFor, setOptionsFor] = useState<any | null>(null); // produit dont on gère les options
 
   if (isLoading) return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />;
   const sections = data?.sections ?? [];
@@ -359,11 +363,14 @@ function MenuTab({ shopId }: { shopId: string }) {
             {products.filter((p: any) => p.menu_section_id === s.id).map((p: any) => (
               <div key={p.id} className={`flex items-center gap-2 rounded-xl border p-2 ${!p.is_available ? "opacity-60" : ""}`}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">${Number(p.price_usd).toFixed(2)}</p>
+                  <p className="text-sm font-medium truncate">
+                    {p.name} {p.is_popular && <Badge variant="outline" className="ml-1 text-[10px]">Populaire</Badge>} {p.is_new && <Badge variant="outline" className="ml-1 text-[10px]">Nouveau</Badge>}
+                  </p>
+                  <p className="text-xs text-muted-foreground">${Number(p.price_usd).toFixed(2)} {p.options?.length > 0 && `· ${p.options.length} option(s)`}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <Switch checked={p.is_available} onCheckedChange={() => toggleAvailable(p)} />
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOptionsFor(p)} title="Options"><Settings2 className="h-3.5 w-3.5" /></Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(p)}><Pencil className="h-3.5 w-3.5" /></Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={async () => { if (confirm("Supprimer cet article ?")) { await deleteProduct({ data: { product_id: p.id } }); refresh(); } }}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -387,7 +394,85 @@ function MenuTab({ shopId }: { shopId: string }) {
           } catch (e: any) { toast.error(e.message); }
         }}
       />
+
+      <ProductOptionsDialog product={optionsFor} onOpenChange={(o) => { if (!o) setOptionsFor(null); }} onChanged={refresh} />
     </div>
+  );
+}
+
+/* ----------------------------- Options d'un article (taille, suppléments...) ----------------------------- */
+function ProductOptionsDialog({ product, onOpenChange, onChanged }: { product: any | null; onOpenChange: (o: boolean) => void; onChanged: () => void }) {
+  const createOption = useServerFn(ownerCreateProductOption);
+  const deleteOption = useServerFn(ownerDeleteProductOption);
+  const updateOption = useServerFn(ownerUpdateProductOption);
+  const createChoice = useServerFn(ownerCreateOptionChoice);
+  const deleteChoice = useServerFn(ownerDeleteOptionChoice);
+  const [newOptionName, setNewOptionName] = useState("");
+  const [newChoice, setNewChoice] = useState<Record<string, { name: string; price: string }>>({});
+
+  if (!product) return null;
+  const options = product.options ?? [];
+
+  const addOption = async () => {
+    if (!newOptionName.trim()) return;
+    await createOption({ data: { product_id: product.id, name: newOptionName.trim(), type: "single", required: false, sort_order: options.length } });
+    setNewOptionName(""); onChanged();
+  };
+  const addChoice = async (optionId: string) => {
+    const draft = newChoice[optionId];
+    if (!draft?.name.trim()) return;
+    await createChoice({ data: { option_id: optionId, name: draft.name.trim(), price_delta_usd: Number(draft.price || 0) } });
+    setNewChoice((s) => ({ ...s, [optionId]: { name: "", price: "" } }));
+    onChanged();
+  };
+
+  return (
+    <Dialog open={!!product} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Options — {product.name}</DialogTitle></DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-2">Ex: "Taille" (Petit/Moyen/Grand) ou "Suppléments" (Fromage +$1, Bacon +$2).</p>
+        <div className="space-y-4">
+          {options.map((opt: any) => (
+            <div key={opt.id} className="rounded-xl border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium text-sm">{opt.name}</p>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Switch checked={!!opt.required} onCheckedChange={async (v) => { await updateOption({ data: { option_id: opt.id, required: v } }); onChanged(); }} /> Obligatoire
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    Multi-choix
+                    <Switch checked={opt.type === "multi"} onCheckedChange={async (v) => { await updateOption({ data: { option_id: opt.id, type: v ? "multi" : "single" } }); onChanged(); }} />
+                  </label>
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={async () => { await deleteOption({ data: { option_id: opt.id } }); onChanged(); }}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {(opt.choices ?? []).map((c: any) => (
+                  <div key={c.id} className="flex items-center justify-between text-sm">
+                    <span>{c.name} {Number(c.price_delta_usd) !== 0 && <span className="text-muted-foreground">({c.price_delta_usd > 0 ? "+" : ""}{Number(c.price_delta_usd).toFixed(2)}$)</span>}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={async () => { await deleteChoice({ data: { choice_id: c.id } }); onChanged(); }}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex gap-1.5">
+                <Input placeholder="Nom (ex: Grand)" value={newChoice[opt.id]?.name ?? ""} onChange={(e) => setNewChoice((s) => ({ ...s, [opt.id]: { name: e.target.value, price: s[opt.id]?.price ?? "" } }))} className="h-8 text-sm" />
+                <Input placeholder="+$" type="number" step="0.01" value={newChoice[opt.id]?.price ?? ""} onChange={(e) => setNewChoice((s) => ({ ...s, [opt.id]: { name: s[opt.id]?.name ?? "", price: e.target.value } }))} className="h-8 w-20 text-sm" />
+                <Button size="sm" variant="outline" onClick={() => addChoice(opt.id)}>Ajouter</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 border-t pt-3">
+          <Input placeholder="Nouvelle option (ex: Taille)" value={newOptionName} onChange={(e) => setNewOptionName(e.target.value)} />
+          <Button variant="outline" onClick={addOption}><Plus className="h-4 w-4" /> Ajouter</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -400,6 +485,8 @@ function ProductDialog({ value, onOpenChange, onSubmit }: { value: any | null; o
     description: value?.description ?? "",
     price_usd: value?.price_usd != null ? String(value.price_usd) : "",
     image_url: value?.image_url ?? "",
+    is_popular: value?.is_popular ?? false,
+    is_new: value?.is_new ?? false,
   });
   const open = !!value;
 
@@ -412,6 +499,10 @@ function ProductDialog({ value, onOpenChange, onSubmit }: { value: any | null; o
           <div><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" /></div>
           <div><Label className="text-xs">Prix (USD)</Label><Input type="number" step="0.01" value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: e.target.value })} className="mt-1" /></div>
           <div><Label className="text-xs">URL image</Label><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="mt-1" /></div>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_popular} onCheckedChange={(v) => setForm({ ...form, is_popular: v })} /> Populaire</label>
+            <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_new} onCheckedChange={(v) => setForm({ ...form, is_new: v })} /> Nouveau</label>
+          </div>
         </div>
         <DialogFooter>
           <Button
@@ -422,6 +513,8 @@ function ProductDialog({ value, onOpenChange, onSubmit }: { value: any | null; o
                 description: form.description.trim() || undefined,
                 price_usd: Number(form.price_usd),
                 image_url: form.image_url.trim() || undefined,
+                is_popular: form.is_popular,
+                is_new: form.is_new,
               });
             }}
           >
@@ -436,27 +529,105 @@ function ProductDialog({ value, onOpenChange, onSubmit }: { value: any | null; o
 /* ----------------------------- Réglages ----------------------------- */
 function SettingsTab({ shop }: { shop: any }) {
   const save = useServerFn(ownerUpdateShop);
+  const cfg = shop.config ?? {};
   const [form, setForm] = useState({
     name: shop.name ?? "", description: shop.description ?? "",
     logo_url: shop.logo_url ?? "", cover_url: shop.cover_url ?? "", whatsapp_display: shop.whatsapp_display ?? "",
   });
+  const [address, setAddress] = useState(cfg.address ?? "");
+  const [etaMin, setEtaMin] = useState(cfg.delivery_eta_min != null ? String(cfg.delivery_eta_min) : "");
+  const [etaMax, setEtaMax] = useState(cfg.delivery_eta_max != null ? String(cfg.delivery_eta_max) : "");
+  const [feeLabel, setFeeLabel] = useState(cfg.delivery_fee_label ?? "");
+  const [hours, setHours] = useState<Record<string, { open: string; close: string; closed: boolean }>>(() => {
+    const h: any = {};
+    for (const k of ORDERED_DAY_KEYS) {
+      const d = cfg.hours?.[k];
+      h[k] = d ? { open: d.open, close: d.close, closed: false } : { open: "09:00", close: "21:00", closed: !cfg.hours };
+    }
+    return h;
+  });
+  const [partialEnabled, setPartialEnabled] = useState(!!cfg.partial_payment?.enabled);
+  const [partialPercentages, setPartialPercentages] = useState<number[]>(cfg.partial_payment?.percentages ?? [25, 50, 100]);
   const [busy, setBusy] = useState(false);
+
+  const togglePercent = (p: number) => setPartialPercentages((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p].sort((a, b) => a - b));
 
   const onSave = async () => {
     setBusy(true);
     try {
-      await save({ data: { ...form } });
+      const hoursOut: Record<string, { open: string; close: string } | null> = {};
+      for (const k of ORDERED_DAY_KEYS) hoursOut[k] = hours[k].closed ? null : { open: hours[k].open, close: hours[k].close };
+      await save({
+        data: {
+          ...form,
+          config: {
+            ...cfg,
+            address: address.trim() || undefined,
+            delivery_eta_min: etaMin ? Number(etaMin) : undefined,
+            delivery_eta_max: etaMax ? Number(etaMax) : undefined,
+            delivery_fee_label: feeLabel.trim() || undefined,
+            hours: hoursOut,
+            partial_payment: { enabled: partialEnabled, percentages: partialPercentages.length ? partialPercentages : [100] },
+          },
+        },
+      });
       toast.success("Boutique mise à jour");
     } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
   };
 
   return (
-    <div className="max-w-lg space-y-3">
-      <div><Label className="text-xs">Nom</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" /></div>
-      <div><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" /></div>
-      <div><Label className="text-xs">Logo (URL)</Label><Input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} className="mt-1" /></div>
-      <div><Label className="text-xs">Photo de couverture (URL)</Label><Input value={form.cover_url} onChange={(e) => setForm({ ...form, cover_url: e.target.value })} className="mt-1" /></div>
-      <div><Label className="text-xs">WhatsApp affiché aux clients</Label><Input value={form.whatsapp_display} onChange={(e) => setForm({ ...form, whatsapp_display: e.target.value })} placeholder="243..." className="mt-1" /></div>
+    <div className="max-w-lg space-y-6">
+      <div className="space-y-3">
+        <h3 className="font-display font-bold">Identité</h3>
+        <div><Label className="text-xs">Nom</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" /></div>
+        <div><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" /></div>
+        <div><Label className="text-xs">Logo (URL)</Label><Input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} className="mt-1" /></div>
+        <div><Label className="text-xs">Photo de couverture (URL)</Label><Input value={form.cover_url} onChange={(e) => setForm({ ...form, cover_url: e.target.value })} className="mt-1" /></div>
+        <div><Label className="text-xs">WhatsApp affiché aux clients</Label><Input value={form.whatsapp_display} onChange={(e) => setForm({ ...form, whatsapp_display: e.target.value })} placeholder="243..." className="mt-1" /></div>
+        <div><Label className="text-xs">Adresse</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Quartier, avenue, repère..." className="mt-1" /></div>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="font-display font-bold">Livraison</h3>
+        <div className="flex gap-3">
+          <div className="flex-1"><Label className="text-xs">Temps min (min)</Label><Input type="number" value={etaMin} onChange={(e) => setEtaMin(e.target.value)} className="mt-1" /></div>
+          <div className="flex-1"><Label className="text-xs">Temps max (min)</Label><Input type="number" value={etaMax} onChange={(e) => setEtaMax(e.target.value)} className="mt-1" /></div>
+        </div>
+        <div><Label className="text-xs">Frais de livraison (affiché aux clients)</Label><Input value={feeLabel} onChange={(e) => setFeeLabel(e.target.value)} placeholder="Ex: Gratuite, ou $1.00" className="mt-1" /></div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="font-display font-bold">Horaires</h3>
+        {ORDERED_DAY_KEYS.map((k) => (
+          <div key={k} className="flex items-center gap-2">
+            <span className="w-24 shrink-0 text-sm">{DAY_LABELS[k]}</span>
+            <Switch checked={!hours[k].closed} onCheckedChange={(v) => setHours((s) => ({ ...s, [k]: { ...s[k], closed: !v } }))} />
+            {!hours[k].closed ? (
+              <>
+                <Input type="time" value={hours[k].open} onChange={(e) => setHours((s) => ({ ...s, [k]: { ...s[k], open: e.target.value } }))} className="h-8 w-28" />
+                <span className="text-muted-foreground text-xs">à</span>
+                <Input type="time" value={hours[k].close} onChange={(e) => setHours((s) => ({ ...s, [k]: { ...s[k], close: e.target.value } }))} className="h-8 w-28" />
+              </>
+            ) : <span className="text-xs text-muted-foreground">Fermé</span>}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="font-display font-bold">Paiement partiel (FlexPay)</h3>
+        <label className="flex items-center gap-2 text-sm"><Switch checked={partialEnabled} onCheckedChange={setPartialEnabled} /> Autoriser le client à payer un acompte</label>
+        {partialEnabled && (
+          <div className="flex gap-2">
+            {[25, 50, 100].map((p) => (
+              <label key={p} className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm">
+                <input type="checkbox" checked={partialPercentages.includes(p)} onChange={() => togglePercent(p)} /> {p}%
+              </label>
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground">Le reste est payé cash à la livraison. 100% doit toujours être proposé.</p>
+      </div>
+
       <Button onClick={onSave} disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}</Button>
     </div>
   );

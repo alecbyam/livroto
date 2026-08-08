@@ -2,21 +2,28 @@
 // Panier local pour le module boutique générique. Volontairement plus simple
 // que src/lib/cart.tsx (panier marketplace multi-vendeur avec sync serveur) :
 // une boutique = un panier, localStorage uniquement, capturé au moment du
-// checkout. Pas besoin de fusion cross-device pour une commande resto rapide.
+// checkout. Chaque ligne est identifiée par produit + choix d'options
+// sélectionnés (deux configurations différentes du même plat = deux lignes).
 // ============================================================================
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type ShopCartItem = {
-  id: string; // shop_products.id
-  name: string;
-  price_usd: number;
+  cartLineId: string;         // productId + choix triés — clé unique de la ligne
+  productId: string;
+  name: string;                // inclut le libellé des options choisies
+  price_usd: number;           // prix unitaire, options incluses
   image_url: string | null;
   qty: number;
   notes?: string;
+  selectedChoiceIds: string[];
 };
 
 function storageKey(shopId: string) {
-  return `livroto.shop-cart.${shopId}.v1`;
+  return `livroto.shop-cart.${shopId}.v2`;
+}
+
+export function makeCartLineId(productId: string, choiceIds: string[]) {
+  return `${productId}::${[...choiceIds].sort().join(",")}`;
 }
 
 export function useShopCart(shopId: string) {
@@ -38,18 +45,18 @@ export function useShopCart(shopId: string) {
 
   const add = useCallback((item: Omit<ShopCartItem, "qty">, qty = 1) => {
     setItems((prev) => {
-      const existing = prev.find((p) => p.id === item.id);
-      if (existing) return prev.map((p) => (p.id === item.id ? { ...p, qty: p.qty + qty } : p));
+      const existing = prev.find((p) => p.cartLineId === item.cartLineId);
+      if (existing) return prev.map((p) => (p.cartLineId === item.cartLineId ? { ...p, qty: p.qty + qty } : p));
       return [...prev, { ...item, qty }];
     });
   }, []);
-  const setQty = useCallback((id: string, qty: number) => {
+  const setQty = useCallback((cartLineId: string, qty: number) => {
     setItems((prev) => {
-      if (qty <= 0) return prev.filter((p) => p.id !== id);
-      return prev.map((p) => (p.id === id ? { ...p, qty } : p));
+      if (qty <= 0) return prev.filter((p) => p.cartLineId !== cartLineId);
+      return prev.map((p) => (p.cartLineId === cartLineId ? { ...p, qty } : p));
     });
   }, []);
-  const remove = useCallback((id: string) => setItems((prev) => prev.filter((p) => p.id !== id)), []);
+  const remove = useCallback((cartLineId: string) => setItems((prev) => prev.filter((p) => p.cartLineId !== cartLineId)), []);
   const clear = useCallback(() => setItems([]), []);
 
   const count = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items]);

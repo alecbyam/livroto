@@ -157,6 +157,8 @@
 
 @layer utilities {
   .font-display { font-family: var(--font-display); }
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   .bg-hero-gradient {
     background:
       radial-gradient(circle at 20% 10%, color-mix(in oklch, var(--brand) 35%, transparent) 0, transparent 45%),

@@ -7,12 +7,13 @@ import { useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Store } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Store, MapPin } from "lucide-react";
 import { ShopSiteLayout } from "@/components/shops/ShopSiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { getMyShopOrder } from "@/lib/shops/orders.functions";
+import { googleMapsUrl } from "@/lib/geolocation";
 
 export const Route = createFileRoute("/_authenticated/shop-order/$orderId")({
   component: ShopOrderTrackingPage,
@@ -116,7 +117,17 @@ function ShopOrderTrackingPage() {
             <div className="flex justify-between text-muted-foreground"><span>Sous-total</span><span>${Number(order.subtotal_usd ?? 0).toFixed(2)}</span></div>
             <div className="flex justify-between text-muted-foreground"><span>Livraison</span><span>${Number(order.delivery_fee ?? 0).toFixed(2)}</span></div>
             <div className="flex justify-between font-display text-base font-bold"><span>Total</span><span>${Number(order.total_usd).toFixed(2)}</span></div>
-            <div className="flex justify-between text-muted-foreground pt-1"><span>Paiement</span><span>{PAYMENT_LABEL[order.payment_method] ?? order.payment_method} · {order.payment_status === "paid" ? "Payé ✅" : "En attente"}</span></div>
+            <div className="flex justify-between text-muted-foreground pt-1">
+              <span>Paiement</span>
+              <span>
+                {PAYMENT_LABEL[order.payment_method] ?? order.payment_method} ·{" "}
+                {order.payment_status === "paid"
+                  ? "Payé ✅"
+                  : Number(order.paid_usd ?? 0) > 0
+                    ? `Acompte $${Number(order.paid_usd).toFixed(2)} — reste $${(Number(order.total_usd) - Number(order.paid_usd)).toFixed(2)}`
+                    : "En attente"}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -125,6 +136,11 @@ function ShopOrderTrackingPage() {
           <p className="mt-2 text-sm">{order.customer_name} · {order.customer_phone}</p>
           <p className="text-sm text-muted-foreground">{order.zone_name} · {order.customer_address}</p>
           {order.customer_notes && <p className="mt-2 text-sm italic text-muted-foreground">"{order.customer_notes}"</p>}
+          {order.customer_lat != null && order.customer_lng != null && (
+            <a href={googleMapsUrl(order.customer_lat, order.customer_lng)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--primary)] hover:underline">
+              <MapPin className="h-4 w-4" /> Voir la position GPS partagée
+            </a>
+          )}
         </div>
 
         {shop.whatsapp_display && (

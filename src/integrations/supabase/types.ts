@@ -2265,6 +2265,7 @@ export type Database = {
           product_id: string | null
           product_name: string
           quantity: number
+          selected_options: Json
           unit_price_usd: number
         }
         Insert: {
@@ -2276,6 +2277,7 @@ export type Database = {
           product_id?: string | null
           product_name: string
           quantity?: number
+          selected_options?: Json
           unit_price_usd: number
         }
         Update: {
@@ -2287,6 +2289,7 @@ export type Database = {
           product_id?: string | null
           product_name?: string
           quantity?: number
+          selected_options?: Json
           unit_price_usd?: number
         }
         Relationships: [
@@ -2347,12 +2350,15 @@ export type Database = {
           created_at: string
           customer_address: string
           customer_id: string | null
+          customer_lat: number | null
+          customer_lng: number | null
           customer_name: string
           customer_notes: string | null
           customer_phone: string
           delivery_fee: number
           discount_usd: number
           id: string
+          paid_usd: number
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_status: Database["public"]["Enums"]["payment_status"]
           shop_id: string
@@ -2368,12 +2374,15 @@ export type Database = {
           created_at?: string
           customer_address: string
           customer_id?: string | null
+          customer_lat?: number | null
+          customer_lng?: number | null
           customer_name: string
           customer_notes?: string | null
           customer_phone: string
           delivery_fee?: number
           discount_usd?: number
           id?: string
+          paid_usd?: number
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_status?: Database["public"]["Enums"]["payment_status"]
           shop_id: string
@@ -2389,12 +2398,15 @@ export type Database = {
           created_at?: string
           customer_address?: string
           customer_id?: string | null
+          customer_lat?: number | null
+          customer_lng?: number | null
           customer_name?: string
           customer_notes?: string | null
           customer_phone?: string
           delivery_fee?: number
           discount_usd?: number
           id?: string
+          paid_usd?: number
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_status?: Database["public"]["Enums"]["payment_status"]
           shop_id?: string
@@ -2478,6 +2490,76 @@ export type Database = {
           },
         ]
       }
+      shop_product_option_choices: {
+        Row: {
+          id: string
+          name: string
+          option_id: string
+          price_delta_usd: number
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          name: string
+          option_id: string
+          price_delta_usd?: number
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          name?: string
+          option_id?: string
+          price_delta_usd?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_product_option_choices_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "shop_product_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_product_options: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          product_id: string
+          required: boolean
+          sort_order: number
+          type: Database["public"]["Enums"]["shop_option_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          product_id: string
+          required?: boolean
+          sort_order?: number
+          type?: Database["public"]["Enums"]["shop_option_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          product_id?: string
+          required?: boolean
+          sort_order?: number
+          type?: Database["public"]["Enums"]["shop_option_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_product_options_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "shop_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_products: {
         Row: {
           created_at: string
@@ -2485,6 +2567,8 @@ export type Database = {
           id: string
           image_url: string | null
           is_available: boolean
+          is_new: boolean
+          is_popular: boolean
           menu_section_id: string | null
           name: string
           price_usd: number
@@ -2498,6 +2582,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean
+          is_new?: boolean
+          is_popular?: boolean
           menu_section_id?: string | null
           name: string
           price_usd: number
@@ -2511,6 +2597,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean
+          is_new?: boolean
+          is_popular?: boolean
           menu_section_id?: string | null
           name?: string
           price_usd?: number
@@ -3237,6 +3325,7 @@ export type Database = {
       review_target: "product" | "vendor" | "rider"
       rider_status: "pending" | "active" | "offline" | "suspended"
       rider_vehicle: "moto" | "velo" | "pied" | "voiture"
+      shop_option_type: "single" | "multi"
       shop_order_status:
         | "pending"
         | "confirmed"
@@ -3404,6 +3493,7 @@ export const Constants = {
       review_target: ["product", "vendor", "rider"],
       rider_status: ["pending", "active", "offline", "suspended"],
       rider_vehicle: ["moto", "velo", "pied", "voiture"],
+      shop_option_type: ["single", "multi"],
       shop_order_status: [
         "pending",
         "confirmed",

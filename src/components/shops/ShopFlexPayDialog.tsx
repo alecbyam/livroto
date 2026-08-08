@@ -12,9 +12,9 @@ const POLL_MS = 4000;
 const MAX_POLLS = 30;
 
 export function ShopFlexPayDialog({
-  orderId, phone, amountLabel, open, onPaid, onClose,
+  orderId, phone, amountLabel, percent = 100, open, onPaid, onClose,
 }: {
-  orderId: string | null; phone: string; amountLabel: string; open: boolean; onPaid: () => void; onClose: () => void;
+  orderId: string | null; phone: string; amountLabel: string; percent?: number; open: boolean; onPaid: () => void; onClose: () => void;
 }) {
   const initiate = useServerFn(initiateShopFlexpayPayment);
   const check = useServerFn(checkShopFlexpayStatus);
@@ -33,7 +33,7 @@ export function ShopFlexPayDialog({
     setPhase("initiating"); setDetail("");
     (async () => {
       try {
-        const res: any = await initiate({ data: { order_id: orderId, phone } });
+        const res: any = await initiate({ data: { order_id: orderId, phone, percent } });
         if (!res?.ok) { setPhase("error"); setDetail(res?.error ?? "Échec de l'initiation."); return; }
         setPhase("awaiting"); poll();
       } catch (e: any) { setPhase("error"); setDetail(e?.message ?? "Erreur réseau."); }
@@ -62,7 +62,7 @@ export function ShopFlexPayDialog({
     startedFor.current = orderId; polls.current = 0;
     (async () => {
       try {
-        const res: any = await initiate({ data: { order_id: orderId, phone } });
+        const res: any = await initiate({ data: { order_id: orderId, phone, percent } });
         if (!res?.ok) { setPhase("error"); setDetail(res?.error ?? "Échec."); return; }
         setPhase("awaiting"); poll();
       } catch (e: any) { setPhase("error"); setDetail(e?.message ?? "Erreur réseau."); }
