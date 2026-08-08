@@ -121,7 +121,7 @@ export const getMyShopOrder = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: order, error } = await context.supabase
       .from("shop_orders")
-      .select("*, items:shop_order_items(*), history:shop_order_status_history(status,created_at,note), shop:shops(slug,name,logo_url,whatsapp_display)")
+      .select("*, items:shop_order_items(*), history:shop_order_status_history(status,created_at,note), shop:shops(slug,name,logo_url,whatsapp_display,config)")
       .eq("id", data.order_id)
       .single();
     if (error) throw new Error("Commande introuvable.");

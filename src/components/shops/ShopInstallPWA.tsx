@@ -38,18 +38,18 @@ export function ShopInstallPWA({ shopId, shopName }: { shopId: string; shopName:
 
   return (
     <div className="fixed bottom-[72px] left-4 right-4 z-50 md:hidden">
-      <div className="rounded-2xl border border-[color:var(--brand-dark)]/30 bg-[color:var(--brand-dark)] text-white shadow-xl px-4 py-3 flex items-center gap-3">
-        <div className="shrink-0 grid h-10 w-10 place-items-center rounded-xl bg-white/20">
+      <div className="rounded-2xl border border-[color:var(--primary)]/30 bg-[color:var(--primary)] text-[color:var(--primary-foreground)] shadow-xl px-4 py-3 flex items-center gap-3">
+        <div className="shrink-0 grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--primary-foreground)]/15">
           <Download className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-sm truncate">Installe {shopName}</p>
-          <p className="text-xs text-white/75">Ajouter sur ton écran d'accueil</p>
+          <p className="text-xs opacity-75">Ajouter sur ton écran d'accueil</p>
         </div>
-        <button onClick={install} className="shrink-0 rounded-xl bg-[color:var(--amber)] px-4 py-2 text-xs font-bold text-[color:var(--amber-foreground)]">
+        <button onClick={install} className="shrink-0 rounded-xl bg-[color:var(--primary-foreground)] px-4 py-2 text-xs font-bold text-[color:var(--primary)]">
           Installer
         </button>
-        <button onClick={dismiss} className="shrink-0 grid h-7 w-7 place-items-center rounded-full hover:bg-white/20">
+        <button onClick={dismiss} className="shrink-0 grid h-7 w-7 place-items-center rounded-full hover:bg-[color:var(--primary-foreground)]/15">
           <X className="h-4 w-4" />
         </button>
       </div>

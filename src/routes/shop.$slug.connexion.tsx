@@ -23,7 +23,7 @@ export const Route = createFileRoute("/shop/$slug/connexion")({
   component: ShopLoginPage,
 });
 
-type Shop = { id: string; slug: string; name: string; logo_url: string | null; whatsapp_display: string | null };
+type Shop = { id: string; slug: string; name: string; logo_url: string | null; whatsapp_display: string | null; config: Record<string, any> | null };
 type Mode = "signin" | "signup" | "forgot";
 
 function ShopLoginPage() {
@@ -42,7 +42,7 @@ function ShopLoginPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from("shops").select("id,slug,name,logo_url,whatsapp_display").eq("slug", slug).eq("status", "approved").maybeSingle();
+      const { data } = await supabase.from("shops").select("id,slug,name,logo_url,whatsapp_display,config").eq("slug", slug).eq("status", "approved").maybeSingle();
       if (!cancelled) { setShop(data as Shop | null); setLoading(false); }
     })();
     return () => { cancelled = true; };

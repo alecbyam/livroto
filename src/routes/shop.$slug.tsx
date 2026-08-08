@@ -175,7 +175,7 @@ function ShopStorefrontPage() {
       {cart.count > 0 && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full bg-[color:var(--brand-dark)] px-5 py-3 text-white shadow-lg"
+          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full bg-[color:var(--primary)] px-5 py-3 text-[color:var(--primary-foreground)] shadow-lg"
         >
           <ShoppingBag className="h-5 w-5" />
           <span className="font-medium">{cart.count} article{cart.count > 1 ? "s" : ""}</span>
