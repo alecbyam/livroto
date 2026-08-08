@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ShopManifestDotwebmanifestRouteImport } from './routes/shop-manifest[.]webmanifest'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as FavoritesRouteImport } from './routes/favorites'
@@ -27,6 +28,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BoutiqueIndexRouteImport } from './routes/boutique/index'
 import { Route as VendorSlugRouteImport } from './routes/vendor.$slug'
+import { Route as ShopSlugRouteImport } from './routes/shop.$slug'
 import { Route as ProductProductIdRouteImport } from './routes/product.$productId'
 import { Route as OrderProductIdRouteImport } from './routes/order.$productId'
 import { Route as BoutiqueProduitRouteImport } from './routes/boutique/produit'
@@ -37,6 +39,7 @@ import { Route as AuthenticatedParrainageRouteImport } from './routes/_authentic
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as BoutiqueAdminRouteRouteImport } from './routes/boutique/admin/route'
+import { Route as ShopSlugConnexionRouteImport } from './routes/shop.$slug.connexion'
 import { Route as BoutiqueAdminRapportsRouteImport } from './routes/boutique/admin/rapports'
 import { Route as BoutiqueAdminPromoRouteImport } from './routes/boutique/admin/promo'
 import { Route as BoutiqueAdminProduitsRouteImport } from './routes/boutique/admin/produits'
@@ -50,6 +53,8 @@ import { Route as BoutiqueAdminCreditsRouteImport } from './routes/boutique/admi
 import { Route as BoutiqueAdminCommandesRouteImport } from './routes/boutique/admin/commandes'
 import { Route as BoutiqueAdminChargesRouteImport } from './routes/boutique/admin/charges'
 import { Route as BoutiqueAdminCategoriesRouteImport } from './routes/boutique/admin/categories'
+import { Route as AuthenticatedShopOrderOrderIdRouteImport } from './routes/_authenticated/shop-order.$orderId'
+import { Route as AuthenticatedShopAdminSlugRouteImport } from './routes/_authenticated/shop-admin.$slug'
 import { Route as AuthenticatedOrdersOrderIdRouteImport } from './routes/_authenticated/orders.$orderId'
 
 const TermsRoute = TermsRouteImport.update({
@@ -62,6 +67,12 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShopManifestDotwebmanifestRoute =
+  ShopManifestDotwebmanifestRouteImport.update({
+    id: '/shop-manifest.webmanifest',
+    path: '/shop-manifest.webmanifest',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
   id: '/robots.txt',
   path: '/robots.txt',
@@ -142,6 +153,11 @@ const VendorSlugRoute = VendorSlugRouteImport.update({
   path: '/vendor/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShopSlugRoute = ShopSlugRouteImport.update({
+  id: '/shop/$slug',
+  path: '/shop/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductProductIdRoute = ProductProductIdRouteImport.update({
   id: '/product/$productId',
   path: '/product/$productId',
@@ -191,6 +207,11 @@ const BoutiqueAdminRouteRoute = BoutiqueAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => BoutiqueRouteRoute,
+} as any)
+const ShopSlugConnexionRoute = ShopSlugConnexionRouteImport.update({
+  id: '/connexion',
+  path: '/connexion',
+  getParentRoute: () => ShopSlugRoute,
 } as any)
 const BoutiqueAdminRapportsRoute = BoutiqueAdminRapportsRouteImport.update({
   id: '/rapports',
@@ -258,6 +279,18 @@ const BoutiqueAdminCategoriesRoute = BoutiqueAdminCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => BoutiqueAdminRouteRoute,
 } as any)
+const AuthenticatedShopOrderOrderIdRoute =
+  AuthenticatedShopOrderOrderIdRouteImport.update({
+    id: '/shop-order/$orderId',
+    path: '/shop-order/$orderId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedShopAdminSlugRoute =
+  AuthenticatedShopAdminSlugRouteImport.update({
+    id: '/shop-admin/$slug',
+    path: '/shop-admin/$slug',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedOrdersOrderIdRoute =
   AuthenticatedOrdersOrderIdRouteImport.update({
     id: '/$orderId',
@@ -279,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/favorites': typeof FavoritesRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/shop-manifest.webmanifest': typeof ShopManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/boutique/admin': typeof BoutiqueAdminRouteRouteWithChildren
@@ -291,9 +325,12 @@ export interface FileRoutesByFullPath {
   '/boutique/produit': typeof BoutiqueProduitRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
+  '/shop/$slug': typeof ShopSlugRouteWithChildren
   '/vendor/$slug': typeof VendorSlugRoute
   '/boutique/': typeof BoutiqueIndexRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
+  '/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
+  '/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -307,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
   '/boutique/admin/promo': typeof BoutiqueAdminPromoRoute
   '/boutique/admin/rapports': typeof BoutiqueAdminRapportsRoute
+  '/shop/$slug/connexion': typeof ShopSlugConnexionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -321,6 +359,7 @@ export interface FileRoutesByTo {
   '/favorites': typeof FavoritesRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/shop-manifest.webmanifest': typeof ShopManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/boutique/admin': typeof BoutiqueAdminRouteRouteWithChildren
@@ -333,9 +372,12 @@ export interface FileRoutesByTo {
   '/boutique/produit': typeof BoutiqueProduitRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
+  '/shop/$slug': typeof ShopSlugRouteWithChildren
   '/vendor/$slug': typeof VendorSlugRoute
   '/boutique': typeof BoutiqueIndexRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
+  '/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
+  '/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -349,6 +391,7 @@ export interface FileRoutesByTo {
   '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
   '/boutique/admin/promo': typeof BoutiqueAdminPromoRoute
   '/boutique/admin/rapports': typeof BoutiqueAdminRapportsRoute
+  '/shop/$slug/connexion': typeof ShopSlugConnexionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -366,6 +409,7 @@ export interface FileRoutesById {
   '/favorites': typeof FavoritesRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/shop-manifest.webmanifest': typeof ShopManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/boutique/admin': typeof BoutiqueAdminRouteRouteWithChildren
@@ -378,9 +422,12 @@ export interface FileRoutesById {
   '/boutique/produit': typeof BoutiqueProduitRoute
   '/order/$productId': typeof OrderProductIdRoute
   '/product/$productId': typeof ProductProductIdRoute
+  '/shop/$slug': typeof ShopSlugRouteWithChildren
   '/vendor/$slug': typeof VendorSlugRoute
   '/boutique/': typeof BoutiqueIndexRoute
   '/_authenticated/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
+  '/_authenticated/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
+  '/_authenticated/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -394,6 +441,7 @@ export interface FileRoutesById {
   '/boutique/admin/produits': typeof BoutiqueAdminProduitsRoute
   '/boutique/admin/promo': typeof BoutiqueAdminPromoRoute
   '/boutique/admin/rapports': typeof BoutiqueAdminRapportsRoute
+  '/shop/$slug/connexion': typeof ShopSlugConnexionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -411,6 +459,7 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/reset-password'
     | '/robots.txt'
+    | '/shop-manifest.webmanifest'
     | '/sitemap.xml'
     | '/terms'
     | '/boutique/admin'
@@ -423,9 +472,12 @@ export interface FileRouteTypes {
     | '/boutique/produit'
     | '/order/$productId'
     | '/product/$productId'
+    | '/shop/$slug'
     | '/vendor/$slug'
     | '/boutique/'
     | '/orders/$orderId'
+    | '/shop-admin/$slug'
+    | '/shop-order/$orderId'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -439,6 +491,7 @@ export interface FileRouteTypes {
     | '/boutique/admin/produits'
     | '/boutique/admin/promo'
     | '/boutique/admin/rapports'
+    | '/shop/$slug/connexion'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -453,6 +506,7 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/reset-password'
     | '/robots.txt'
+    | '/shop-manifest.webmanifest'
     | '/sitemap.xml'
     | '/terms'
     | '/boutique/admin'
@@ -465,9 +519,12 @@ export interface FileRouteTypes {
     | '/boutique/produit'
     | '/order/$productId'
     | '/product/$productId'
+    | '/shop/$slug'
     | '/vendor/$slug'
     | '/boutique'
     | '/orders/$orderId'
+    | '/shop-admin/$slug'
+    | '/shop-order/$orderId'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -481,6 +538,7 @@ export interface FileRouteTypes {
     | '/boutique/admin/produits'
     | '/boutique/admin/promo'
     | '/boutique/admin/rapports'
+    | '/shop/$slug/connexion'
   id:
     | '__root__'
     | '/'
@@ -497,6 +555,7 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/reset-password'
     | '/robots.txt'
+    | '/shop-manifest.webmanifest'
     | '/sitemap.xml'
     | '/terms'
     | '/boutique/admin'
@@ -509,9 +568,12 @@ export interface FileRouteTypes {
     | '/boutique/produit'
     | '/order/$productId'
     | '/product/$productId'
+    | '/shop/$slug'
     | '/vendor/$slug'
     | '/boutique/'
     | '/_authenticated/orders/$orderId'
+    | '/_authenticated/shop-admin/$slug'
+    | '/_authenticated/shop-order/$orderId'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -525,6 +587,7 @@ export interface FileRouteTypes {
     | '/boutique/admin/produits'
     | '/boutique/admin/promo'
     | '/boutique/admin/rapports'
+    | '/shop/$slug/connexion'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -542,10 +605,12 @@ export interface RootRouteChildren {
   FavoritesRoute: typeof FavoritesRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
+  ShopManifestDotwebmanifestRoute: typeof ShopManifestDotwebmanifestRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   OrderProductIdRoute: typeof OrderProductIdRoute
   ProductProductIdRoute: typeof ProductProductIdRoute
+  ShopSlugRoute: typeof ShopSlugRouteWithChildren
   VendorSlugRoute: typeof VendorSlugRoute
 }
 
@@ -563,6 +628,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shop-manifest.webmanifest': {
+      id: '/shop-manifest.webmanifest'
+      path: '/shop-manifest.webmanifest'
+      fullPath: '/shop-manifest.webmanifest'
+      preLoaderRoute: typeof ShopManifestDotwebmanifestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -677,6 +749,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VendorSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shop/$slug': {
+      id: '/shop/$slug'
+      path: '/shop/$slug'
+      fullPath: '/shop/$slug'
+      preLoaderRoute: typeof ShopSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/product/$productId': {
       id: '/product/$productId'
       path: '/product/$productId'
@@ -746,6 +825,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/boutique/admin'
       preLoaderRoute: typeof BoutiqueAdminRouteRouteImport
       parentRoute: typeof BoutiqueRouteRoute
+    }
+    '/shop/$slug/connexion': {
+      id: '/shop/$slug/connexion'
+      path: '/connexion'
+      fullPath: '/shop/$slug/connexion'
+      preLoaderRoute: typeof ShopSlugConnexionRouteImport
+      parentRoute: typeof ShopSlugRoute
     }
     '/boutique/admin/rapports': {
       id: '/boutique/admin/rapports'
@@ -838,6 +924,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueAdminCategoriesRouteImport
       parentRoute: typeof BoutiqueAdminRouteRoute
     }
+    '/_authenticated/shop-order/$orderId': {
+      id: '/_authenticated/shop-order/$orderId'
+      path: '/shop-order/$orderId'
+      fullPath: '/shop-order/$orderId'
+      preLoaderRoute: typeof AuthenticatedShopOrderOrderIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/shop-admin/$slug': {
+      id: '/_authenticated/shop-admin/$slug'
+      path: '/shop-admin/$slug'
+      fullPath: '/shop-admin/$slug'
+      preLoaderRoute: typeof AuthenticatedShopAdminSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/orders/$orderId': {
       id: '/_authenticated/orders/$orderId'
       path: '/$orderId'
@@ -864,6 +964,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRouteWithChildren
   AuthenticatedParrainageRoute: typeof AuthenticatedParrainageRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedShopAdminSlugRoute: typeof AuthenticatedShopAdminSlugRoute
+  AuthenticatedShopOrderOrderIdRoute: typeof AuthenticatedShopOrderOrderIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -871,6 +973,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOrdersRoute: AuthenticatedOrdersRouteWithChildren,
   AuthenticatedParrainageRoute: AuthenticatedParrainageRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedShopAdminSlugRoute: AuthenticatedShopAdminSlugRoute,
+  AuthenticatedShopOrderOrderIdRoute: AuthenticatedShopOrderOrderIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -931,6 +1035,18 @@ const BoutiqueRouteRouteWithChildren = BoutiqueRouteRoute._addFileChildren(
   BoutiqueRouteRouteChildren,
 )
 
+interface ShopSlugRouteChildren {
+  ShopSlugConnexionRoute: typeof ShopSlugConnexionRoute
+}
+
+const ShopSlugRouteChildren: ShopSlugRouteChildren = {
+  ShopSlugConnexionRoute: ShopSlugConnexionRoute,
+}
+
+const ShopSlugRouteWithChildren = ShopSlugRoute._addFileChildren(
+  ShopSlugRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -946,10 +1062,12 @@ const rootRouteChildren: RootRouteChildren = {
   FavoritesRoute: FavoritesRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
+  ShopManifestDotwebmanifestRoute: ShopManifestDotwebmanifestRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   OrderProductIdRoute: OrderProductIdRoute,
   ProductProductIdRoute: ProductProductIdRoute,
+  ShopSlugRoute: ShopSlugRouteWithChildren,
   VendorSlugRoute: VendorSlugRoute,
 }
 export const routeTree = rootRouteImport
