@@ -53,6 +53,9 @@ export function PosOfflineBanner({ onSynced }: { onSynced?: () => void }) {
             hors_ligne_id: v.id,
             client_id: clientId,
             mode_paiement: v.mode_paiement,
+            // Date réelle de la vente (choisie/figée au moment de
+            // l'encaissement hors-ligne) — jamais l'heure de resynchro.
+            date_vente: v.date_vente,
             code_promo: v.code_promo ?? undefined,
             date_echeance: v.mode_paiement === "credit" ? v.credit?.date_echeance : undefined,
             credit_notes: v.mode_paiement === "credit" ? v.credit?.notes ?? undefined : undefined,

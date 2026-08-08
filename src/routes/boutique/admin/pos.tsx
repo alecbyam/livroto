@@ -73,6 +73,14 @@ type LigneCaisse = {
   quantite: number;
 };
 
+// Format attendu par <input type="datetime-local"> : "YYYY-MM-DDTHH:mm" en
+// heure LOCALE (pas UTC) — toISOString() seul donnerait l'heure UTC, décalée
+// par rapport à ce que la caissière voit sur sa pendule.
+function versDatetimeLocal(date: Date): string {
+  const decalageMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - decalageMs).toISOString().slice(0, 16);
+}
+
 function PosPage() {
   const boutique = useBoutique();
   const qc = useQueryClient();
@@ -98,6 +106,12 @@ function PosPage() {
   const [filtre, setFiltre] = useState("");
   const [categorieId, setCategorieId] = useState<string>("tous");
   const [modePaiement, setModePaiement] = useState<"cash" | "mobile_money" | "carte" | "credit">("cash");
+  // Date/heure réelle de la vente — par défaut l'instant présent, modifiable
+  // pour enregistrer une vente antérieure (ex. vente papier saisie plus
+  // tard, ou hors-ligne : voir mettreEnFile ci-dessous qui la fige au
+  // moment de la mise en file, pas à la resynchronisation). Reprise telle
+  // quelle sur la facture et dans les rapports (ventes.created_at).
+  const [dateVente, setDateVente] = useState(() => versDatetimeLocal(new Date()));
   const [codePromo, setCodePromo] = useState("");
   const [clientCredit, setClientCredit] = useState<{ id: string; nom: string } | null>(null);
   const [dateEcheance, setDateEcheance] = useState("");
@@ -394,6 +408,12 @@ function PosPage() {
       setAvanceModePaiement("cash");
     };
 
+    const dateVenteIso = new Date(dateVente).toISOString();
+    if (new Date(dateVenteIso).getTime() > Date.now() + 5 * 60_000) {
+      toast.error("La date de la vente ne peut pas être dans le futur.");
+      return;
+    }
+
     if (modePaiement === "credit") {
       if (enLigne && !clientCredit) {
         toast.error("Sélectionne ou crée un client pour une vente à crédit.");
@@ -418,6 +438,7 @@ function PosPage() {
       boutique_id: boutique.id,
       hors_ligne_id: horsLigneId,
       mode_paiement: modePaiement,
+      date_vente: dateVenteIso,
       client_id: modePaiement === "credit" && clientCredit ? clientCredit.id : undefined,
       date_echeance: modePaiement === "credit" ? dateEcheance : undefined,
       credit_notes: modePaiement === "credit" ? motifCredit.trim() || undefined : undefined,
@@ -440,6 +461,7 @@ function PosPage() {
       posOfflineQueue.add({
         id: horsLigneId,
         createdAt: new Date().toISOString(),
+        date_vente: dateVenteIso,
         boutique_id: boutique.id,
         client_id: clientIdConnu ?? null,
         mode_paiement: modePaiement,
@@ -476,6 +498,7 @@ function PosPage() {
       imprimerRecuVente(lignesVendues, null, sousTotal);
       setCart([]);
       setCodePromo("");
+      setDateVente(versDatetimeLocal(new Date()));
       if (modePaiement === "credit") resetChampsCredit();
       setEnCours(false);
       return;
@@ -487,6 +510,7 @@ function PosPage() {
       imprimerRecuVente(lignesVendues, vente.numero, Number(vente.total_usd));
       setCart([]);
       setCodePromo("");
+      setDateVente(versDatetimeLocal(new Date()));
       resetChampsCredit();
       qc.invalidateQueries({ queryKey: ["boutique-pos-produits", boutique.id] });
     } catch (err) {
@@ -501,6 +525,7 @@ function PosPage() {
       imprimerRecuVente(lignesVendues, null, sousTotal);
       setCart([]);
       setCodePromo("");
+      setDateVente(versDatetimeLocal(new Date()));
       if (modePaiement === "credit") resetChampsCredit();
     } finally {
       setEnCours(false);
@@ -848,6 +873,21 @@ function PosPage() {
               );
             })
           )}
+        </div>
+
+        <div className="mt-4">
+          <Label htmlFor="date-vente">Date et heure</Label>
+          <Input
+            id="date-vente"
+            type="datetime-local"
+            value={dateVente}
+            max={versDatetimeLocal(new Date())}
+            onChange={(e) => setDateVente(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Laisse par défaut pour l'heure actuelle — modifie seulement pour enregistrer une vente
+            antérieure (ex. vente papier saisie plus tard).
+          </p>
         </div>
 
         <div className="mt-4">

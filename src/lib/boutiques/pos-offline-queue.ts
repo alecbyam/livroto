@@ -4,7 +4,13 @@
 // et les deux ne doivent jamais se mélanger dans le même localStorage.
 export type QueuedVente = {
   id: string; // = hors_ligne_id envoyé au serveur, sert aussi de clé de dédoublonnage
-  createdAt: string;
+  createdAt: string; // bookkeeping local (moment de la mise en file) — PAS la date de la vente, voir date_vente
+  // Date/heure réelle choisie pour la vente (par défaut l'instant présent au
+  // moment de l'encaissement, modifiable par la caissière) — figée ici, PAS
+  // recalculée à la resynchronisation, sinon une vente prise hors-ligne à
+  // 14h se retrouverait datée de l'heure de reconnexion sur la facture et
+  // dans les rapports.
+  date_vente: string;
   attempts?: number;
   boutique_id: string;
   client_id?: string | null;

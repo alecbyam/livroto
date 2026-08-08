@@ -18,6 +18,15 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
         boutique_id: z.string().uuid(),
         hors_ligne_id: z.string().max(100).optional(),
         client_id: z.string().uuid().optional(),
+        // Date/heure réelle de la vente — par défaut l'instant présent (le
+        // client n'envoie ce champ que si la caissière l'a explicitement
+        // changé, ou pour une vente hors-ligne resynchronisée plus tard :
+        // sans ça, une vente prise hors réseau à 14h mais synchronisée à 18h
+        // se retrouverait datée 18h sur la facture ET dans les rapports).
+        // Bornée à ±5 min dans le futur (tolérance d'horloge) dans le
+        // handler — le sous_total n'est pas encore connu ici pour d'autres
+        // validations, mais celle-ci ne dépend que de l'horloge serveur.
+        date_vente: z.string().datetime().optional(),
         mode_paiement: z.enum(["cash", "mobile_money", "carte", "credit"]),
         // Requis uniquement en mode crédit : à qui appartient la dette et
         // quand elle doit être remboursée. Validé plus bas (Zod ne peut pas
@@ -66,6 +75,13 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertBoutiqueStaff(context, data.boutique_id, ["admin", "vendeur", "caissier"]);
+
+    // Tolérance de 5 min pour l'horloge du terminal (souvent imprécise sur du
+    // matériel bas de gamme) — au-delà, presque toujours une erreur de
+    // saisie (mauvais fuseau/date) plutôt qu'une vraie vente future.
+    if (data.date_vente && new Date(data.date_vente).getTime() > Date.now() + 5 * 60_000) {
+      throw new Error("La date de la vente ne peut pas être dans le futur.");
+    }
 
     // Idempotence : une vente déjà enregistrée avec ce hors_ligne_id (accusé de
     // réception perdu en réseau instable, la caisse retente) est renvoyée
@@ -164,6 +180,11 @@ export const boutiqueEncaisserVente = createServerFn({ method: "POST" })
         remise_usd: remise,
         total_usd: total,
         hors_ligne_id: data.hors_ligne_id ?? null,
+        // Absent → défaut DB (now()). Fourni → date réelle de la vente
+        // (saisie manuelle ou vente hors-ligne resynchronisée), reprise
+        // telle quelle par la facture PDF et les rapports (tous deux lisent
+        // ventes.created_at, aucun autre endroit à toucher).
+        ...(data.date_vente ? { created_at: data.date_vente } : {}),
       })
       .select("id,numero,total_usd")
       .single();
