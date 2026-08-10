@@ -38,6 +38,7 @@ import {
   ownerListStaff, ownerCreateStaffUser, ownerUpdateStaffRole, ownerRemoveStaff, ownerResetStaffPassword,
 } from "@/lib/shops/staff.functions";
 import { ShopInstallPWA } from "@/components/shops/ShopInstallPWA";
+import { ImageUploadField } from "@/components/shops/ImageUploadField";
 import { useShopPwaBranding } from "@/lib/shops/usePwaBranding";
 
 export const Route = createFileRoute("/_authenticated/shop-admin/$slug")({
@@ -384,6 +385,7 @@ function MenuTab({ shopId }: { shopId: string }) {
 
       <ProductDialog
         key={editing?.id ?? editing?.menu_section_id ?? "closed"}
+        shopId={shopId}
         value={editing}
         onOpenChange={(o) => { if (!o) setEditing(null); }}
         onSubmit={async (payload) => {
@@ -479,7 +481,7 @@ function ProductOptionsDialog({ product, onOpenChange, onChanged }: { product: a
 // `key={...}` sur le parent (ci-dessus) force un remount complet du dialogue à
 // chaque ouverture — l'état contrôlé ci-dessous repart donc toujours propre,
 // pas de valeur d'un article précédent qui traîne.
-function ProductDialog({ value, onOpenChange, onSubmit }: { value: any | null; onOpenChange: (o: boolean) => void; onSubmit: (payload: any) => void }) {
+function ProductDialog({ shopId, value, onOpenChange, onSubmit }: { shopId: string; value: any | null; onOpenChange: (o: boolean) => void; onSubmit: (payload: any) => void }) {
   const [form, setForm] = useState({
     name: value?.name ?? "",
     description: value?.description ?? "",
@@ -498,7 +500,7 @@ function ProductDialog({ value, onOpenChange, onSubmit }: { value: any | null; o
           <div><Label className="text-xs">Nom</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" /></div>
           <div><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" /></div>
           <div><Label className="text-xs">Prix (USD)</Label><Input type="number" step="0.01" value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: e.target.value })} className="mt-1" /></div>
-          <div><Label className="text-xs">URL image</Label><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="mt-1" /></div>
+          <ImageUploadField label="Photo" shopId={shopId} folder="products" value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} />
           <div className="flex gap-4">
             <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_popular} onCheckedChange={(v) => setForm({ ...form, is_popular: v })} /> Populaire</label>
             <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_new} onCheckedChange={(v) => setForm({ ...form, is_new: v })} /> Nouveau</label>
@@ -581,8 +583,8 @@ function SettingsTab({ shop }: { shop: any }) {
         <h3 className="font-display font-bold">Identité</h3>
         <div><Label className="text-xs">Nom</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" /></div>
         <div><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" /></div>
-        <div><Label className="text-xs">Logo (URL)</Label><Input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} className="mt-1" /></div>
-        <div><Label className="text-xs">Photo de couverture (URL)</Label><Input value={form.cover_url} onChange={(e) => setForm({ ...form, cover_url: e.target.value })} className="mt-1" /></div>
+        <ImageUploadField label="Logo" shopId={shop.id} folder="logo" value={form.logo_url} onChange={(url) => setForm({ ...form, logo_url: url })} />
+        <ImageUploadField label="Photo de couverture" shopId={shop.id} folder="cover" value={form.cover_url} onChange={(url) => setForm({ ...form, cover_url: url })} />
         <div><Label className="text-xs">WhatsApp affiché aux clients</Label><Input value={form.whatsapp_display} onChange={(e) => setForm({ ...form, whatsapp_display: e.target.value })} placeholder="243..." className="mt-1" /></div>
         <div><Label className="text-xs">Adresse</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Quartier, avenue, repère..." className="mt-1" /></div>
       </div>

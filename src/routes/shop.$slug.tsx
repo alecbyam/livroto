@@ -58,6 +58,7 @@ function ShopStorefrontPage() {
   const [shop, setShop] = useState<Shop | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<{ id: string; rating: number; comment: string | null; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFoundState, setNotFoundState] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -78,15 +79,17 @@ function ShopStorefrontPage() {
       if (!s) { setNotFoundState(true); setLoading(false); return; }
       setShop(s as unknown as Shop);
 
-      const [{ data: secs }, { data: prods }] = await Promise.all([
+      const [{ data: secs }, { data: prods }, { data: revs }] = await Promise.all([
         supabase.from("shop_menu_sections").select("id,name,sort_order").eq("shop_id", s.id).eq("active", true).order("sort_order"),
         supabase
           .from("shop_products")
           .select("id,menu_section_id,name,description,price_usd,image_url,is_available,is_popular,is_new,options:shop_product_options(id,name,type,required,sort_order,choices:shop_product_option_choices(id,name,price_delta_usd,sort_order))")
           .eq("shop_id", s.id).order("sort_order"),
+        supabase.from("shop_reviews").select("id,rating,comment,created_at").eq("shop_id", s.id).order("created_at", { ascending: false }).limit(5),
       ]);
       if (cancelled) return;
       setSections(secs ?? []);
+      setReviews(revs ?? []);
       setProducts(
         (prods ?? []).map((p: any) => ({
           ...p,
@@ -283,6 +286,30 @@ function ShopStorefrontPage() {
                 )}
               </AccordionContent>
             </AccordionItem>
+            {reviews.length > 0 && (
+              <AccordionItem value="avis">
+                <AccordionTrigger className="font-display text-base font-bold">
+                  Avis {shop.rating_count > 0 && `(${shop.rating_count})`}
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-3">
+                    {reviews.map((r) => (
+                      <div key={r.id} className="rounded-xl border p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-0.5">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "fill-[color:var(--primary)] text-[color:var(--primary)]" : "text-muted-foreground"}`} />
+                            ))}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString("fr-FR")}</span>
+                        </div>
+                        {r.comment && <p className="mt-1.5 text-sm text-muted-foreground">"{r.comment}"</p>}
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
           </Accordion>
         </div>
 

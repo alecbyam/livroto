@@ -3,16 +3,19 @@
 // Sous `_authenticated` comme orders.$orderId.tsx côté marketplace natif :
 // même exigence de connexion pour voir sa commande.
 // ============================================================================
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Store, MapPin } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Store, MapPin, Star } from "lucide-react";
 import { ShopSiteLayout } from "@/components/shops/ShopSiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { getMyShopOrder } from "@/lib/shops/orders.functions";
+import { customerLeaveShopReview } from "@/lib/shops/reviews.functions";
 import { googleMapsUrl } from "@/lib/geolocation";
 
 export const Route = createFileRoute("/_authenticated/shop-order/$orderId")({
@@ -143,6 +146,10 @@ function ShopOrderTrackingPage() {
           )}
         </div>
 
+        {order.status === "delivered" && (
+          <ReviewSection orderId={order.id} shopId={order.shop_id} existingReview={order.review} />
+        )}
+
         {shop.whatsapp_display && (
           <div className="mt-6">
             <Button asChild variant="outline">
@@ -154,5 +161,55 @@ function ShopOrderTrackingPage() {
         )}
       </div>
     </ShopSiteLayout>
+  );
+}
+
+function ReviewSection({ orderId, shopId, existingReview }: { orderId: string; shopId: string; existingReview: { rating: number; comment: string | null } | { rating: number; comment: string | null }[] | null }) {
+  const qc = useQueryClient();
+  const submitReview = useServerFn(customerLeaveShopReview);
+  const review = Array.isArray(existingReview) ? existingReview[0] : existingReview;
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (review) {
+    return (
+      <div className="mt-6 rounded-2xl border bg-card p-5">
+        <h2 className="font-display font-semibold">Ton avis</h2>
+        <div className="mt-2 flex items-center gap-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star key={i} className={`h-4 w-4 ${i < review.rating ? "fill-[color:var(--primary)] text-[color:var(--primary)]" : "text-muted-foreground"}`} />
+          ))}
+        </div>
+        {review.comment && <p className="mt-2 text-sm text-muted-foreground">"{review.comment}"</p>}
+      </div>
+    );
+  }
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await submitReview({ data: { order_id: orderId, shop_id: shopId, rating, comment: comment.trim() || undefined } });
+      toast.success("Merci pour ton avis !");
+      qc.invalidateQueries({ queryKey: ["shop-order-detail", orderId] });
+    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mt-6 rounded-2xl border bg-card p-5">
+      <h2 className="font-display font-semibold">Laisse un avis sur cette boutique</h2>
+      <form onSubmit={onSubmit} className="mt-3 space-y-3">
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n} type="button" onClick={() => setRating(n)}>
+              <Star className={`h-7 w-7 ${n <= rating ? "fill-[color:var(--primary)] text-[color:var(--primary)]" : "text-muted-foreground"}`} />
+            </button>
+          ))}
+        </div>
+        <Textarea placeholder="Ton commentaire (optionnel)" value={comment} onChange={(e) => setComment(e.target.value)} />
+        <Button type="submit" disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Envoyer mon avis"}</Button>
+      </form>
+    </div>
   );
 }
