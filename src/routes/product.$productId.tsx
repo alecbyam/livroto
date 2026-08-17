@@ -24,6 +24,22 @@ export const Route = createFileRoute("/product/$productId")({
       { name: "description", content: "Découvre ce produit sur Livroto, livré à ta porte à Bunia. Paiement cash à la livraison." },
     ],
   }),
+  // SSR du 1er écran (audit perf du 10/08/2026 : cette fiche est le lien le plus
+  // partagé en direct — WhatsApp, statuts — donc la page la plus souvent ouverte
+  // "à froid", sans navigation SPA préalable. Sans loader, 1er affichage = skeleton
+  // vide + aller-retour Supabase après le JS, sur le réseau 2G/3G de Bunia. Même
+  // principe que index.tsx/catalog.tsx : le loader alimente `initialData` des
+  // useQuery ci-dessous, qui gardent leur rôle pour les navigations client suivantes.
+  loader: async ({ params }) => {
+    const product = await fetchProduct(params.productId);
+    if (!product) return { product: null, vendor: null, reviews: [], related: [] };
+    const [vendor, reviews, related] = await Promise.all([
+      product.vendor_id ? fetchVendor(product.vendor_id) : Promise.resolve(null),
+      fetchReviews(params.productId),
+      fetchRelated(params.productId, product.subcategory_id),
+    ]);
+    return { product, vendor, reviews, related };
+  },
 });
 
 type Product = {
@@ -36,7 +52,31 @@ type Product = {
 type Vendor = { id: string; shop_name: string; slug: string; whatsapp: string | null; logo_url: string | null; rating_avg: number | null; rating_count: number | null; status: string | null };
 type Review = { id: string; rating: number; comment: string | null; created_at: string; author_id: string };
 
+async function fetchProduct(productId: string): Promise<Product | null> {
+  const { data } = await supabase.from("products").select(PRODUCT_DETAIL_SELECT).eq("id", productId).eq("approved", true).maybeSingle();
+  return (data as Product | null) ?? null;
+}
+async function fetchVendor(ownerId: string): Promise<Vendor | null> {
+  const { data } = await supabase.from("vendors").select("id,shop_name,slug,whatsapp,logo_url,rating_avg,rating_count,status").eq("owner_id", ownerId).maybeSingle();
+  return (data as Vendor | null) ?? null;
+}
+async function fetchReviews(productId: string): Promise<Review[]> {
+  const { data } = await supabase.from("reviews").select("id,rating,comment,created_at,author_id").eq("product_id", productId).order("created_at", { ascending: false }).limit(10);
+  return (data ?? []) as Review[];
+}
+async function fetchRelated(productId: string, subcategoryId: string): Promise<DisplayProduct[]> {
+  const { data: rel } = await supabase.from("products").select(PRODUCT_LIST_SELECT).eq("approved", true).eq("subcategory_id", subcategoryId).neq("id", productId).limit(8);
+  return (rel ?? []).map((r: any) => ({
+    ...r, price_usd: Number(r.price_usd),
+    rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
+    rating_count: r.rating_count ?? 0,
+  })) as DisplayProduct[];
+}
+
+const EMPTY_LOADER_DATA = { product: null as Product | null, vendor: null as Vendor | null, reviews: [] as Review[], related: [] as DisplayProduct[] };
+
 function ProductPage() {
+  const loaderData = Route.useLoaderData() ?? EMPTY_LOADER_DATA;
   const { productId } = Route.useParams();
   const { add } = useCart();
   const { isFav, toggle } = useFavorite(productId);
@@ -46,56 +86,36 @@ function ProductPage() {
   const [lightbox, setLightbox] = useState(false);
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  // Migré de useEffect → useQuery (audit P-1) : cache inter-navigations, dédup,
-  // et requêtes indépendantes (vendeur/avis/liés) en parallèle au lieu d'en série.
-  // Les données affichées sont identiques ; le catalogue bouge peu → staleTime long.
+  // useQuery amorcé par le loader SSR (voir Route ci-dessus, audit perf du
+  // 10/08/2026) : initialData = 1er affichage déjà rempli côté serveur, ces
+  // définitions ne servent plus qu'aux navigations client suivantes (retour
+  // arrière, changement de produit lié) — même cache/dédup qu'avant.
   const { data: product = null, isLoading: loading } = useQuery({
     queryKey: ["product", productId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select(PRODUCT_DETAIL_SELECT)
-        .eq("id", productId).eq("approved", true).maybeSingle();
-      return (data as Product | null) ?? null;
-    },
+    queryFn: () => fetchProduct(productId),
+    initialData: loaderData.product,
     staleTime: 5 * 60_000,
   });
 
   const { data: vendor = null } = useQuery({
     queryKey: ["product-vendor", product?.vendor_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("vendors").select("id,shop_name,slug,whatsapp,logo_url,rating_avg,rating_count,status")
-        .eq("owner_id", product!.vendor_id!).maybeSingle();
-      return (data as Vendor | null) ?? null;
-    },
+    queryFn: () => fetchVendor(product!.vendor_id!),
+    initialData: loaderData.vendor,
     enabled: !!product?.vendor_id,
     staleTime: 5 * 60_000,
   });
 
   const { data: reviews = [] } = useQuery({
     queryKey: ["product-reviews", productId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("reviews").select("id,rating,comment,created_at,author_id")
-        .eq("product_id", productId).order("created_at", { ascending: false }).limit(10);
-      return (data ?? []) as Review[];
-    },
+    queryFn: () => fetchReviews(productId),
+    initialData: loaderData.reviews,
     staleTime: 60_000,
   });
 
   const { data: related = [] } = useQuery({
     queryKey: ["product-related", productId, product?.subcategory_id],
-    queryFn: async () => {
-      const { data: rel } = await supabase
-        .from("products").select(PRODUCT_LIST_SELECT)
-        .eq("approved", true).eq("subcategory_id", product!.subcategory_id).neq("id", productId).limit(8);
-      return (rel ?? []).map((r: any) => ({
-        ...r, price_usd: Number(r.price_usd),
-        rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
-        rating_count: r.rating_count ?? 0,
-      })) as DisplayProduct[];
-    },
+    queryFn: () => fetchRelated(productId, product!.subcategory_id),
+    initialData: loaderData.related,
     enabled: !!product?.subcategory_id,
     staleTime: 5 * 60_000,
   });

@@ -7,18 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/boutiques")({
-  head: () => ({
-    meta: [
-      { title: "Boutiques — Livroto Bunia" },
-      { name: "description", content: "Découvre toutes les boutiques de Bunia sur Livroto : produits locaux, livraison à ta porte, paiement cash." },
-      { property: "og:title", content: "Boutiques de Bunia — Livroto" },
-      { property: "og:description", content: "Parcours les vendeurs locaux de Bunia et commande en quelques tapes." },
-    ],
-  }),
-  component: BoutiquesPage,
-});
-
 type VendorCard = {
   id: string;
   slug: string;
@@ -32,61 +20,80 @@ type VendorCard = {
   productCount: number;
 };
 
+async function fetchBoutiquesData(): Promise<VendorCard[]> {
+  const [{ data: vRows }, { data: zoneRows }, { data: vzRows }, { data: prodRows }] = await Promise.all([
+    supabase
+      .from("vendors")
+      .select("id,owner_id,slug,shop_name,description,logo_url,cover_url,rating_avg,rating_count,base_zone_id")
+      .eq("status", "approved"),
+    supabase.from("zones").select("id,name").eq("active", true),
+    supabase.from("vendor_zones").select("vendor_id,zone_id"),
+    supabase.from("products").select("vendor_id").eq("approved", true),
+  ]);
+
+  const zoneName = new Map<string, string>((zoneRows ?? []).map((z: any) => [z.id, z.name]));
+  const zonesByVendorRowId = new Map<string, Set<string>>();
+  (vzRows ?? []).forEach((vz: any) => {
+    const set = zonesByVendorRowId.get(vz.vendor_id) ?? new Set<string>();
+    set.add(vz.zone_id);
+    zonesByVendorRowId.set(vz.vendor_id, set);
+  });
+  // products.vendor_id = owner_id du vendeur
+  const countByOwner = new Map<string, number>();
+  (prodRows ?? []).forEach((p: any) => {
+    if (!p.vendor_id) return;
+    countByOwner.set(p.vendor_id, (countByOwner.get(p.vendor_id) ?? 0) + 1);
+  });
+
+  return (vRows ?? []).map((v: any) => {
+    const zoneIds = new Set<string>(zonesByVendorRowId.get(v.id) ?? []);
+    if (v.base_zone_id) zoneIds.add(v.base_zone_id);
+    const zones = Array.from(zoneIds).map((id) => zoneName.get(id)).filter(Boolean) as string[];
+    return {
+      id: v.id,
+      slug: v.slug,
+      shop_name: v.shop_name ?? "",
+      description: v.description ?? null,
+      logo_url: v.logo_url ?? null,
+      cover_url: v.cover_url ?? null,
+      rating_avg: v.rating_avg ? Number(v.rating_avg) : 0,
+      rating_count: v.rating_count ?? 0,
+      zones,
+      productCount: countByOwner.get(v.owner_id) ?? 0,
+    };
+  });
+}
+
+export const Route = createFileRoute("/boutiques")({
+  head: () => ({
+    meta: [
+      { title: "Boutiques — Livroto Bunia" },
+      { name: "description", content: "Découvre toutes les boutiques de Bunia sur Livroto : produits locaux, livraison à ta porte, paiement cash." },
+      { property: "og:title", content: "Boutiques de Bunia — Livroto" },
+      { property: "og:description", content: "Parcours les vendeurs locaux de Bunia et commande en quelques tapes." },
+    ],
+  }),
+  // SSR du 1er écran (audit perf du 10/08/2026) : l'annuaire des boutiques est
+  // une page d'entrée/découverte, donc souvent ouverte "à froid" — même
+  // principe que les autres pages publiques déjà corrigées.
+  loader: () => fetchBoutiquesData(),
+  component: BoutiquesPage,
+});
+
 type SortKey = "rating" | "products" | "name";
 
-const EMPTY_VENDORS: VendorCard[] = [];
-
 function BoutiquesPage() {
+  const loaderVendors = Route.useLoaderData();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("rating");
 
   // Annuaire des boutiques mis en cache (react-query) -> retour instantané, moins de data.
-  const { data: vendors = EMPTY_VENDORS, isLoading: loading } = useQuery({
+  // Amorcé par le loader SSR ci-dessus : pas de skeleton au 1er affichage.
+  const { data: vendors = loaderVendors, isLoading: loading } = useQuery({
     queryKey: ["boutiques-data"],
     staleTime: 2 * 60_000,
-    queryFn: async (): Promise<VendorCard[]> => {
-      const [{ data: vRows }, { data: zoneRows }, { data: vzRows }, { data: prodRows }] = await Promise.all([
-        supabase
-          .from("vendors")
-          .select("id,owner_id,slug,shop_name,description,logo_url,cover_url,rating_avg,rating_count,base_zone_id")
-          .eq("status", "approved"),
-        supabase.from("zones").select("id,name").eq("active", true),
-        supabase.from("vendor_zones").select("vendor_id,zone_id"),
-        supabase.from("products").select("vendor_id").eq("approved", true),
-      ]);
-
-      const zoneName = new Map<string, string>((zoneRows ?? []).map((z: any) => [z.id, z.name]));
-      const zonesByVendorRowId = new Map<string, Set<string>>();
-      (vzRows ?? []).forEach((vz: any) => {
-        const set = zonesByVendorRowId.get(vz.vendor_id) ?? new Set<string>();
-        set.add(vz.zone_id);
-        zonesByVendorRowId.set(vz.vendor_id, set);
-      });
-      // products.vendor_id = owner_id du vendeur
-      const countByOwner = new Map<string, number>();
-      (prodRows ?? []).forEach((p: any) => {
-        if (!p.vendor_id) return;
-        countByOwner.set(p.vendor_id, (countByOwner.get(p.vendor_id) ?? 0) + 1);
-      });
-
-      return (vRows ?? []).map((v: any) => {
-        const zoneIds = new Set<string>(zonesByVendorRowId.get(v.id) ?? []);
-        if (v.base_zone_id) zoneIds.add(v.base_zone_id);
-        const zones = Array.from(zoneIds).map((id) => zoneName.get(id)).filter(Boolean) as string[];
-        return {
-          id: v.id,
-          slug: v.slug,
-          shop_name: v.shop_name ?? "",
-          description: v.description ?? null,
-          logo_url: v.logo_url ?? null,
-          cover_url: v.cover_url ?? null,
-          rating_avg: v.rating_avg ? Number(v.rating_avg) : 0,
-          rating_count: v.rating_count ?? 0,
-          zones,
-          productCount: countByOwner.get(v.owner_id) ?? 0,
-        };
-      });
-    },
+    initialData: loaderVendors,
+    queryFn: fetchBoutiquesData,
   });
 
   const filtered = useMemo(() => {

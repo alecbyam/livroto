@@ -1,6 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Loader2, MapPin, MessageCircle, Star, Store, ShieldCheck } from "lucide-react";
+import { MapPin, MessageCircle, Star, Store, ShieldCheck } from "lucide-react";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { ProductCard, type DisplayProduct } from "@/components/livroto/ProductCard";
 import { Button } from "@/components/ui/button";
@@ -32,6 +31,33 @@ export const Route = createFileRoute("/vendor/$slug")({
       </div>
     </SiteLayout>
   ),
+  // SSR du 1er écran (audit perf du 10/08/2026, même principe que index.tsx/
+  // catalog.tsx/product.$productId.tsx) : plus de spinner client au 1er
+  // affichage, le HTML envoyé contient déjà la boutique + ses produits. Le
+  // "not found" est tranché ici (au lieu d'un état local après coup) — plus
+  // idiomatique avec TanStack Router et évite un flash de contenu vide.
+  loader: async ({ params }): Promise<{ vendor: Vendor; products: DisplayProduct[]; zones: string[] }> => {
+    const { data: v } = await supabase
+      .from("vendors")
+      .select("id,shop_name,slug,description,whatsapp,logo_url,cover_url,rating_avg,rating_count,status")
+      .eq("slug", params.slug)
+      .eq("status", "approved")
+      .maybeSingle();
+    if (!v) throw notFound();
+
+    const [{ data: prods }, { data: zs }] = await Promise.all([
+      supabase.from("products").select(PRODUCT_LIST_SELECT).eq("vendor_id", v.id).eq("approved", true).order("created_at", { ascending: false }),
+      supabase.from("vendor_zones").select("zones(name)").eq("vendor_id", v.id),
+    ]);
+    const products = (prods ?? []).map((p: any) => ({
+      ...p, price_usd: Number(p.price_usd),
+      rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
+      rating_count: p.rating_count ?? 0,
+    })) as DisplayProduct[];
+    const zones = (zs ?? []).map((z: any) => z.zones?.name).filter(Boolean) as string[];
+
+    return { vendor: v as Vendor, products, zones };
+  },
 });
 
 type Vendor = {
@@ -48,64 +74,10 @@ type Vendor = {
 };
 
 function VendorPublicPage() {
-  const { slug } = Route.useParams();
-  const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [products, setProducts] = useState<DisplayProduct[]>([]);
-  const [zones, setZones] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFoundState, setNotFoundState] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data: v } = await supabase
-        .from("vendors")
-        .select("id,shop_name,slug,description,whatsapp,logo_url,cover_url,rating_avg,rating_count,status")
-        .eq("slug", slug)
-        .eq("status", "approved")
-        .maybeSingle();
-      if (cancelled) return;
-      if (!v) { setNotFoundState(true); setLoading(false); return; }
-      setVendor(v as Vendor);
-
-      const [{ data: prods }, { data: zs }] = await Promise.all([
-        supabase
-          .from("products")
-          .select(PRODUCT_LIST_SELECT)
-          .eq("vendor_id", v.id)
-          .eq("approved", true)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("vendor_zones")
-          .select("zones(name)")
-          .eq("vendor_id", v.id),
-      ]);
-      if (cancelled) return;
-      setProducts(
-        (prods ?? []).map((p: any) => ({
-          ...p,
-          price_usd: Number(p.price_usd),
-          rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
-          rating_count: p.rating_count ?? 0,
-        })),
-      );
-      setZones((zs ?? []).map((z: any) => z.zones?.name).filter(Boolean));
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [slug]);
-
-  if (loading) {
-    return (
-      <SiteLayout>
-        <div className="container mx-auto px-4 py-16 grid place-items-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      </SiteLayout>
-    );
-  }
-  if (notFoundState || !vendor) throw notFound();
+  // Le composant ne rend que si le loader a résolu avec succès (notFound()/
+  // erreur sont gérés par notFoundComponent/errorComponent, pas ici) — le
+  // typage générique de useLoaderData() reste prudent, la donnée est garantie.
+  const { vendor, products, zones } = Route.useLoaderData() as { vendor: Vendor; products: DisplayProduct[]; zones: string[] };
 
   if (typeof document !== "undefined") {
     document.title = `${vendor.shop_name} — Livroto Bunia`;
