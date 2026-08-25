@@ -113,6 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison — partout à Bunia et dans toute la province de l'Ituri. Cash à la livraison via WhatsApp.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://shop.juntoxrdc.com" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Livroto — Bunia et l'Ituri livrent à ta porte" },
       {
@@ -122,13 +123,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         property: "og:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5385c90-0fee-4057-90e8-4eb7a768fef9/id-preview-9018c7d5--eb4aafa8-f026-40f8-b47a-596d04dffa4f.lovable.app-1780419265195.png",
+        content: "https://shop.juntoxrdc.com/icon-512.png",
       },
       {
         name: "twitter:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5385c90-0fee-4057-90e8-4eb7a768fef9/id-preview-9018c7d5--eb4aafa8-f026-40f8-b47a-596d04dffa4f.lovable.app-1780419265195.png",
+        content: "https://shop.juntoxrdc.com/icon-512.png",
       },
       { name: "theme-color", content: "#0f3d2e" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -155,6 +154,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32.png" },
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "canonical", href: "https://shop.juntoxrdc.com" },
     ],
   }),
   shellComponent: RootShell,
@@ -165,7 +165,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <head>
         <HeadContent />
         {/* Applique le thème avant le 1er rendu pour éviter tout flash */}
