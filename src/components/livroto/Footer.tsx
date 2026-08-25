@@ -31,7 +31,7 @@ export function Footer() {
           </ul>
         </div>
         <div className="text-sm">
-          <h4 className="font-display font-semibold mb-3 text-white">Livroto</h4>
+          <h4 className="font-display font-semibold mb-3 text-white">JuntoxShop</h4>
           <ul className="space-y-2 text-white/80">
             <li>
               <Link to="/catalog" className="hover:text-white">
@@ -62,9 +62,9 @@ export function Footer() {
         </div>
         <div className="text-sm text-white/70">
           <h4 className="font-display font-semibold mb-3 text-white">Bunia & Ituri</h4>
-          <p>On livre partout à Bunia et dans toute la province de l'Ituri. Commande. Livroto arrive.</p>
+          <p>On livre partout à Bunia et dans toute la province de l'Ituri. Commande. JuntoxShop arrive.</p>
           <p className="mt-6 text-xs text-white/50" suppressHydrationWarning>
-            © {new Date().getFullYear()} Livroto. {t("footer.rights")}
+            © {new Date().getFullYear()} JuntoxShop. {t("footer.rights")}
           </p>
           <p className="mt-1 text-xs text-white/60">
             Un produit{" "}

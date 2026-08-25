@@ -12,8 +12,8 @@ export const Route = createFileRoute("/vendor/$slug")({
   component: VendorPublicPage,
   head: ({ params }) => ({
     meta: [
-      { title: `Boutique ${params.slug} — Livroto Bunia` },
-      { name: "description", content: `Découvre les produits de ${params.slug} sur Livroto, livrés à Bunia.` },
+      { title: `Boutique ${params.slug} — JuntoxShop Bunia` },
+      { name: "description", content: `Découvre les produits de ${params.slug} sur JuntoxShop, livrés à Bunia.` },
     ],
   }),
   errorComponent: ({ error }) => (
@@ -80,7 +80,7 @@ function VendorPublicPage() {
   const { vendor, products, zones } = Route.useLoaderData() as { vendor: Vendor; products: DisplayProduct[]; zones: string[] };
 
   if (typeof document !== "undefined") {
-    document.title = `${vendor.shop_name} — Livroto Bunia`;
+    document.title = `${vendor.shop_name} — JuntoxShop Bunia`;
   }
 
   const rating = Number(vendor.rating_avg ?? 0);
@@ -147,7 +147,7 @@ function VendorPublicPage() {
           {vendor.whatsapp && (
             <Button asChild variant="outline">
               <a
-                href={`https://wa.me/${vendor.whatsapp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Bonjour ${vendor.shop_name}, je viens de Livroto.`)}`}
+                href={`https://wa.me/${vendor.whatsapp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Bonjour ${vendor.shop_name}, je viens de JuntoxShop.`)}`}
                 target="_blank"
                 rel="noreferrer"
               >

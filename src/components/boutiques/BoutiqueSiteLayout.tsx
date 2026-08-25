@@ -1,6 +1,6 @@
 // Layout marque blanche de la vitrine publique d'une boutique. Volontairement
-// SÉPARÉ de <SiteLayout> (composant marketplace Livroto : Navbar/Footer avec
-// branding Livroto, WhatsAppFab pointant vers le WhatsApp Livroto, etc.) —
+// SÉPARÉ de <SiteLayout> (composant marketplace JuntoxShop : Navbar/Footer avec
+// branding JuntoxShop, WhatsAppFab pointant vers le WhatsApp JuntoxShop, etc.) —
 // aucun de ces éléments ne doit apparaître ici. Chaque boutique cliente doit
 // pouvoir se croire seule sur sa propre plateforme.
 import type { ReactNode } from "react";

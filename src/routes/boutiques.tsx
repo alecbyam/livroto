@@ -67,9 +67,9 @@ async function fetchBoutiquesData(): Promise<VendorCard[]> {
 export const Route = createFileRoute("/boutiques")({
   head: () => ({
     meta: [
-      { title: "Boutiques — Livroto Bunia" },
-      { name: "description", content: "Découvre toutes les boutiques de Bunia sur Livroto : produits locaux, livraison à ta porte, paiement cash." },
-      { property: "og:title", content: "Boutiques de Bunia — Livroto" },
+      { title: "Boutiques — JuntoxShop Bunia" },
+      { name: "description", content: "Découvre toutes les boutiques de Bunia sur JuntoxShop : produits locaux, livraison à ta porte, paiement cash." },
+      { property: "og:title", content: "Boutiques de Bunia — JuntoxShop" },
       { property: "og:description", content: "Parcours les vendeurs locaux de Bunia et commande en quelques tapes." },
     ],
   }),
@@ -120,7 +120,7 @@ function BoutiquesPage() {
     <SiteLayout>
       <section className="container mx-auto px-4 pt-10 md:pt-14">
         <h1 className="font-display text-3xl md:text-5xl font-bold">Boutiques de Bunia</h1>
-        <p className="mt-2 text-muted-foreground">Découvre les vendeurs locaux. Commande, Livroto arrive. 🛵</p>
+        <p className="mt-2 text-muted-foreground">Découvre les vendeurs locaux. Commande, JuntoxShop arrive. 🛵</p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">

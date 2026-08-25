@@ -215,7 +215,7 @@ function AddStaffDialog({ open, onOpenChange, onSubmit }: { open: boolean; onOpe
           <div>
             <Label className="text-xs">Mot de passe temporaire</Label>
             <Input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min. 8 caractères — à communiquer à la personne" className="mt-1" />
-            <p className="mt-1 text-[11px] text-muted-foreground">Si cet email a déjà un compte Livroto, le mot de passe n'est pas modifié — seul le rôle est attribué.</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Si cet email a déjà un compte JuntoxShop, le mot de passe n'est pas modifié — seul le rôle est attribué.</p>
           </div>
         </div>
         <DialogFooter>

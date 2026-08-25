@@ -5,13 +5,13 @@ import { Bike, Heart, MapPin, ShieldCheck, Sparkles, Store } from "lucide-react"
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "À propos — Livroto, marketplace de Bunia" },
+      { title: "À propos — JuntoxShop, marketplace de Bunia" },
       {
         name: "description",
         content:
-          "Livroto connecte vendeurs, livreurs et clients à Bunia et dans toute la province de l'Ituri (RDC). Commande locale, livraison rapide, paiement à la porte.",
+          "JuntoxShop connecte vendeurs, livreurs et clients à Bunia et dans toute la province de l'Ituri (RDC). Commande locale, livraison rapide, paiement à la porte.",
       },
-      { property: "og:title", content: "À propos — Livroto" },
+      { property: "og:title", content: "À propos — JuntoxShop" },
       {
         property: "og:description",
         content:
@@ -24,18 +24,18 @@ export const Route = createFileRoute("/about")({
   component: AboutPage,
 });
 
-// Données structurées : JuntoX édite Livroto (marque/produit).
+// Données structurées : JuntoX édite JuntoxShop (marque/produit).
 const JUNTOX_JSONLD = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "JuntoX",
   description: "JuntoX conçoit des produits numériques pensés pour la RDC.",
-  brand: { "@type": "Brand", name: "Livroto" },
+  brand: { "@type": "Brand", name: "JuntoxShop" },
   makesOffer: {
     "@type": "Offer",
     itemOffered: {
       "@type": "Service",
-      name: "Livroto",
+      name: "JuntoxShop",
       description: "Marketplace de livraison locale à Bunia, Ituri (RDC).",
       areaServed: "Bunia, Ituri, RDC",
     },
@@ -57,7 +57,7 @@ function AboutPage() {
           Bunia livre à <span className="text-primary">ta porte.</span>
         </h1>
         <p className="mt-6 text-lg text-muted-foreground max-w-2xl">
-          Livroto est née à Bunia, en Ituri (RDC), pour donner aux commerçants locaux les outils du
+          JuntoxShop est née à Bunia, en Ituri (RDC), pour donner aux commerçants locaux les outils du
           e-commerce moderne — sans complications. Une commande, un livreur du quartier, et tu paies
           à la livraison. On livre aujourd'hui dans toute la ville de Bunia et dans toute la
           province de l'Ituri.
@@ -103,9 +103,9 @@ function AboutPage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Édité par
               </p>
-              <h2 className="font-display text-2xl md:text-3xl font-bold">Livroto by JuntoX</h2>
+              <h2 className="font-display text-2xl md:text-3xl font-bold">JuntoxShop by JuntoX</h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
-                Livroto est un produit de{" "}
+                JuntoxShop est un produit de{" "}
                 <span className="font-semibold text-foreground">JuntoX</span>, qui conçoit des
                 produits numériques pensés pour les réalités de la RDC. Notre ambition : mettre la
                 technologie au service du commerce de proximité — à Bunia, et au-delà.

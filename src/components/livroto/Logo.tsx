@@ -7,7 +7,7 @@ export function Logo({ light = false }: { light?: boolean }) {
         L
       </span>
       <span className={`font-display text-xl font-bold tracking-tight ${light ? "text-white" : "text-foreground"}`}>
-        Livroto
+        JuntoxShop
       </span>
     </Link>
   );

@@ -1,6 +1,6 @@
 // ============================================================================
 // Gestion d'équipe PAR BOUTIQUE — réservée au PROPRIÉTAIRE (shops.owner_id).
-// Crée des comptes (ou rattache un compte Livroto existant), attribue un rôle
+// Crée des comptes (ou rattache un compte JuntoxShop existant), attribue un rôle
 // (manager/staff), permet de réinitialiser leur mot de passe ou de les retirer.
 // Aucun rôle délégué ne peut toucher à cette table (voir RLS shop_staff_owner_all)
 // ni aux secrets FlexPay/WhatsApp (shop_integration_settings reste owner-only).
@@ -44,7 +44,7 @@ export const ownerCreateStaffUser = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertShopOwner(context.userId, data.shop_id);
 
-    // Compte existant (ex: client Livroto qu'on promeut employé) -> on rattache
+    // Compte existant (ex: client JuntoxShop qu'on promeut employé) -> on rattache
     // sans toucher à son mot de passe. Sinon on crée un compte tout neuf.
     const { data: existing } = await supabaseAdmin.auth.admin.listUsers();
     let userId = existing.users.find((u) => u.email?.toLowerCase() === data.email.toLowerCase())?.id;
@@ -90,7 +90,7 @@ export const ownerRemoveStaff = createServerFn({ method: "POST" })
     await assertShopOwner(context.userId, data.shop_id);
     const { error } = await supabaseAdmin.from("shop_staff").delete().eq("id", data.staff_id).eq("shop_id", data.shop_id);
     if (error) throw new Error(error.message);
-    return { ok: true }; // retire l'accès à la boutique ; ne supprime PAS le compte Livroto de la personne
+    return { ok: true }; // retire l'accès à la boutique ; ne supprime PAS le compte JuntoxShop de la personne
   });
 
 export const ownerResetStaffPassword = createServerFn({ method: "POST" })

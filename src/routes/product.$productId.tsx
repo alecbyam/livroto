@@ -20,8 +20,8 @@ export const Route = createFileRoute("/product/$productId")({
   component: ProductPage,
   head: ({ params }) => ({
     meta: [
-      { title: `Produit ${params.productId.slice(0, 6)} — Livroto Bunia` },
-      { name: "description", content: "Découvre ce produit sur Livroto, livré à ta porte à Bunia. Paiement cash à la livraison." },
+      { title: `Produit ${params.productId.slice(0, 6)} — JuntoxShop Bunia` },
+      { name: "description", content: "Découvre ce produit sur JuntoxShop, livré à ta porte à Bunia. Paiement cash à la livraison." },
     ],
   }),
   // SSR du 1er écran (audit perf du 10/08/2026 : cette fiche est le lien le plus
@@ -130,7 +130,7 @@ function ProductPage() {
 
   useEffect(() => {
     if (product?.name && typeof document !== "undefined") {
-      document.title = `${product.name} — Livroto Bunia`;
+      document.title = `${product.name} — JuntoxShop Bunia`;
     }
   }, [product?.name]);
 

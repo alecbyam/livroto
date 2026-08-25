@@ -32,7 +32,7 @@ export function ShopIntegrationsPanel({ shopId }: { shopId: string }) {
         <h3 className="font-display text-lg font-bold">Intégrations de la boutique</h3>
       </div>
       <p className="-mt-2 text-sm text-muted-foreground">
-        Identifiants propres à cette boutique — jamais partagés avec les autres boutiques Livroto. Stockés côté serveur, jamais réaffichés en clair.
+        Identifiants propres à cette boutique — jamais partagés avec les autres boutiques JuntoxShop. Stockés côté serveur, jamais réaffichés en clair.
       </p>
       <FlexpaySection shopId={shopId} data={data.flexpay} onSaved={refresh} />
       <WhatsappSection shopId={shopId} data={data.whatsapp} onSaved={refresh} />

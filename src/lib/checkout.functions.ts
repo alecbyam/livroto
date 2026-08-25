@@ -45,7 +45,7 @@ type ProductRow = {
   promo_ends_at: string | null;
 };
 
-// Plus de frais de livraison forfaitaire par zone (demande explicite 6/08/2026) : Livroto
+// Plus de frais de livraison forfaitaire par zone (demande explicite 6/08/2026) : JuntoxShop
 // livre désormais toute la ville de Bunia ET la province de l'Ituri, un tarif fixe par
 // quartier n'a plus de sens à cette échelle. `deliveryFee` reste à 0 dans la commande — le
 // livreur communique le tarif réel au client après validation de la commande (WhatsApp/appel).

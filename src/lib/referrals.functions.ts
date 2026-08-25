@@ -88,7 +88,7 @@ export const applyReferralCode = createServerFn({ method: "POST" })
     return { ok: true as const, reward: REWARD_REFERRED };
   });
 
-/** Applique le crédit Livroto à une commande (post-insert checkout). Autorité serveur. */
+/** Applique le crédit JuntoxShop à une commande (post-insert checkout). Autorité serveur. */
 export const redeemCreditForOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ order_id: z.string().uuid() }).parse(input))

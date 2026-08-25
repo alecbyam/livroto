@@ -100,13 +100,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Livroto — Bunia et l'Ituri livrent à ta porte" },
+      { title: "JuntoxShop — Bunia et l'Ituri livrent à ta porte" },
       {
         name: "description",
         content:
           "Première marketplace locale de Bunia : commande accessoires, cuisine locale et livraison — partout à Bunia et dans toute la province de l'Ituri. Cash à la livraison via WhatsApp.",
       },
-      { property: "og:title", content: "Livroto — Bunia et l'Ituri livrent à ta porte" },
+      { property: "og:title", content: "JuntoxShop — Bunia et l'Ituri livrent à ta porte" },
       {
         property: "og:description",
         content:
@@ -115,7 +115,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://shop.juntoxrdc.com" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Livroto — Bunia et l'Ituri livrent à ta porte" },
+      { name: "twitter:title", content: "JuntoxShop — Bunia et l'Ituri livrent à ta porte" },
       {
         name: "twitter:description",
         content:
@@ -132,12 +132,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#0f3d2e" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Livroto" },
+      { name: "apple-mobile-web-app-title", content: "JuntoxShop" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "format-detection", content: "telephone=no" },
       { name: "author", content: "JuntoX" },
       { name: "publisher", content: "JuntoX" },
-      { property: "og:site_name", content: "Livroto" },
+      { property: "og:site_name", content: "JuntoxShop" },
     ],
     links: [
       ...(SUPABASE_ORIGIN

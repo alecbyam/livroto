@@ -1,6 +1,6 @@
 // Contexte React exposant la config de la boutique résolue (logo, thème,
 // coordonnées) à toute la vitrine ET au backoffice — sans prop-drilling, et
-// sans jamais mentionner "Livroto" nulle part dans l'UI descendante.
+// sans jamais mentionner "JuntoxShop" nulle part dans l'UI descendante.
 import { createContext, useContext, type ReactNode } from "react";
 import type { BoutiqueTenant } from "@/lib/boutiques/tenant.server";
 

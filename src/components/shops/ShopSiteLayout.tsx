@@ -1,9 +1,9 @@
 // ============================================================================
 // Coquille indépendante pour le module boutique générique — PAS de Navbar/
 // Footer/MobileTabBar/WhatsAppFab/InstallPWA de SiteLayout (marketplace
-// Livroto). Chaque boutique (Muungano, et les suivantes) est une entité à
+// JuntoxShop). Chaque boutique (Muungano, et les suivantes) est une entité à
 // part entière : ses visiteurs ne doivent voir QUE sa marque, jamais la
-// navigation Livroto (catalogue, autres vendeurs, panier marketplace...).
+// navigation JuntoxShop (catalogue, autres vendeurs, panier marketplace...).
 // Applique aussi le thème visuel propre à la boutique (shops.config.theme,
 // voir useShopTheme) — même shell générique, rendu radicalement différent
 // d'une boutique à l'autre (ex: Muungano en noir/or façon restaurant haut de
@@ -59,7 +59,7 @@ export function ShopSiteLayout({
         {shop && <p className="font-display font-semibold tracking-wide text-foreground">{shop.name}</p>}
         <p className="mt-1.5">
           Commande en ligne propulsée par{" "}
-          <a href="https://livroto-frontend-production.up.railway.app" className="underline hover:text-foreground">Livroto</a>
+          <a href="https://shop.juntoxrdc.com" className="underline hover:text-foreground">JuntoxShop</a>
         </p>
       </footer>
     </div>

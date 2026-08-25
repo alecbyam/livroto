@@ -1,6 +1,6 @@
 {
-  "name": "Livroto — Bunia livre à ta porte",
-  "short_name": "Livroto",
+  "name": "JuntoxShop — Bunia livre à ta porte",
+  "short_name": "JuntoxShop",
   "description": "Marketplace locale de Bunia : commande accessoires, cuisine locale et livraison cash via WhatsApp.",
   "start_url": "/catalog",
   "scope": "/",

@@ -15,13 +15,13 @@ export const Route = createFileRoute("/_authenticated/parrainage")({
 
 const INVITE: Record<Lang, (link: string) => string> = {
   fr: (link) =>
-    `🎁 Rejoins-moi sur *Livroto* (livraison à Bunia, paiement cash) !\nInscris-toi avec mon lien et on gagne chacun 1$ de crédit 👇\n${link}`,
+    `🎁 Rejoins-moi sur *JuntoxShop* (livraison à Bunia, paiement cash) !\nInscris-toi avec mon lien et on gagne chacun 1$ de crédit 👇\n${link}`,
   sw: (link) =>
-    `🎁 Jiunge nami kwenye *Livroto* (usafirishaji Bunia, lipa cash)!\nJisajili na kiungo changu na kila mmoja apate $1 ya krediti 👇\n${link}`,
+    `🎁 Jiunge nami kwenye *JuntoxShop* (usafirishaji Bunia, lipa cash)!\nJisajili na kiungo changu na kila mmoja apate $1 ya krediti 👇\n${link}`,
   ln: (link) =>
-    `🎁 Yaka epai na ngai na *Livroto* (livraison na Bunia, futa cash)!\nKomisala na lien na ngai mpe moko na moko azwa $1 ya crédit 👇\n${link}`,
+    `🎁 Yaka epai na ngai na *JuntoxShop* (livraison na Bunia, futa cash)!\nKomisala na lien na ngai mpe moko na moko azwa $1 ya crédit 👇\n${link}`,
   en: (link) =>
-    `🎁 Join me on *Livroto* (delivery in Bunia, cash payment)!\nSign up with my link and we each get $1 credit 👇\n${link}`,
+    `🎁 Join me on *JuntoxShop* (delivery in Bunia, cash payment)!\nSign up with my link and we each get $1 credit 👇\n${link}`,
 };
 
 function ReferralPage() {
@@ -36,7 +36,7 @@ function ReferralPage() {
   });
 
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://livroto-frontend-production.up.railway.app";
+    typeof window !== "undefined" ? window.location.origin : "https://shop.juntoxrdc.com";
   const link = data?.code ? `${origin}/auth?ref=${data.code}` : "";
 
   const invite = () => {
@@ -67,7 +67,7 @@ function ReferralPage() {
           <h1 className="font-display text-3xl font-bold">Invite & gagne</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Invite tes amis sur Livroto. À leur 1ʳᵉ commande livrée, <b className="text-foreground">vous gagnez chacun 1&nbsp;$</b> de crédit utilisable sur tes achats.
+          Invite tes amis sur JuntoxShop. À leur 1ʳᵉ commande livrée, <b className="text-foreground">vous gagnez chacun 1&nbsp;$</b> de crédit utilisable sur tes achats.
         </p>
 
         {isLoading ? (

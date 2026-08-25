@@ -4,7 +4,7 @@
 // pour ne collisionner avec aucun fichier existant sous public/.
 //
 // Installé sur téléphone/ordinateur, l'icône doit ouvrir DIRECTEMENT la
-// gestion de LA boutique concernée (pas le catalogue Livroto) — d'où
+// gestion de LA boutique concernée (pas le catalogue JuntoxShop) — d'où
 // `start_url` pointant vers la caisse (l'écran que le staff ouvre en premier
 // chaque jour), pas la vitrine ni l'accueil marketplace.
 import { createFileRoute } from "@tanstack/react-router";

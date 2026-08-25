@@ -44,13 +44,13 @@ type Product = {
 export const Route = createFileRoute("/order/$productId")({
   head: () => ({
     meta: [
-      { title: "Finaliser la commande — Livroto" },
+      { title: "Finaliser la commande — JuntoxShop" },
       {
         name: "description",
         content:
-          "Confirme ta commande Livroto à Bunia : adresse, zone de livraison et paiement cash à la porte.",
+          "Confirme ta commande JuntoxShop à Bunia : adresse, zone de livraison et paiement cash à la porte.",
       },
-      { property: "og:title", content: "Commande — Livroto" },
+      { property: "og:title", content: "Commande — JuntoxShop" },
       { property: "og:description", content: "Paiement cash à la livraison via WhatsApp." },
       { name: "robots", content: "noindex,follow" },
     ],

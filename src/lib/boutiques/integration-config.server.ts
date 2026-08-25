@@ -1,6 +1,6 @@
 // Config/secrets d'intégration PAR boutique (WhatsApp Business, HM Logistics).
 // Même principe que src/lib/integrations/config.server.ts (config globale
-// Livroto) mais scopé à boutique_integration_settings (migration 31) : chaque
+// JuntoxShop) mais scopé à boutique_integration_settings (migration 31) : chaque
 // boutique cliente a ses propres identifiants, jamais partagés entre elles.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 

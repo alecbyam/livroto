@@ -191,9 +191,9 @@ export const Route = createFileRoute("/catalog")({
   validateSearch: zodValidator(catalogSearchSchema),
   head: () => ({
     meta: [
-      { title: "Catalogue — Livroto" },
-      { name: "description", content: "Parcours les produits Livroto : accessoires téléphone, cuisine locale, livraison à Bunia et dans toute la province de l'Ituri." },
-      { property: "og:title", content: "Catalogue — Livroto" },
+      { title: "Catalogue — JuntoxShop" },
+      { name: "description", content: "Parcours les produits JuntoxShop : accessoires téléphone, cuisine locale, livraison à Bunia et dans toute la province de l'Ituri." },
+      { property: "og:title", content: "Catalogue — JuntoxShop" },
       { property: "og:description", content: "Tout ce qu'il te faut, livré à Bunia et dans toute l'Ituri." },
     ],
   }),

@@ -1,4 +1,4 @@
-// Numéro WhatsApp officiel du support Livroto.
+// Numéro WhatsApp officiel du support JuntoxShop.
 export const LIVROTO_WHATSAPP = "243988648433";
 
 export type OrderLine = { name: string; qty: number; lineTotal: number };
@@ -24,14 +24,14 @@ export function orderSummaryLines(p: {
   if (p.discount && p.discount > 0) {
     out.push(`Code promo${p.discountCode ? ` ${p.discountCode}` : ""} : -$${p.discount.toFixed(2)}`);
   }
-  if (p.credit && p.credit > 0) out.push(`Crédit Livroto : -$${p.credit.toFixed(2)}`);
+  if (p.credit && p.credit > 0) out.push(`Crédit JuntoxShop : -$${p.credit.toFixed(2)}`);
   out.push(`Total produits : $${p.productTotal.toFixed(2)}`);
   out.push(`Livraison (${p.zone}) : $${p.deliveryFee.toFixed(2)}`);
   out.push(`*TOTAL À PAYER : $${(p.productTotal + p.deliveryFee).toFixed(2)}*`);
   return out;
 }
 
-/** Message client → support Livroto (panier multi-articles ou achat direct). */
+/** Message client → support JuntoxShop (panier multi-articles ou achat direct). */
 export function buildCustomerOrderMessage(p: {
   codes: string[];
   lines: OrderLine[];
@@ -47,7 +47,7 @@ export function buildCustomerOrderMessage(p: {
   gps?: { lat: number; lng: number } | null;
 }): string {
   const codeLabel = p.codes.filter(Boolean).join(", ");
-  const head = `Bonjour Livroto ! Nouvelle commande${codeLabel ? ` (${codeLabel})` : ""} :`;
+  const head = `Bonjour JuntoxShop ! Nouvelle commande${codeLabel ? ` (${codeLabel})` : ""} :`;
   const body = orderSummaryLines(p);
   if (p.gps) body.push(`📍 Position GPS : https://maps.google.com/?q=${p.gps.lat},${p.gps.lng}`);
   const footer =
@@ -64,6 +64,6 @@ export function customerOrderWaUrl(
   return `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(buildCustomerOrderMessage(p))}`;
 }
 
-export function genericWhatsAppUrl(text = "Bonjour Livroto ! J'ai une question.") {
+export function genericWhatsAppUrl(text = "Bonjour JuntoxShop ! J'ai une question.") {
   return `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent(text)}`;
 }

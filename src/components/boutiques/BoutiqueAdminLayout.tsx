@@ -3,7 +3,7 @@
 // aucune navigation commune, seulement atteignable en tapant l'URL exacte.
 // Ce layout donne à CHAQUE boutique cliente (Hugo Collection = la première)
 // une vraie gestion autonome, avec sa propre identité (logo/nom), sans
-// jamais mentionner Livroto — même philosophie que <BoutiqueSiteLayout>.
+// jamais mentionner JuntoxShop — même philosophie que <BoutiqueSiteLayout>.
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";

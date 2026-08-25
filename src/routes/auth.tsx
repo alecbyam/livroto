@@ -105,7 +105,7 @@ async function tryApplyPendingReferral() {
   try {
     const res = await applyReferralCode({ data: { code } });
     if (res.ok) {
-      toast.success("🎁 Code parrain appliqué — crédit Livroto ajouté !");
+      toast.success("🎁 Code parrain appliqué — crédit JuntoxShop ajouté !");
       localStorage.removeItem("livroto.ref");
     } else if (res.reason !== "invalid_code") {
       // déjà parrainé / soi-même / compte non neuf → inutile de réessayer
@@ -141,8 +141,8 @@ async function postLoginRedirect(navigate: ReturnType<typeof useNavigate>) {
     return;
   }
   // Staff d'une boutique marque blanche (ex. Hugo Collection) sans rôle
-  // Livroto par ailleurs : sa gestion est à part entière, on ne le fait
-  // jamais atterrir sur le marketplace Livroto (catalogue, dashboard...).
+  // JuntoxShop par ailleurs : sa gestion est à part entière, on ne le fait
+  // jamais atterrir sur le marketplace JuntoxShop (catalogue, dashboard...).
   const { data: boutiqueStaff } = await supabase
     .from("boutique_users")
     .select("boutiques(slug)")
@@ -160,8 +160,8 @@ async function postLoginRedirect(navigate: ReturnType<typeof useNavigate>) {
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Connexion — Livroto Bunia" },
-      { name: "description", content: "Connecte-toi ou crée ton compte Livroto." },
+      { title: "Connexion — JuntoxShop Bunia" },
+      { name: "description", content: "Connecte-toi ou crée ton compte JuntoxShop." },
       { name: "robots", content: "noindex,follow" },
     ],
   }),
@@ -596,7 +596,7 @@ function AuthPage() {
         <button
           type="button"
           onClick={async () => {
-            const text = `=== LIVROTO DIAGNOSTIC AUTH ===\n${authDiagnosticSnapshot()}\n\n--- journal ---\n${getAuthLog().join("\n") || "(vide)"}`;
+            const text = `=== JUNTOXSHOP DIAGNOSTIC AUTH ===\n${authDiagnosticSnapshot()}\n\n--- journal ---\n${getAuthLog().join("\n") || "(vide)"}`;
             try {
               await navigator.clipboard.writeText(text);
               toast.success("Diagnostic copié — colle-le à Claude.");

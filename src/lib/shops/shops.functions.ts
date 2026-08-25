@@ -46,7 +46,7 @@ export const adminCreateShop = createServerFn({ method: "POST" })
     const { data: users, error: uErr } = await supabaseAdmin.auth.admin.listUsers();
     if (uErr) throw new Error(uErr.message);
     const owner = users.users.find((u) => u.email?.toLowerCase() === data.owner_email.toLowerCase());
-    if (!owner) throw new Error(`Aucun compte Livroto avec l'email ${data.owner_email}. Le propriétaire doit d'abord créer un compte.`);
+    if (!owner) throw new Error(`Aucun compte JuntoxShop avec l'email ${data.owner_email}. Le propriétaire doit d'abord créer un compte.`);
 
     const slug = slugify(data.slug || data.name);
     const { data: row, error } = await supabaseAdmin

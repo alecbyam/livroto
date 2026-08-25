@@ -38,7 +38,7 @@ export function WhatsAppFab() {
       href={genericWhatsAppUrl()}
       target="_blank"
       rel="noreferrer"
-      aria-label="WhatsApp Livroto"
+      aria-label="WhatsApp JuntoxShop"
       className={`fixed bottom-20 right-5 md:bottom-5 z-50 grid h-14 w-14 place-items-center rounded-full bg-[color:var(--whatsapp)] text-white shadow-lg shadow-emerald-900/30 transition-all duration-200 hover:scale-105 active:scale-95 ${
         hidden ? "translate-y-24 opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
       }`}

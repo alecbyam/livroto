@@ -1,6 +1,6 @@
 // ============================================================================
 // Thème visuel PAR BOUTIQUE — chaque boutique peut définir sa propre palette
-// (stockée dans shops.config.theme) qui REMPLACE la palette Livroto tant que
+// (stockée dans shops.config.theme) qui REMPLACE la palette JuntoxShop tant que
 // la page boutique est affichée. Appliqué sur <html> (pas un simple wrapper)
 // pour que les portails Radix (Sheet/Dialog — panier, dialogues staff...)
 // héritent aussi du thème, puisqu'ils sont montés dans <body>, pas dans

@@ -51,11 +51,11 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
   head: () => ({
     meta: [
-      { title: "Mon panier — Livroto" },
+      { title: "Mon panier — JuntoxShop" },
       {
         name: "description",
         content:
-          "Finalise ta commande Livroto à Bunia. Paiement cash, M-Pesa, Airtel Money ou Orange Money.",
+          "Finalise ta commande JuntoxShop à Bunia. Paiement cash, M-Pesa, Airtel Money ou Orange Money.",
       },
     ],
   }),
@@ -109,7 +109,7 @@ function CartPage() {
       .then(({ data }) => setFlexpayEnabled(data?.value === "true"));
   }, []);
 
-  // Crédit Livroto (parrainage) — auto-appliqué au panier
+  // Crédit JuntoxShop (parrainage) — auto-appliqué au panier
   useEffect(() => {
     (async () => {
       const {
@@ -359,7 +359,7 @@ function CartPage() {
         notifySMS({ data: { order_id: firstOrderId } }).catch(() => {});
       }
 
-      // Crédit Livroto (parrainage) : imputé côté serveur sur la 1ʳᵉ commande (autorité serveur)
+      // Crédit JuntoxShop (parrainage) : imputé côté serveur sur la 1ʳᵉ commande (autorité serveur)
       let creditUsed = 0;
       if (firstOrderId && credit > 0) {
         try {
@@ -797,7 +797,7 @@ function CartPage() {
               </div>
               {creditApplied > 0 && (
                 <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
-                  <span className="flex items-center gap-1.5">🎁 Crédit Livroto</span>
+                  <span className="flex items-center gap-1.5">🎁 Crédit JuntoxShop</span>
                   <span>-${creditApplied.toFixed(2)}</span>
                 </div>
               )}

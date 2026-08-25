@@ -1,7 +1,7 @@
 // ============================================================================
 // Lien de connexion PROPRE à une boutique (ex: /shop/muungano/connexion) —
 // page brandée (logo/nom de la boutique), pas la page /auth générique
-// Livroto. Après connexion : direction le back-office si la personne a un
+// JuntoxShop. Après connexion : direction le back-office si la personne a un
 // rôle sur CETTE boutique (owner/manager/staff), sinon la vitrine publique.
 // Ne réutilise aucune logique de /auth (fragile, cf. incidents auth) —
 // implémentation minimale et indépendante : login, inscription client,

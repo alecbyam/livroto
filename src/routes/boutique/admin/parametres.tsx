@@ -258,7 +258,7 @@ function ParametresAdminPage() {
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           Identifiants marchand FlexPay (M-Pesa/Orange/Airtel) propres à {boutique.nom} — jamais
-          partagés avec une autre boutique ni avec le compte FlexPay Livroto.
+          partagés avec une autre boutique ni avec le compte FlexPay JuntoxShop.
         </p>
         <form
           className="mt-3 space-y-3"

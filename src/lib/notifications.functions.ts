@@ -89,7 +89,7 @@ export const notifyOrderCreated = createServerFn({ method: "POST" })
 
     const codeLabel = order.code ?? order.id.slice(0, 8);
     const baseText =
-      `🛒 Livroto — Nouvelle commande ${codeLabel}\n` +
+      `🛒 JuntoxShop — Nouvelle commande ${codeLabel}\n` +
       `Client: ${order.customer_name} (${order.customer_phone})\n` +
       `Quartier: ${order.zone}\n` +
       `Adresse: ${order.customer_address}\n` +
@@ -133,7 +133,7 @@ export const notifyOrderCreated = createServerFn({ method: "POST" })
 
     for (const rider of riders ?? []) {
       if (!rider.whatsapp || !rider.callmebot_apikey) continue;
-      const rText = `🛵 Livroto — Course dispo ${codeLabel}\n${baseText}\n👉 Ouvre l'app pour la prendre.`;
+      const rText = `🛵 JuntoxShop — Course dispo ${codeLabel}\n${baseText}\n👉 Ouvre l'app pour la prendre.`;
       const r = await sendCallMeBot(rider.whatsapp, rText, rider.callmebot_apikey);
       await logNotification({
         user_id: rider.user_id,
@@ -240,7 +240,7 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
 
     const statusMsg = STATUS_MSG[data.status] ?? `Statut : ${data.status}`;
     const msg =
-      `Livroto — Commande ${codeLabel}\n` +
+      `JuntoxShop — Commande ${codeLabel}\n` +
       `${statusMsg}\n` +
       `Total à payer : $${(Number(order.total_usd) + Number(order.delivery_fee ?? 0)).toFixed(2)} (livraison incluse)`;
 

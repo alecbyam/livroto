@@ -6,9 +6,9 @@ import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — Livroto Bunia" },
-      { name: "description", content: "Contacte Livroto à Bunia : WhatsApp, e-mail, adresse. On répond vite, en français, swahili ou lingala." },
-      { property: "og:title", content: "Contact — Livroto" },
+      { title: "Contact — JuntoxShop Bunia" },
+      { name: "description", content: "Contacte JuntoxShop à Bunia : WhatsApp, e-mail, adresse. On répond vite, en français, swahili ou lingala." },
+      { property: "og:title", content: "Contact — JuntoxShop" },
       { property: "og:description", content: "Une question ? Un partenariat ? Écris-nous." },
     ],
   }),
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/contact")({
 });
 
 function ContactPage() {
-  const wa = `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent("Bonjour Livroto, j'aimerais avoir une info.")}`;
+  const wa = `https://wa.me/${LIVROTO_WHATSAPP}?text=${encodeURIComponent("Bonjour JuntoxShop, j'aimerais avoir une info.")}`;
   return (
     <SiteLayout>
       <section className="container mx-auto max-w-3xl px-4 py-12 md:py-20">

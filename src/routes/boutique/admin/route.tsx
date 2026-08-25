@@ -18,7 +18,7 @@ export const Route = createFileRoute("/boutique/admin")({
   ssr: false,
   beforeLoad: async ({ context }) => {
     const boutique = (context as { boutique: { id: string; slug: string } }).boutique;
-    // Jamais /auth (Livroto) ici : un admin de boutique doit rester dans SA
+    // Jamais /auth (JuntoxShop) ici : un admin de boutique doit rester dans SA
     // gestion, même quand sa session a expiré.
     const connexion = { to: "/boutique/connexion" as const, search: { boutique: boutique.slug } };
 

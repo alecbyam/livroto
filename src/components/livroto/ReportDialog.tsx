@@ -46,7 +46,7 @@ export function ReportDialog({ targetType, targetId, label = "Signaler", variant
     setBusy(true);
     try {
       await submit({ data: { target_type: targetType, target_id: targetId, reason, details: details.trim() || undefined } });
-      toast.success("Signalement envoyé. Merci, l'équipe Livroto va vérifier.");
+      toast.success("Signalement envoyé. Merci, l'équipe JuntoxShop va vérifier.");
       setOpen(false);
       setDetails("");
     } catch (e: any) {
@@ -67,7 +67,7 @@ export function ReportDialog({ targetType, targetId, label = "Signaler", variant
         <DialogHeader>
           <DialogTitle>Signaler {targetType === "product" ? "ce produit" : targetType === "vendor" ? "ce vendeur" : targetType === "rider" ? "ce livreur" : "cette commande"}</DialogTitle>
           <DialogDescription>
-            Aide-nous à garder Livroto sûr à Bunia. Décris ce qui ne va pas — un admin vérifiera.
+            Aide-nous à garder JuntoxShop sûr à Bunia. Décris ce qui ne va pas — un admin vérifiera.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">

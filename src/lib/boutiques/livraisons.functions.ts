@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertBoutiqueStaff } from "@/lib/boutiques/auth.server";
 
 // Pas de transporteur externe : la livraison est assurée SOIT par JuntoX via
-// le réseau de livreurs Livroto existant (table `riders`, rider_id renseigné),
+// le réseau de livreurs JuntoxShop existant (table `riders`, rider_id renseigné),
 // SOIT par la boutique cliente elle-même (son propre moyen, coursier_nom en
 // texte libre). Aucune API tierce — saisie/assignation manuelle par le staff.
 export const boutiqueObtenirOuCreerLivraison = createServerFn({ method: "POST" })
@@ -29,7 +29,7 @@ export const boutiqueObtenirOuCreerLivraison = createServerFn({ method: "POST" }
     return { livraison: creee };
   });
 
-// Liste des livreurs Livroto actifs — pour l'assignation quand
+// Liste des livreurs JuntoxShop actifs — pour l'assignation quand
 // mode_livraison='juntox_livroto'. Lecture simple de la table `riders`
 // existante (marketplace) ; aucune duplication de données, juste une lecture
 // croisée depuis le module boutique.

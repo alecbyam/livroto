@@ -55,7 +55,7 @@ export function InstallPWA() {
           <Download className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm">Installe Livroto</p>
+          <p className="font-bold text-sm">Installe JuntoxShop</p>
           <p className="text-xs text-white/75">Ajouter sur ton écran d'accueil</p>
         </div>
         <button

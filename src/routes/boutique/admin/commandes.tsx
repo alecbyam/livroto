@@ -99,7 +99,7 @@ const STATUT_LIVRAISON_LABEL: Record<string, string> = {
 };
 
 // Pas de transporteur externe : soit JuntoX livre via le réseau de livreurs
-// Livroto existant (assignation d'un rider réel), soit la boutique livre
+// JuntoxShop existant (assignation d'un rider réel), soit la boutique livre
 // elle-même (juste un suivi de statut manuel) — cf. livraisons.functions.ts.
 function LivraisonInline({ boutiqueId, commandeId }: { boutiqueId: string; commandeId: string }) {
   const qc = useQueryClient();
@@ -146,7 +146,7 @@ function LivraisonInline({ boutiqueId, commandeId }: { boutiqueId: string; comma
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="boutique">Livré par la boutique</SelectItem>
-          <SelectItem value="juntox_livroto">Livré par JuntoX (Livroto)</SelectItem>
+          <SelectItem value="juntox_livroto">Livré par JuntoX (JuntoxShop)</SelectItem>
         </SelectContent>
       </Select>
 

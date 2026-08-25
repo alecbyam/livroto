@@ -4,10 +4,10 @@ import { SiteLayout } from "@/components/livroto/SiteLayout";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Conditions générales — Livroto" },
-      { name: "description", content: "Conditions générales d'utilisation, politique de confidentialité et règles de la marketplace Livroto." },
-      { property: "og:title", content: "Conditions générales — Livroto" },
-      { property: "og:description", content: "Les règles qui encadrent l'utilisation de Livroto à Bunia." },
+      { title: "Conditions générales — JuntoxShop" },
+      { name: "description", content: "Conditions générales d'utilisation, politique de confidentialité et règles de la marketplace JuntoxShop." },
+      { property: "og:title", content: "Conditions générales — JuntoxShop" },
+      { property: "og:description", content: "Les règles qui encadrent l'utilisation de JuntoxShop à Bunia." },
     ],
   }),
   component: TermsPage,
@@ -21,8 +21,8 @@ function TermsPage() {
         <p className="mt-2 text-sm text-muted-foreground">Dernière mise à jour : juin 2026</p>
 
         <Section title="1. Présentation">
-          Livroto est une marketplace locale qui met en relation des vendeurs, des livreurs et des clients à Bunia
-          (Ituri, RDC). Le service est édité par l'équipe Livroto, joignable à <a href="mailto:hello@livroto.cd" className="underline">hello@livroto.cd</a>.
+          JuntoxShop est une marketplace locale qui met en relation des vendeurs, des livreurs et des clients à Bunia
+          (Ituri, RDC). Le service est édité par l'équipe JuntoxShop, joignable à <a href="mailto:hello@livroto.cd" className="underline">hello@livroto.cd</a>.
         </Section>
 
         <Section title="2. Compte et inscription">
@@ -35,9 +35,9 @@ function TermsPage() {
           sauf indication contraire. Les frais de livraison sont <strong>fixes selon le quartier</strong> et affichés clairement avant la validation de la commande — aucun frais caché.
         </Section>
 
-        <Section title="4. Rôle de Livroto">
-          Livroto est une plateforme d'intermédiation. La qualité des produits est de la responsabilité des vendeurs ;
-          la livraison, de celle des livreurs. Livroto modère et vérifie les comptes mais n'est pas partie au contrat
+        <Section title="4. Rôle de JuntoxShop">
+          JuntoxShop est une plateforme d'intermédiation. La qualité des produits est de la responsabilité des vendeurs ;
+          la livraison, de celle des livreurs. JuntoxShop modère et vérifie les comptes mais n'est pas partie au contrat
           de vente.
         </Section>
 

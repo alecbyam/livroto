@@ -5,7 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Livroto design system — Bunia livre à ta porte */
+/* JuntoxShop design system — Bunia livre à ta porte */
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -174,7 +174,7 @@
 }
 
 /* ============================================================
-   Polish global : fluidité, UX & thème (Livroto)
+   Polish global : fluidité, UX & thème (JuntoxShop)
    ============================================================ */
 @layer base {
   html {

@@ -133,7 +133,7 @@ function FlexpaySection({ data, onSaved }: { data: any; onSaved: () => void }) {
       <div className="grid gap-3 p-4 md:grid-cols-2">
         <div>
           <Label className="text-xs">Code marchand (merchant)</Label>
-          <Input value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} placeholder="Ex : LIVROTO123" className="mt-1" />
+          <Input value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} placeholder="Ex : JUNTOXSHOP123" className="mt-1" />
         </div>
         <div>
           <Label className="text-xs">Token API {data.token_set && <span className="text-primary">· configuré {data.token_masked}</span>}</Label>

@@ -11,7 +11,7 @@ import { whatsappPing, getWhatsappConfig } from "@/lib/integrations/whatsapp.ser
 import { flexpayPing, getFlexpayConfig } from "@/lib/integrations/flexpay.server";
 
 // Ne renvoie JAMAIS les secrets en clair au client — seulement s'ils sont
-// configurés ou non (même principe que la config globale Livroto).
+// configurés ou non (même principe que la config globale JuntoxShop).
 export const boutiqueObtenirParametresIntegrations = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ boutique_id: z.string().uuid() }).parse(input))
@@ -61,9 +61,9 @@ export const boutiqueTesterWhatsapp = createServerFn({ method: "POST" })
 
 // FlexPay (paiement Mobile Money — M-Pesa/Orange/Airtel) propre à la
 // boutique : mêmes clés (flexpay_merchant/flexpay_token) et mêmes fonctions
-// bas niveau que la config globale Livroto (src/lib/integrations/flexpay.server.ts),
+// bas niveau que la config globale JuntoxShop (src/lib/integrations/flexpay.server.ts),
 // mais chargées depuis boutique_integration_settings — jamais partagées entre
-// boutiques ni avec le compte FlexPay Livroto.
+// boutiques ni avec le compte FlexPay JuntoxShop.
 export const boutiqueEnregistrerFlexpay = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>

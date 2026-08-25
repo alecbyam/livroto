@@ -1,7 +1,7 @@
-// Connexion dédiée à une boutique marque blanche — jamais de mention Livroto
+// Connexion dédiée à une boutique marque blanche — jamais de mention JuntoxShop
 // ici, contrairement à /auth (partagé par tout le marketplace). Le compte
 // reste techniquement le même système Supabase Auth, mais l'admin d'une
-// boutique ne doit jamais voir/atteindre l'expérience Livroto pour se
+// boutique ne doit jamais voir/atteindre l'expérience JuntoxShop pour se
 // connecter à SA gestion.
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";

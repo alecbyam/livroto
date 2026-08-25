@@ -25,7 +25,7 @@ export async function sendAfricasTalkingSMS(to: string, message: string): Promis
       username: AT_USERNAME,
       to:       phone,
       message:  message,
-      from:     "LIVROTO",  // Sender ID (doit être approuvé en production)
+      from:     "JUNTOXSHOP",  // Sender ID (doit être approuvé en production)
     });
 
     const res = await fetch("https://api.africastalking.com/version1/messaging", {
@@ -55,11 +55,11 @@ export async function sendAfricasTalkingSMS(to: string, message: string): Promis
 
 // Messages SMS pour chaque statut de commande
 export const STATUS_SMS: Record<string, string> = {
-  confirmed: "Livroto: Commande confirmee! Le vendeur prepare ta commande. On te tient informe.",
-  ready:     "Livroto: Ta commande est prete. Un livreur arrive bientot chez toi.",
-  picked_up: "Livroto: Ton livreur est en route! Il arrive dans quelques minutes.",
-  delivered: "Livroto: Commande livree! Merci de faire confiance a Livroto Bunia.",
-  cancelled: "Livroto: Ta commande a ete annulee. Contacte-nous pour plus d'infos.",
+  confirmed: "JuntoxShop: Commande confirmee! Le vendeur prepare ta commande. On te tient informe.",
+  ready:     "JuntoxShop: Ta commande est prete. Un livreur arrive bientot chez toi.",
+  picked_up: "JuntoxShop: Ton livreur est en route! Il arrive dans quelques minutes.",
+  delivered: "JuntoxShop: Commande livree! Merci de faire confiance a JuntoxShop Bunia.",
+  cancelled: "JuntoxShop: Ta commande a ete annulee. Contacte-nous pour plus d'infos.",
 };
 
 /**
@@ -96,7 +96,7 @@ export const notifyOrderCreatedSMS = createServerFn({ method: "POST" })
 
     const grandTotal = Number(order.total_usd) + Number(order.delivery_fee ?? 0);
     const msg =
-      `Livroto: Cmd #${codeLabel} recue! ` +
+      `JuntoxShop: Cmd #${codeLabel} recue! ` +
       `Total a payer: $${grandTotal.toFixed(2)} (livraison incluse) - ${paymentFR}. ` +
       `Zone: ${order.zone}. Merci ${order.customer_name}!`;
 

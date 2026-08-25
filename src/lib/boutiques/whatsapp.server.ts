@@ -1,9 +1,9 @@
 // Notifications WhatsApp Business PAR boutique — réutilise l'intégration
-// WhatsApp Cloud API déjà construite pour Livroto (src/lib/integrations/
+// WhatsApp Cloud API déjà construite pour JuntoxShop (src/lib/integrations/
 // whatsapp.server.ts, mêmes fonctions bas niveau sendWhatsAppText/Template),
 // mais avec des identifiants (numéro, token) propres à chaque boutique
 // cliente, chargés depuis boutique_integration_settings — jamais partagés
-// avec le compte WhatsApp Business Livroto ni entre boutiques.
+// avec le compte WhatsApp Business JuntoxShop ni entre boutiques.
 //
 // Toujours best-effort : un échec d'envoi (token pas encore configuré,
 // panne réseau) ne doit JAMAIS faire échouer la commande/le changement de

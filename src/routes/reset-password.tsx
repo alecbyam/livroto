@@ -10,8 +10,8 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Réinitialiser le mot de passe — Livroto" },
-      { name: "description", content: "Définis un nouveau mot de passe pour ton compte Livroto." },
+      { title: "Réinitialiser le mot de passe — JuntoxShop" },
+      { name: "description", content: "Définis un nouveau mot de passe pour ton compte JuntoxShop." },
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),

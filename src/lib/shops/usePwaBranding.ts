@@ -1,6 +1,6 @@
 // ============================================================================
 // Rend une boutique installable en tant qu'app à part entière (nom + icône
-// propres sur l'écran d'accueil), sans toucher au manifest global Livroto ni
+// propres sur l'écran d'accueil), sans toucher au manifest global JuntoxShop ni
 // au manifest Hugo Collection : on swap juste le <link rel="manifest"> + les
 // meta iOS pendant que la page boutique est affichée, et on restaure l'état
 // global en quittant. Le service worker (public/sw.js, scope "/") reste

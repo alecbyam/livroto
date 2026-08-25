@@ -12,7 +12,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertBoutiqueStaff } from "@/lib/boutiques/auth.server";
 
-const SITE_URL = "https://livroto-frontend-production.up.railway.app";
+const SITE_URL = "https://shop.juntoxrdc.com";
 const ROLES = ["admin", "vendeur", "caissier"] as const;
 
 // Le rôle du membre connecté, pour adapter la navigation admin côté client
@@ -91,7 +91,7 @@ export const boutiqueInviterStaff = createServerFn({ method: "POST" })
     if (invite?.user) {
       userId = invite.user.id;
     } else if (inviteErr && /already.*registered|already.*exist/i.test(inviteErr.message)) {
-      // Compte déjà existant (ex: déjà client Livroto) — on le retrouve par
+      // Compte déjà existant (ex: déjà client JuntoxShop) — on le retrouve par
       // pagination plutôt que de dupliquer un compte.
       let trouve: { id: string } | undefined;
       for (let page = 1; page <= 10 && !trouve; page++) {

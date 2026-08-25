@@ -10,9 +10,9 @@ import { useFavorites } from "@/lib/favorites";
 export const Route = createFileRoute("/favorites")({
   head: () => ({
     meta: [
-      { title: "Mes favoris — Livroto Bunia" },
-      { name: "description", content: "Retrouve tes produits favoris sur Livroto, la marketplace locale de Bunia." },
-      { property: "og:title", content: "Mes favoris — Livroto" },
+      { title: "Mes favoris — JuntoxShop Bunia" },
+      { name: "description", content: "Retrouve tes produits favoris sur JuntoxShop, la marketplace locale de Bunia." },
+      { property: "og:title", content: "Mes favoris — JuntoxShop" },
       { property: "og:description", content: "Tes produits préférés à portée de clic." },
       { name: "robots", content: "noindex,follow" },
     ],

@@ -1,6 +1,6 @@
 // Bannière "Installer" propre à une boutique — miroir de
 // src/components/livroto/InstallPWA.tsx, texte/dismiss namespacés par shop_id
-// pour ne jamais interférer avec l'invite globale Livroto.
+// pour ne jamais interférer avec l'invite globale JuntoxShop.
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 

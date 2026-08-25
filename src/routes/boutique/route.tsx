@@ -17,7 +17,7 @@ import { BoutiqueCartProvider } from "@/lib/boutiques/BoutiqueCartContext";
 // ⚠️ Segment de chemin "/boutique" TEMPORAIRE : nécessaire tant qu'aucune
 // boutique n'a de domaine réel branché (impossible d'avoir deux fichiers de
 // route différents sur le même chemin littéral "/" — celui-ci coexiste avec
-// routes/index.tsx, l'accueil du marketplace Livroto). Une fois un vrai
+// routes/index.tsx, l'accueil du marketplace JuntoxShop). Une fois un vrai
 // domaine pointé sur une boutique (ex. hugocollection.cd), il faudra un
 // réécriture de chemin au niveau serveur (Nitro/H3, avant le routeur) pour
 // que ce visiteur voie sa boutique à la racine "/" sans ce préfixe visible.
@@ -36,11 +36,11 @@ export const Route = createFileRoute("/boutique")({
   head: ({ match }) => {
     const boutique = (match.context as { boutique?: { nom: string; slogan?: string | null; logo_url: string | null; theme?: unknown } }).boutique;
     if (!boutique) return {};
-    // Le head() du root (__root.tsx) pose ~15 balises meta "Livroto" (og:*,
+    // Le head() du root (__root.tsx) pose ~15 balises meta "JuntoxShop" (og:*,
     // twitter:*, apple-mobile-web-app-title, author, publisher...). TanStack
     // Router fusionne les head() par clé (name/property) : une clé absente
-    // ici laisse passer la version Livroto du parent. Il faut donc RÉÉCRIRE
-    // explicitement CHAQUE clé du root qui mentionne Livroto — un sous-
+    // ici laisse passer la version JuntoxShop du parent. Il faut donc RÉÉCRIRE
+    // explicitement CHAQUE clé du root qui mentionne JuntoxShop — un sous-
     // ensemble partiel a été testé en dev et laissait fuiter twitter:title,
     // twitter:description et apple-mobile-web-app-title. Voir la checklist
     // "nouvelle boutique" : toute clé ajoutée au head() du root DOIT être
@@ -69,15 +69,15 @@ export const Route = createFileRoute("/boutique")({
         { name: "author", content: boutique.nom },
         { name: "publisher", content: boutique.nom },
         // Couleur de la barre de statut/écran de démarrage PWA — sinon le
-        // vert Livroto du root (#0f3d2e) reste utilisé pour une boutique qui
+        // vert JuntoxShop du root (#0f3d2e) reste utilisé pour une boutique qui
         // a pourtant sa propre couleur de marque (theme.primary).
         ...(themeCouleur ? [{ name: "theme-color", content: themeCouleur }] : []),
       ],
-      // Les <link rel="icon"> du root (favicon-32.png, icon-192.png Livroto)
+      // Les <link rel="icon"> du root (favicon-32.png, icon-192.png JuntoxShop)
       // sont CONCATÉNÉS, pas remplacés (contrairement aux meta, fusionnées par
       // clé name/property) — et le navigateur préfère l'icône dont `sizes`
       // correspond le mieux. Sans nos propres entrées sizes=32x32/192x192,
-      // l'onglet d'une boutique affichait le favicon Livroto (fuite de marque
+      // l'onglet d'une boutique affichait le favicon JuntoxShop (fuite de marque
       // repérée en inspectant le HTML réel). On émet donc les mêmes tailles,
       // déclarées après celles du parent -> le navigateur retient les nôtres.
       links: boutique.logo_url
@@ -109,7 +109,7 @@ function BoutiqueIntrouvable() {
 // TOUT l'espace boutique — vitrine ET admin. Un seul point d'injection ici
 // (ancêtre commun de tout /boutique/*) suffit à reteinter toute l'UI — aucun
 // composant individuel n'a besoin d'être touché. Sans thème configuré
-// (`theme` vide), on ne pose aucune variable et le vert par défaut Livroto
+// (`theme` vide), on ne pose aucune variable et le vert par défaut JuntoxShop
 // s'applique tel quel.
 //
 // ⚠️ Piège CSS découvert en testant dans un vrai navigateur (pas en lisant le
@@ -149,7 +149,7 @@ function stylesMarqueBoutique(theme: unknown): CSSProperties | undefined {
 }
 
 // Le <link rel="manifest"> du root (__root.tsx) pointe vers le manifest
-// Livroto générique — et contrairement aux meta (fusionnées par clé), les
+// JuntoxShop générique — et contrairement aux meta (fusionnées par clé), les
 // liens sont CONCATÉNÉS et le premier <link rel="manifest"> du document
 // gagne (les navigateurs ne "choisissent" pas le meilleur comme ils le font
 // pour les favicons via `sizes`). Impossible donc de simplement ajouter un

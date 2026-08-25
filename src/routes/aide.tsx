@@ -10,8 +10,8 @@ import { LIVROTO_WHATSAPP, genericWhatsAppUrl } from "@/lib/whatsapp";
 export const Route = createFileRoute("/aide")({
   head: () => ({
     meta: [
-      { title: "Aide & Contact — Livroto Bunia" },
-      { name: "description", content: "Comment commander sur Livroto, paiement cash à la livraison, zones de Bunia et contact WhatsApp. On répond vite !" },
+      { title: "Aide & Contact — JuntoxShop Bunia" },
+      { name: "description", content: "Comment commander sur JuntoxShop, paiement cash à la livraison, zones de Bunia et contact WhatsApp. On répond vite !" },
     ],
   }),
   component: AidePage,

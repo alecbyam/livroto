@@ -28,14 +28,14 @@ import { PRODUCT_LIST_SELECT } from "@/lib/products";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Livroto — Bunia et l'Ituri livrent à ta porte" },
+      { title: "JuntoxShop — Bunia et l'Ituri livrent à ta porte" },
       {
         name: "description",
         content:
           "Première marketplace locale de Bunia et de toute la province de l'Ituri. Accessoires, cuisine et livraison — cash à la porte.",
       },
-      { property: "og:title", content: "Livroto — Bunia et l'Ituri livrent à ta porte" },
-      { property: "og:description", content: "Commande. Livroto arrive." },
+      { property: "og:title", content: "JuntoxShop — Bunia et l'Ituri livrent à ta porte" },
+      { property: "og:description", content: "Commande. JuntoxShop arrive." },
     ],
   }),
   // Chargé côté serveur (pas dans un useEffect client) : le HTML envoyé au
@@ -116,7 +116,7 @@ async function fetchHomeTestimonials(): Promise<HomeTestimonial[]> {
       id: r.id,
       quote: (r.comment ?? "").trim(),
       rating: r.rating,
-      name: prof?.name?.trim() || "Client Livroto",
+      name: prof?.name?.trim() || "Client JuntoxShop",
       zone:
         prof?.zone?.trim() || (r.product_id ? (prodById.get(r.product_id) ?? "Bunia") : "Bunia"),
     };
@@ -328,7 +328,7 @@ function Zones() {
         ))}
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
-        Et bien plus : Livroto livre partout à Bunia et dans toute la province de l'Ituri.
+        Et bien plus : JuntoxShop livre partout à Bunia et dans toute la province de l'Ituri.
         Le tarif de livraison t'est communiqué par le livreur juste après la validation de ta
         commande.
       </p>
@@ -345,7 +345,7 @@ function SellerForm() {
     e.preventDefault();
     setSubmitting(true);
     const msg =
-      `Bonjour Livroto ! Je veux ouvrir ma boutique.\n` +
+      `Bonjour JuntoxShop ! Je veux ouvrir ma boutique.\n` +
       `Nom de la boutique : ${fields.name}\n` +
       `Téléphone : ${fields.phone}\n` +
       `Catégorie : ${fields.category}\n` +
@@ -370,7 +370,7 @@ function SellerForm() {
               <Check className="h-5 w-5 text-[color:var(--amber)]" /> Commandes via WhatsApp
             </li>
             <li className="flex gap-2">
-              <Check className="h-5 w-5 text-[color:var(--amber)]" /> Livraison gérée par Livroto
+              <Check className="h-5 w-5 text-[color:var(--amber)]" /> Livraison gérée par JuntoxShop
             </li>
             <li className="flex gap-2">
               <Check className="h-5 w-5 text-[color:var(--amber)]" /> Paiement cash sécurisé

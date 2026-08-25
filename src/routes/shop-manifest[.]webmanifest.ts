@@ -16,7 +16,7 @@ export const Route = createFileRoute("/shop-manifest.webmanifest")({
         const slug = (url.searchParams.get("slug") || "").trim();
 
         const empty = () =>
-          new Response(JSON.stringify({ name: "Livroto", short_name: "Livroto", start_url: "/", display: "standalone" }), {
+          new Response(JSON.stringify({ name: "JuntoxShop", short_name: "JuntoxShop", start_url: "/", display: "standalone" }), {
             status: 200,
             headers: { "Content-Type": "application/manifest+json; charset=utf-8" },
           });
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/shop-manifest.webmanifest")({
         const manifest = {
           name: shop.name,
           short_name: shortName,
-          description: `Commande en ligne — ${shop.name}, via Livroto.`,
+          description: `Commande en ligne — ${shop.name}, via JuntoxShop.`,
           start_url: `/shop/${shop.slug}`,
           scope: `/shop/${shop.slug}`,
           display: "standalone",

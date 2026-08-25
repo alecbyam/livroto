@@ -358,7 +358,7 @@ function OrderDetailPage() {
                     className="bg-[color:var(--whatsapp)] hover:brightness-105 text-white"
                   >
                     <a
-                      href={`https://wa.me/${phoneDigits(String(rider.whatsapp))}?text=${encodeURIComponent(`${t("orderDetail.helloImCustomer")} ${order.customer_name} (Livroto #${order.code ?? order.id.slice(0, 6)}). ${t("orderDetail.myPosition")} ${order.customer_address}, ${order.zone}.`)}`}
+                      href={`https://wa.me/${phoneDigits(String(rider.whatsapp))}?text=${encodeURIComponent(`${t("orderDetail.helloImCustomer")} ${order.customer_name} (JuntoxShop #${order.code ?? order.id.slice(0, 6)}). ${t("orderDetail.myPosition")} ${order.customer_address}, ${order.zone}.`)}`}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -415,7 +415,7 @@ function OrderDetailPage() {
                 `${t("orderDetail.payment")} : ${order.payment_method ?? "cash"}\n` +
                 `${t("orderDetail.status")} : ${t(`order.status.${order.status}`)}\n` +
                 `${t("order.delivery")} : ${order.customer_name}, ${order.zone} — ${order.customer_address}\n\n` +
-                `Livroto Bunia 🛵 — Senda order yako !`;
+                `JuntoxShop Bunia 🛵 — Senda order yako !`;
               window.open(`https://wa.me/?text=${encodeURIComponent(recu)}`, "_blank");
             }}
           >
