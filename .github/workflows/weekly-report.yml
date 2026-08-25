@@ -1,0 +1,26 @@
+name: Rapport hebdo JuntoxShop
+
+# Déclenche l'agent Analytics chaque lundi 7h Kinshasa (6h UTC, pas de DST au Congo)
+# et envoie le rapport par email à admin@juntoxrdc.com — voir
+# src/routes/api.cron.weekly-report.ts pour la logique côté serveur.
+# Pas de service cron Railway dédié : un simple curl planifié suffit et ne coûte rien.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {} # bouton "Run workflow" manuel dans l'onglet Actions, pour tester
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Appeler le endpoint de rapport
+        run: |
+          status=$(curl -s -o response.json -w "%{http_code}" -X POST \
+            "https://shop.juntoxrdc.com/api/cron/weekly-report" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $status"
+          cat response.json
+          if [ "$status" -ne 200 ]; then
+            echo "::error::Le endpoint a répondu $status"
+            exit 1
+          fi

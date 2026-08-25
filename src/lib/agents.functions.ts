@@ -24,7 +24,9 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
  * généré est quand même renvoyé à l'UI — même philosophie que les notifications WhatsApp
  * ailleurs dans l'app (n'échoue jamais la fonctionnalité principale pour un souci annexe).
  */
-async function saveDraft(input: {
+// Exporté pour réutilisation par le cron de rapport hebdo (routes/api.cron.weekly-report.ts) —
+// même table, même format d'insertion, pas de logique dupliquée.
+export async function saveDraft(input: {
   agent: (typeof AGENT_TYPES)[number];
   inputMessage: string | null;
   output: unknown;

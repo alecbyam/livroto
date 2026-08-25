@@ -53,6 +53,7 @@ import { Route as BoutiqueAdminCreditsRouteImport } from './routes/boutique/admi
 import { Route as BoutiqueAdminCommandesRouteImport } from './routes/boutique/admin/commandes'
 import { Route as BoutiqueAdminChargesRouteImport } from './routes/boutique/admin/charges'
 import { Route as BoutiqueAdminCategoriesRouteImport } from './routes/boutique/admin/categories'
+import { Route as ApiCronWeeklyReportRouteImport } from './routes/api.cron.weekly-report'
 import { Route as AuthenticatedShopOrderOrderIdRouteImport } from './routes/_authenticated/shop-order.$orderId'
 import { Route as AuthenticatedShopAdminSlugRouteImport } from './routes/_authenticated/shop-admin.$slug'
 import { Route as AuthenticatedOrdersOrderIdRouteImport } from './routes/_authenticated/orders.$orderId'
@@ -279,6 +280,11 @@ const BoutiqueAdminCategoriesRoute = BoutiqueAdminCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => BoutiqueAdminRouteRoute,
 } as any)
+const ApiCronWeeklyReportRoute = ApiCronWeeklyReportRouteImport.update({
+  id: '/api/cron/weekly-report',
+  path: '/api/cron/weekly-report',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedShopOrderOrderIdRoute =
   AuthenticatedShopOrderOrderIdRouteImport.update({
     id: '/shop-order/$orderId',
@@ -331,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
   '/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
+  '/api/cron/weekly-report': typeof ApiCronWeeklyReportRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -378,6 +385,7 @@ export interface FileRoutesByTo {
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
   '/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
+  '/api/cron/weekly-report': typeof ApiCronWeeklyReportRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -428,6 +436,7 @@ export interface FileRoutesById {
   '/_authenticated/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/_authenticated/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
   '/_authenticated/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
+  '/api/cron/weekly-report': typeof ApiCronWeeklyReportRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -478,6 +487,7 @@ export interface FileRouteTypes {
     | '/orders/$orderId'
     | '/shop-admin/$slug'
     | '/shop-order/$orderId'
+    | '/api/cron/weekly-report'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -525,6 +535,7 @@ export interface FileRouteTypes {
     | '/orders/$orderId'
     | '/shop-admin/$slug'
     | '/shop-order/$orderId'
+    | '/api/cron/weekly-report'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -574,6 +585,7 @@ export interface FileRouteTypes {
     | '/_authenticated/orders/$orderId'
     | '/_authenticated/shop-admin/$slug'
     | '/_authenticated/shop-order/$orderId'
+    | '/api/cron/weekly-report'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -612,6 +624,7 @@ export interface RootRouteChildren {
   ProductProductIdRoute: typeof ProductProductIdRoute
   ShopSlugRoute: typeof ShopSlugRouteWithChildren
   VendorSlugRoute: typeof VendorSlugRoute
+  ApiCronWeeklyReportRoute: typeof ApiCronWeeklyReportRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -924,6 +937,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueAdminCategoriesRouteImport
       parentRoute: typeof BoutiqueAdminRouteRoute
     }
+    '/api/cron/weekly-report': {
+      id: '/api/cron/weekly-report'
+      path: '/api/cron/weekly-report'
+      fullPath: '/api/cron/weekly-report'
+      preLoaderRoute: typeof ApiCronWeeklyReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/shop-order/$orderId': {
       id: '/_authenticated/shop-order/$orderId'
       path: '/shop-order/$orderId'
@@ -1069,6 +1089,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProductProductIdRoute: ProductProductIdRoute,
   ShopSlugRoute: ShopSlugRouteWithChildren,
   VendorSlugRoute: VendorSlugRoute,
+  ApiCronWeeklyReportRoute: ApiCronWeeklyReportRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
