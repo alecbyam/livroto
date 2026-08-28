@@ -96,8 +96,8 @@ function AboutPage() {
         {/* Édité par JuntoX */}
         <div className="mt-12 rounded-3xl border border-border bg-gradient-to-br from-[color:var(--brand-light)]/60 to-card p-8 md:p-10">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[color:var(--brand-dark)] font-display text-2xl font-bold tracking-tight text-white">
-              JX
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[color:var(--brand-dark)] p-2.5">
+              <img src="/logo-juntox-mark.png" alt="JuntoX" className="h-full w-full object-contain" />
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

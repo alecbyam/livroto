@@ -31,7 +31,7 @@ export const Route = createFileRoute("/shop-manifest.webmanifest")({
         if (!shop) return empty();
 
         const cfg = (shop.config as Record<string, any>) ?? {};
-        const themeColor = typeof cfg.theme_color === "string" ? cfg.theme_color : "#0f3d2e";
+        const themeColor = typeof cfg.theme_color === "string" ? cfg.theme_color : "#123F6E";
         const icon = shop.logo_url || "/icon-512.png";
         const shortName = shop.name.length > 14 ? shop.name.slice(0, 13) + "…" : shop.name;
 

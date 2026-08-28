@@ -38,7 +38,7 @@ export const Route = createFileRoute("/boutique-manifest.webmanifest")({
         if (!boutique) return notFound();
 
         const theme = (boutique.theme ?? {}) as { primary?: string; accent?: string };
-        const couleur = theme.primary ?? "#0f3d2e";
+        const couleur = theme.primary ?? "#123F6E";
         // Une seule image (logo_url, dimensions arbitraires) réutilisée à
         // toutes les tailles déclarées — le navigateur redimensionne ;
         // même convention déjà en place pour les <link rel="icon"> par

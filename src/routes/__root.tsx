@@ -129,7 +129,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "twitter:image",
         content: "https://shop.juntoxrdc.com/icon-512.png",
       },
-      { name: "theme-color", content: "#0f3d2e" },
+      { name: "theme-color", content: "#123F6E" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "JuntoxShop" },

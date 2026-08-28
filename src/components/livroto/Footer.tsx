@@ -66,9 +66,10 @@ export function Footer() {
           <p className="mt-6 text-xs text-white/50" suppressHydrationWarning>
             © {new Date().getFullYear()} JuntoxShop. {t("footer.rights")}
           </p>
-          <p className="mt-1 text-xs text-white/60">
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-white/60">
             Un produit{" "}
-            <Link to="/about" className="font-semibold text-white hover:underline">
+            <Link to="/about" className="inline-flex items-center gap-1 font-semibold text-white hover:underline">
+              <img src="/logo-juntox-mark.png" alt="" className="h-3.5 w-3.5 object-contain" />
               JuntoX
             </Link>
           </p>

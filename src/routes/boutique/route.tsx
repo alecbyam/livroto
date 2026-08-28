@@ -69,7 +69,7 @@ export const Route = createFileRoute("/boutique")({
         { name: "author", content: boutique.nom },
         { name: "publisher", content: boutique.nom },
         // Couleur de la barre de statut/écran de démarrage PWA — sinon le
-        // vert JuntoxShop du root (#0f3d2e) reste utilisé pour une boutique qui
+        // bleu JuntoxShop du root (#123F6E) reste utilisé pour une boutique qui
         // a pourtant sa propre couleur de marque (theme.primary).
         ...(themeCouleur ? [{ name: "theme-color", content: themeCouleur }] : []),
       ],
