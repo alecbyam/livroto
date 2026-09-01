@@ -30,11 +30,11 @@ function ContactPage() {
             <p className="mt-1 text-sm text-muted-foreground">Le plus rapide. Clique pour discuter.</p>
             <p className="mt-2 text-sm font-medium">+{LIVROTO_WHATSAPP}</p>
           </a>
-          <a href="mailto:hello@livroto.cd" className="group rounded-2xl border border-border bg-card p-6 hover:border-primary transition-colors">
+          <a href="mailto:contact@juntoxrdc.com" className="group rounded-2xl border border-border bg-card p-6 hover:border-primary transition-colors">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Mail className="h-5 w-5" /></div>
             <h3 className="mt-4 font-display font-semibold">E-mail</h3>
             <p className="mt-1 text-sm text-muted-foreground">Pour les partenariats et la presse.</p>
-            <p className="mt-2 text-sm font-medium">hello@livroto.cd</p>
+            <p className="mt-2 text-sm font-medium">contact@juntoxrdc.com</p>
           </a>
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Phone className="h-5 w-5" /></div>

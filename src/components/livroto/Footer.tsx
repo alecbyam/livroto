@@ -22,7 +22,7 @@ export function Footer() {
             </li>
             <li className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
-              <span>hello@livroto.cd</span>
+              <span>contact@juntoxrdc.com</span>
             </li>
             <li className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />

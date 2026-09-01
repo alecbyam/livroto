@@ -8,15 +8,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Store, MapPin, Star } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Loader2, MessageCircle, Store, MapPin, Navigation, Star } from "lucide-react";
 import { ShopSiteLayout } from "@/components/shops/ShopSiteLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { getMyShopOrder } from "@/lib/shops/orders.functions";
+import { getMyShopOrder, customerUpdateShopOrderLocation } from "@/lib/shops/orders.functions";
 import { customerLeaveShopReview } from "@/lib/shops/reviews.functions";
-import { googleMapsUrl } from "@/lib/geolocation";
+import { captureGeolocation, classifyGeoError, googleMapsUrl } from "@/lib/geolocation";
 
 export const Route = createFileRoute("/_authenticated/shop-order/$orderId")({
   component: ShopOrderTrackingPage,
@@ -35,10 +35,29 @@ function ShopOrderTrackingPage() {
   const { orderId } = Route.useParams();
   const qc = useQueryClient();
   const fetchOrder = useServerFn(getMyShopOrder);
+  const updateLocation = useServerFn(customerUpdateShopOrderLocation);
   const { data, isLoading } = useQuery({
     queryKey: ["shop-order-detail", orderId],
     queryFn: () => fetchOrder({ data: { order_id: orderId } }),
   });
+  const [geoBusy, setGeoBusy] = useState(false);
+
+  const shareLocation = async () => {
+    setGeoBusy(true);
+    try {
+      const pos = await captureGeolocation();
+      await updateLocation({ data: { order_id: orderId, lat: pos.lat, lng: pos.lng } });
+      toast.success("Position partagée");
+      qc.invalidateQueries({ queryKey: ["shop-order-detail", orderId] });
+    } catch (e: any) {
+      const kind = classifyGeoError(e);
+      toast.error(
+        kind === "denied" ? "Autorisation refusée — active la localisation dans les réglages du navigateur."
+          : kind === "unsupported" ? "Géolocalisation non disponible sur cet appareil."
+          : "Impossible d'obtenir ta position, réessaie.",
+      );
+    } finally { setGeoBusy(false); }
+  };
 
   useEffect(() => {
     const channel = supabase
@@ -80,7 +99,10 @@ function ShopOrderTrackingPage() {
               <p className="text-sm text-muted-foreground">Commande #{order.code ?? order.id.slice(0, 6)}</p>
             </div>
           </div>
-          <Badge variant="outline">{STATUS_LABEL[order.status] ?? order.status}</Badge>
+          <Badge variant="outline" className="gap-1.5">
+            {order.status === "picked_up" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+            {STATUS_LABEL[order.status] ?? order.status}
+          </Badge>
         </div>
 
         {order.status !== "cancelled" && (
@@ -143,6 +165,12 @@ function ShopOrderTrackingPage() {
             <a href={googleMapsUrl(order.customer_lat, order.customer_lng)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--primary)] hover:underline">
               <MapPin className="h-4 w-4" /> Voir la position GPS partagée
             </a>
+          )}
+          {order.status !== "delivered" && order.status !== "cancelled" && (
+            <Button size="sm" variant="outline" onClick={shareLocation} disabled={geoBusy} className="mt-3">
+              {geoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+              {geoBusy ? "Localisation…" : order.customer_lat != null ? "Actualiser ma position" : "Partager ma position GPS"}
+            </Button>
           )}
         </div>
 

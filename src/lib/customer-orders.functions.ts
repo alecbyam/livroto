@@ -77,6 +77,34 @@ export const getDeliveryTracking = createServerFn({ method: "POST" })
     };
   });
 
+// Partage/mise à jour de position APRÈS la commande (audit suivi du 28/08) : à
+// Bunia les adresses sont des repères ("portail bleu après l'école...") — si le
+// client n'a pas partagé sa position au checkout, ou s'il a bougé (commande
+// livrée au bureau puis rentré à la maison), le livreur tourne en rond. Le
+// client peut donc (re)partager tant que la commande n'est pas terminée.
+export const customerUpdateOrderLocation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    order_id: z.string().uuid(),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: o, error: e1 } = await supabase.from("orders")
+      .select("status,customer_id").eq("id", data.order_id).maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!o || o.customer_id !== userId) throw new Error("Non autorisé");
+    if (o.status === "delivered" || o.status === "cancelled") {
+      throw new Error("Cette commande est terminée — la position ne peut plus être modifiée");
+    }
+    const { error } = await supabaseAdmin.from("orders")
+      .update({ customer_lat: data.lat, customer_lng: data.lng })
+      .eq("id", data.order_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const customerCancelOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ order_id: z.string().uuid() }).parse(input))

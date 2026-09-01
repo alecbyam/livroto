@@ -8,7 +8,9 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
+  MapPin,
   MessageCircle,
+  Navigation,
   Phone,
   RotateCcw,
   Share2,
@@ -25,11 +27,13 @@ import {
   getCustomerOrderDetail,
   customerCancelOrder,
   customerLeaveReview,
+  customerUpdateOrderLocation,
   getDeliveryTracking,
 } from "@/lib/dashboard.functions";
 import { LIVROTO_WHATSAPP } from "@/lib/whatsapp";
 import { phoneDigits } from "@/lib/phone";
 import { useI18n } from "@/lib/i18n";
+import { captureGeolocation, classifyGeoError } from "@/lib/geolocation";
 
 export const Route = createFileRoute("/_authenticated/orders/$orderId")({
   component: OrderDetailPage,
@@ -51,6 +55,7 @@ function OrderDetailPage() {
   const fetchDetail = useServerFn(getCustomerOrderDetail);
   const cancel = useServerFn(customerCancelOrder);
   const review = useServerFn(customerLeaveReview);
+  const updateLocation = useServerFn(customerUpdateOrderLocation);
   const { data, isLoading } = useQuery({
     queryKey: ["order-detail", orderId],
     queryFn: () => fetchDetail({ data: { order_id: orderId } }),
@@ -59,6 +64,29 @@ function OrderDetailPage() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [geoBusy, setGeoBusy] = useState(false);
+
+  // Partage/mise à jour de position APRÈS la commande (amélioration suivi du
+  // 28/08) : adresses informelles à Bunia ("portail bleu après l'école") — le
+  // client peut (re)partager sa position tant que la commande n'est pas
+  // terminée, ex. s'il l'a sautée au checkout ou a bougé entre-temps.
+  const shareLocation = async () => {
+    setGeoBusy(true);
+    try {
+      const pos = await captureGeolocation();
+      await updateLocation({ data: { order_id: orderId, lat: pos.lat, lng: pos.lng } });
+      toast.success(t("cart.toast.gpsOk"));
+      qc.invalidateQueries({ queryKey: ["order-detail", orderId] });
+    } catch (e: any) {
+      const kind = classifyGeoError(e);
+      toast.error(
+        kind === "denied" ? t("cart.toast.gpsDenied")
+          : kind === "timeout" ? t("cart.toast.gpsTimeout")
+          : kind === "unsupported" ? t("cart.toast.gpsOff")
+          : (e?.message ?? t("cart.toast.gpsFail")),
+      );
+    } finally { setGeoBusy(false); }
+  };
 
   // Realtime : mise à jour du statut en direct
   useEffect(() => {
@@ -187,7 +215,8 @@ function OrderDetailPage() {
               {new Date(order.created_at).toLocaleString("fr-FR")}
             </p>
           </div>
-          <Badge variant="outline" className="text-sm">
+          <Badge variant="outline" className="text-sm gap-1.5">
+            {order.status === "picked_up" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />}
             {t(`order.status.${order.status}`)}
           </Badge>
         </div>
@@ -321,8 +350,24 @@ function OrderDetailPage() {
               rel="noreferrer"
               className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--brand-dark)] hover:underline"
             >
-              {t("orderDetail.gpsSharedSeeMap")}
+              <MapPin className="h-3.5 w-3.5" /> {t("orderDetail.gpsSharedSeeMap")}
             </a>
+          )}
+          {order.status !== "delivered" && order.status !== "cancelled" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={shareLocation}
+              disabled={geoBusy}
+              className="mt-3"
+            >
+              {geoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+              {geoBusy
+                ? t("cart.locating")
+                : order.customer_lat != null
+                  ? t("cart.refreshGps")
+                  : t("cart.shareGps")}
+            </Button>
           )}
         </div>
 

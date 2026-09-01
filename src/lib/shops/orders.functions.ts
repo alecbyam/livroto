@@ -154,6 +154,31 @@ export const getMyShopOrder = createServerFn({ method: "GET" })
     return { order };
   });
 
+// Partage/mise à jour de position APRÈS la commande (même besoin que le
+// marketplace natif — adresses informelles à Bunia, ou position sautée au
+// checkout). Autorisé tant que la commande n'est ni livrée ni annulée.
+export const customerUpdateShopOrderLocation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    order_id: z.string().uuid(),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: o, error: e1 } = await context.supabase.from("shop_orders")
+      .select("status,customer_id").eq("id", data.order_id).maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!o || o.customer_id !== context.userId) throw new Error("Non autorisé");
+    if (o.status === "delivered" || o.status === "cancelled") {
+      throw new Error("Cette commande est terminée — la position ne peut plus être modifiée");
+    }
+    const { error } = await supabaseAdmin.from("shop_orders")
+      .update({ customer_lat: data.lat, customer_lng: data.lng })
+      .eq("id", data.order_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // ---------- CLIENT : paiement FlexPay (par boutique, avec dépôt partiel configurable) ----------
 const ALL_PERCENTAGES = [25, 50, 100] as const;
 

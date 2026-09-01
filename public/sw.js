@@ -1,7 +1,7 @@
 // Livroto Service Worker — PWA offline support (aussi utilisé par les
 // boutiques marque blanche sous /boutique/**, cf. src/routes/boutique/route.tsx
 // — d'où le fallback hors-ligne générique ci-dessous, sans "Livroto" en dur).
-const CACHE = 'livroto-v29';
+const CACHE = 'livroto-v30'; // bump 28/08 : icônes PWA regénérées avec le vrai logo JuntoX
 const ASSETS = [
   '/',
   '/catalog',

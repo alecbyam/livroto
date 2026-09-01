@@ -22,7 +22,7 @@ function TermsPage() {
 
         <Section title="1. Présentation">
           JuntoxShop est une marketplace locale qui met en relation des vendeurs, des livreurs et des clients à Bunia
-          (Ituri, RDC). Le service est édité par l'équipe JuntoxShop, joignable à <a href="mailto:hello@livroto.cd" className="underline">hello@livroto.cd</a>.
+          (Ituri, RDC). Le service est édité par l'équipe JuntoxShop, joignable à <a href="mailto:contact@juntoxrdc.com" className="underline">contact@juntoxrdc.com</a>.
         </Section>
 
         <Section title="2. Compte et inscription">
@@ -49,7 +49,7 @@ function TermsPage() {
         <Section title="6. Données personnelles">
           Nous collectons les données strictement nécessaires (nom, téléphone, adresse, historique de commandes)
           pour assurer la livraison et le support. Tes données ne sont jamais vendues à des tiers.
-          Pour les supprimer, écris à <a href="mailto:hello@livroto.cd" className="underline">hello@livroto.cd</a>.
+          Pour les supprimer, écris à <a href="mailto:contact@juntoxrdc.com" className="underline">contact@juntoxrdc.com</a>.
         </Section>
 
         <Section title="7. Comportement attendu">
