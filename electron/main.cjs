@@ -2,8 +2,8 @@ const { app, BrowserWindow, shell, Menu, Tray, nativeImage } = require('electron
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
-const APP_URL = 'https://livroto-frontend-production.up.railway.app';
-const APP_NAME = 'Livroto';
+const APP_URL = 'https://shop.juntoxrdc.com';
+const APP_NAME = 'JuntoxShop';
 
 let mainWindow = null;
 let tray = null;
@@ -22,8 +22,8 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true,
     },
-    // Couleurs de la marque Livroto
-    backgroundColor: '#f4f7f5',
+    // Couleurs de la marque JuntoX
+    backgroundColor: '#f8fafd',
     show: false,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
   });
@@ -56,7 +56,7 @@ function createTray() {
   tray = new Tray(trayIcon);
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Ouvrir Livroto', click: () => { if (mainWindow) mainWindow.show(); else createWindow(); } },
+    { label: `Ouvrir ${APP_NAME}`, click: () => { if (mainWindow) mainWindow.show(); else createWindow(); } },
     { label: 'Catalogue', click: () => mainWindow?.loadURL(`${APP_URL}/catalog`) },
     { label: 'Mes commandes', click: () => mainWindow?.loadURL(`${APP_URL}/orders`) },
     { type: 'separator' },

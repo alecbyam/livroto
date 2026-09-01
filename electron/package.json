@@ -1,7 +1,7 @@
 {
   "name": "livroto-desktop",
   "version": "1.0.0",
-  "description": "Livroto — Marketplace de Bunia (app desktop)",
+  "description": "JuntoxShop — Marketplace de Bunia (app desktop)",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
@@ -11,8 +11,8 @@
     "build:all": "electron-builder -mwl"
   },
   "author": {
-    "name": "Livroto Bunia",
-    "email": "contact@livroto.com"
+    "name": "JuntoxShop",
+    "email": "contact@juntoxrdc.com"
   },
   "license": "MIT",
   "devDependencies": {
@@ -24,8 +24,8 @@
   },
   "build": {
     "appId": "com.livroto.bunia",
-    "productName": "Livroto",
-    "copyright": "Copyright © 2026 Livroto Bunia",
+    "productName": "JuntoxShop",
+    "copyright": "Copyright © 2026 JuntoxShop — JuntoX",
     "icon": "../public/icon-512.png",
     "directories": {
       "output": "dist"
@@ -42,14 +42,14 @@
         { "target": "portable", "arch": ["x64"] }
       ],
       "icon": "../public/icon-512.png",
-      "publisherName": "Livroto Bunia"
+      "publisherName": "JuntoxShop"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Livroto"
+      "shortcutName": "JuntoxShop"
     },
     "mac": {
       "target": [
@@ -70,7 +70,7 @@
       "icon": "../public/icon-512.png",
       "category": "Network",
       "desktop": {
-        "Name": "Livroto",
+        "Name": "JuntoxShop",
         "Comment": "Marketplace de Bunia — commande et livraison locale"
       }
     },
