@@ -14,6 +14,7 @@ import {
   getFlexpayConfig, flexpayInitiateMobileMoney, flexpayCheck, flexpayPing,
 } from "@/lib/integrations/flexpay.server";
 import { getWhatsappConfig, whatsappPing } from "@/lib/integrations/whatsapp.server";
+import { getTwilioConfig, twilioPing } from "@/lib/integrations/twilio.server";
 import { phoneDigits } from "@/lib/phone";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
@@ -21,9 +22,10 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   if (!(roles ?? []).some((r: any) => r.role === "admin")) throw new Error("Forbidden: admin only");
 }
 
-const SECRET_KEYS = new Set(["flexpay_token", "whatsapp_token", "whatsapp_app_secret"]);
+const SECRET_KEYS = new Set(["flexpay_token", "whatsapp_token", "whatsapp_app_secret", "twilio_auth_token"]);
 const FLEXPAY_KEYS = ["flexpay_base_url", "flexpay_merchant", "flexpay_token", "flexpay_currency", "flexpay_callback_url"];
 const WHATSAPP_KEYS = ["whatsapp_base_url", "whatsapp_phone_number_id", "whatsapp_token", "whatsapp_business_id", "whatsapp_verify_token", "whatsapp_app_secret", "whatsapp_lang"];
+const TWILIO_KEYS = ["twilio_account_sid", "twilio_auth_token", "twilio_phone_number", "twilio_whatsapp_number"];
 
 function supabaseFunctionsBase(): string {
   const url = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
@@ -36,11 +38,13 @@ export const adminGetIntegrations = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context);
     const c = await loadIntegrationConfig();
-    const [flexpayEnabled, whatsappEnabled] = await Promise.all([
+    const [flexpayEnabled, whatsappEnabled, twilioEnabled] = await Promise.all([
       getPublicFlag("flexpay_enabled"),
       getPublicFlag("whatsapp_enabled"),
+      getPublicFlag("twilio_enabled"),
     ]);
     const fnBase = supabaseFunctionsBase();
+    const appBase = (process.env.APP_URL || "https://shop.juntoxrdc.com").replace(/\/+$/, "");
     return {
       flexpay: {
         enabled: flexpayEnabled,
@@ -67,6 +71,16 @@ export const adminGetIntegrations = createServerFn({ method: "GET" })
         configured: !!(c.whatsapp_phone_number_id && c.whatsapp_token),
         suggested_webhook_url: fnBase ? `${fnBase}/whatsapp-webhook` : "",
       },
+      twilio: {
+        enabled: twilioEnabled,
+        account_sid: c.twilio_account_sid ?? "",
+        phone_number: c.twilio_phone_number ?? "",
+        whatsapp_number: c.twilio_whatsapp_number ?? "",
+        auth_token_set: !!c.twilio_auth_token,
+        auth_token_masked: maskSecret(c.twilio_auth_token),
+        configured: !!(c.twilio_account_sid && c.twilio_auth_token && c.twilio_phone_number),
+        suggested_sms_webhook_url: `${appBase}/api/twilio/sms-webhook`,
+      },
     };
   });
 
@@ -75,14 +89,14 @@ export const adminSaveIntegrations = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z.object({
-      section: z.enum(["flexpay", "whatsapp"]),
+      section: z.enum(["flexpay", "whatsapp", "twilio"]),
       enabled: z.boolean().optional(),
       values: z.record(z.string(), z.string()).default({}),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const allowed = data.section === "flexpay" ? FLEXPAY_KEYS : WHATSAPP_KEYS;
+    const allowed = data.section === "flexpay" ? FLEXPAY_KEYS : data.section === "whatsapp" ? WHATSAPP_KEYS : TWILIO_KEYS;
     const entries = Object.entries(data.values)
       .filter(([k]) => allowed.includes(k))
       .map(([key, value]) => ({ key, value, isSecret: SECRET_KEYS.has(key) }));
@@ -93,7 +107,9 @@ export const adminSaveIntegrations = createServerFn({ method: "POST" })
       const c = await loadIntegrationConfig();
       const configured = data.section === "flexpay"
         ? !!(c.flexpay_merchant && c.flexpay_token)
-        : !!(c.whatsapp_phone_number_id && c.whatsapp_token);
+        : data.section === "whatsapp"
+        ? !!(c.whatsapp_phone_number_id && c.whatsapp_token)
+        : !!(c.twilio_account_sid && c.twilio_auth_token && c.twilio_phone_number);
       if (data.enabled && !configured) {
         throw new Error("Impossible d'activer : renseigne d'abord les identifiants requis.");
       }
@@ -119,6 +135,15 @@ export const adminTestWhatsapp = createServerFn({ method: "POST" })
     const cfg = await getWhatsappConfig();
     if (!cfg) return { ok: false, detail: "WhatsApp non configuré (phone_number_id + token requis)." };
     return await whatsappPing(cfg);
+  });
+
+export const adminTestTwilio = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const cfg = await getTwilioConfig();
+    if (!cfg) return { ok: false, detail: "Twilio non configuré (Account SID + Auth Token + numéro requis)." };
+    return await twilioPing(cfg);
   });
 
 // ---------- CLIENT : initiation paiement FlexPay ----------

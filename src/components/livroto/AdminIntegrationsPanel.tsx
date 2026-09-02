@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, CreditCard, MessageSquare, Copy, CheckCircle2, XCircle, Plug } from "lucide-react";
+import { Loader2, CreditCard, MessageSquare, Copy, CheckCircle2, XCircle, Plug, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  adminGetIntegrations, adminSaveIntegrations, adminTestFlexpay, adminTestWhatsapp,
+  adminGetIntegrations, adminSaveIntegrations, adminTestFlexpay, adminTestWhatsapp, adminTestTwilio,
 } from "@/lib/integrations.functions";
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -58,6 +58,7 @@ export function AdminIntegrationsPanel() {
       </p>
       <FlexpaySection data={data.flexpay} onSaved={refresh} />
       <WhatsappSection data={data.whatsapp} onSaved={refresh} />
+      <TwilioSection data={data.twilio} onSaved={refresh} />
     </div>
   );
 }
@@ -282,6 +283,116 @@ function WhatsappSection({ data, onSaved }: { data: any; onSaved: () => void }) 
         <div className="md:col-span-2">
           <CopyField label="URL du webhook (à coller dans Meta › Configuration › Webhook)" value={data.suggested_webhook_url} />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-t p-4">
+        <Button onClick={() => onSave()} disabled={busy}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+        </Button>
+        <Button variant="outline" onClick={onTest} disabled={testing || !data.configured}>
+          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tester la connexion"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- Twilio ----------------------------- */
+function TwilioSection({ data, onSaved }: { data: any; onSaved: () => void }) {
+  const save = useServerFn(adminSaveIntegrations);
+  const test = useServerFn(adminTestTwilio);
+  const [form, setForm] = useState({
+    account_sid: data.account_sid || "",
+    phone_number: data.phone_number || "",
+    whatsapp_number: data.whatsapp_number || "",
+    auth_token: "",
+  });
+  useEffect(() => {
+    setForm((f) => ({
+      ...f,
+      account_sid: data.account_sid || "",
+      phone_number: data.phone_number || "",
+      whatsapp_number: data.whatsapp_number || "",
+    }));
+  }, [data]);
+  const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [enabled, setEnabled] = useState<boolean>(!!data.enabled);
+
+  const onSave = async (nextEnabled?: boolean) => {
+    setBusy(true);
+    try {
+      const values: Record<string, string> = {
+        twilio_account_sid: form.account_sid.trim(),
+        twilio_phone_number: form.phone_number.trim(),
+        twilio_whatsapp_number: form.whatsapp_number.trim(),
+      };
+      if (form.auth_token.trim()) values.twilio_auth_token = form.auth_token.trim();
+      await save({ data: { section: "twilio", enabled: nextEnabled ?? enabled, values } });
+      if (typeof nextEnabled === "boolean") setEnabled(nextEnabled);
+      setForm((f) => ({ ...f, auth_token: "" }));
+      toast.success("Twilio enregistré");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message);
+      onSaved();
+    } finally { setBusy(false); }
+  };
+
+  const onTest = async () => {
+    setTesting(true);
+    try {
+      const r = await test();
+      r.ok ? toast.success(`Twilio : ${r.detail}`) : toast.error(`Twilio : ${r.detail}`);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setTesting(false); }
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+        <div className="flex items-center gap-2">
+          <Phone className="h-5 w-5 text-[color:var(--brand-dark)]" />
+          <div>
+            <h4 className="font-display font-bold">Twilio — SMS & WhatsApp</h4>
+            <p className="text-xs text-muted-foreground">Réponses automatiques aux clients par SMS sur ton numéro Twilio</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusBadge configured={data.configured} enabled={enabled} />
+          <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-1.5">
+            <span className="text-xs font-medium">Actif</span>
+            <Switch checked={enabled} disabled={busy} onCheckedChange={(v) => onSave(v)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-4 md:grid-cols-2">
+        <div>
+          <Label className="text-xs">Account SID</Label>
+          <Input value={form.account_sid} onChange={(e) => setForm({ ...form, account_sid: e.target.value })} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs">Auth Token {data.auth_token_set && <span className="text-primary">· configuré {data.auth_token_masked}</span>}</Label>
+          <Input type="password" value={form.auth_token} onChange={(e) => setForm({ ...form, auth_token: e.target.value })} placeholder={data.auth_token_set ? "•••••• (laisser vide = inchangé)" : "Auth Token du compte Twilio"} className="mt-1" autoComplete="off" />
+        </div>
+        <div>
+          <Label className="text-xs">Numéro Twilio (SMS)</Label>
+          <Input value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} placeholder="+1XXXXXXXXXX" className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs">Numéro WhatsApp Twilio</Label>
+          <Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="(optionnel — une fois le Sender WhatsApp approuvé par Meta)" className="mt-1" />
+        </div>
+        <div className="md:col-span-2">
+          <CopyField label="URL du webhook SMS entrant (à coller dans Twilio › Numéro › Messaging › «A message comes in»)" value={data.suggested_sms_webhook_url} />
+        </div>
+      </div>
+
+      <div className="border-t p-4 text-xs text-muted-foreground">
+        Une fois activé : tout client qui envoie un SMS à ce numéro reçoit automatiquement le statut
+        de sa dernière commande. Le canal WhatsApp Twilio reste inactif tant que le Sender WhatsApp
+        n'est pas approuvé par Meta dans la console Twilio (étape manuelle, indépendante de JuntoxShop).
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t p-4">

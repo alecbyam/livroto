@@ -53,6 +53,7 @@ import { Route as BoutiqueAdminCreditsRouteImport } from './routes/boutique/admi
 import { Route as BoutiqueAdminCommandesRouteImport } from './routes/boutique/admin/commandes'
 import { Route as BoutiqueAdminChargesRouteImport } from './routes/boutique/admin/charges'
 import { Route as BoutiqueAdminCategoriesRouteImport } from './routes/boutique/admin/categories'
+import { Route as ApiTwilioSmsWebhookRouteImport } from './routes/api.twilio.sms-webhook'
 import { Route as ApiCronWeeklyReportRouteImport } from './routes/api.cron.weekly-report'
 import { Route as AuthenticatedShopOrderOrderIdRouteImport } from './routes/_authenticated/shop-order.$orderId'
 import { Route as AuthenticatedShopAdminSlugRouteImport } from './routes/_authenticated/shop-admin.$slug'
@@ -280,6 +281,11 @@ const BoutiqueAdminCategoriesRoute = BoutiqueAdminCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => BoutiqueAdminRouteRoute,
 } as any)
+const ApiTwilioSmsWebhookRoute = ApiTwilioSmsWebhookRouteImport.update({
+  id: '/api/twilio/sms-webhook',
+  path: '/api/twilio/sms-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronWeeklyReportRoute = ApiCronWeeklyReportRouteImport.update({
   id: '/api/cron/weekly-report',
   path: '/api/cron/weekly-report',
@@ -338,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
   '/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
   '/api/cron/weekly-report': typeof ApiCronWeeklyReportRoute
+  '/api/twilio/sms-webhook': typeof ApiTwilioSmsWebhookRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -386,6 +393,7 @@ export interface FileRoutesByTo {
   '/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
   '/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
   '/api/cron/weekly-report': typeof ApiCronWeeklyReportRoute
+  '/api/twilio/sms-webhook': typeof ApiTwilioSmsWebhookRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -437,6 +445,7 @@ export interface FileRoutesById {
   '/_authenticated/shop-admin/$slug': typeof AuthenticatedShopAdminSlugRoute
   '/_authenticated/shop-order/$orderId': typeof AuthenticatedShopOrderOrderIdRoute
   '/api/cron/weekly-report': typeof ApiCronWeeklyReportRoute
+  '/api/twilio/sms-webhook': typeof ApiTwilioSmsWebhookRoute
   '/boutique/admin/categories': typeof BoutiqueAdminCategoriesRoute
   '/boutique/admin/charges': typeof BoutiqueAdminChargesRoute
   '/boutique/admin/commandes': typeof BoutiqueAdminCommandesRoute
@@ -488,6 +497,7 @@ export interface FileRouteTypes {
     | '/shop-admin/$slug'
     | '/shop-order/$orderId'
     | '/api/cron/weekly-report'
+    | '/api/twilio/sms-webhook'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -536,6 +546,7 @@ export interface FileRouteTypes {
     | '/shop-admin/$slug'
     | '/shop-order/$orderId'
     | '/api/cron/weekly-report'
+    | '/api/twilio/sms-webhook'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -586,6 +597,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shop-admin/$slug'
     | '/_authenticated/shop-order/$orderId'
     | '/api/cron/weekly-report'
+    | '/api/twilio/sms-webhook'
     | '/boutique/admin/categories'
     | '/boutique/admin/charges'
     | '/boutique/admin/commandes'
@@ -625,6 +637,7 @@ export interface RootRouteChildren {
   ShopSlugRoute: typeof ShopSlugRouteWithChildren
   VendorSlugRoute: typeof VendorSlugRoute
   ApiCronWeeklyReportRoute: typeof ApiCronWeeklyReportRoute
+  ApiTwilioSmsWebhookRoute: typeof ApiTwilioSmsWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -937,6 +950,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoutiqueAdminCategoriesRouteImport
       parentRoute: typeof BoutiqueAdminRouteRoute
     }
+    '/api/twilio/sms-webhook': {
+      id: '/api/twilio/sms-webhook'
+      path: '/api/twilio/sms-webhook'
+      fullPath: '/api/twilio/sms-webhook'
+      preLoaderRoute: typeof ApiTwilioSmsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/weekly-report': {
       id: '/api/cron/weekly-report'
       path: '/api/cron/weekly-report'
@@ -1090,6 +1110,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShopSlugRoute: ShopSlugRouteWithChildren,
   VendorSlugRoute: VendorSlugRoute,
   ApiCronWeeklyReportRoute: ApiCronWeeklyReportRoute,
+  ApiTwilioSmsWebhookRoute: ApiTwilioSmsWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

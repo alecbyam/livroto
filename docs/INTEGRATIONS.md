@@ -1,4 +1,4 @@
-# Intégrations LIVROTO — FlexPay & WhatsApp Cloud API
+# Intégrations JuntoxShop — FlexPay, WhatsApp Cloud API & Twilio
 
 > Tout est déjà codé et déployé. Les intégrations sont **dormantes** (désactivées)
 > tant que tu n'as pas collé les identifiants dans l'admin. Aucun risque en production.
@@ -62,6 +62,42 @@ Configurer le webhook côté Meta :
 
 ---
 
+## 3) Twilio (SMS automatiques + WhatsApp Business à venir)
+
+Depuis la [console Twilio](https://console.twilio.com) :
+
+| Champ admin | Où le trouver chez Twilio |
+|---|---|
+| **Account SID** | Page d'accueil de la console (commence par `AC`) |
+| **Auth Token** | Juste à côté du SID (bouton « Show ») |
+| **Numéro Twilio (SMS)** | Phone Numbers → Manage → Active numbers — le numéro que tu as acheté, au format `+1XXXXXXXXXX` |
+| **Numéro WhatsApp Twilio** | Laisse vide tant que le Sender WhatsApp n'est pas approuvé par Meta (voir plus bas) |
+
+Étapes :
+1. Colle Account SID + Auth Token + numéro SMS. **Enregistre**, puis **Tester la connexion**.
+2. Copie l'**URL du webhook SMS entrant** affichée dans l'admin.
+3. Dans la console Twilio → **Phone Numbers → Manage → Active numbers** → clique sur ton numéro →
+   section **Messaging** → champ **"A message comes in"** → colle l'URL, méthode **HTTP POST** → Save.
+4. Active le switch **Actif** dans l'admin JuntoxShop.
+
+Une fois actif : **tout client qui envoie un SMS à ce numéro reçoit automatiquement le statut de
+sa dernière commande** (recherché par numéro de téléphone), avec un renvoi vers le WhatsApp support
+si aucune commande n'est trouvée. Zéro intervention humaine nécessaire pour ce cas — géré par
+`src/routes/api.twilio.sms-webhook.ts`.
+
+**WhatsApp via Twilio (pas encore activable au 1/09/2026)** : Twilio peut aussi servir de
+fournisseur (BSP) pour WhatsApp Business, mais ça exige une étape manuelle côté Twilio/Meta
+indépendante de JuntoxShop :
+1. Console Twilio → **Messaging → Try it out → Send a WhatsApp message** (sandbox pour tester),
+   puis **Senders → WhatsApp senders** pour enregistrer un vrai numéro WhatsApp Business — Meta doit
+   vérifier le profil (nom, logo, catégorie), ce qui peut prendre de quelques heures à plusieurs jours.
+2. Une fois approuvé, colle le numéro WhatsApp obtenu dans le champ **« Numéro WhatsApp Twilio »**
+   de l'admin — `sendTwilioWhatsApp()` (déjà codé dans `twilio.server.ts`) devient alors utilisable.
+3. Comme pour la Cloud API Meta, envoyer un message **hors** de la fenêtre de 24h (ex : notif de
+   statut proactive) exigera un **template pré-approuvé** par Meta — pas juste du texte libre.
+
+---
+
 ## Récap technique (pour mémoire)
 
 - **Secrets** : table `integration_settings` — RLS activée **sans aucune policy**,
@@ -69,8 +105,10 @@ Configurer le webhook côté Meta :
 - **Flags publics on/off** : `app_settings.flexpay_enabled` / `whatsapp_enabled`
   (lisible anon, sans secret) — pilote l'affichage du checkout.
 - **Webhooks** : Edge Functions Supabase `flexpay-callback` et `whatsapp-webhook`
-  (déployées, `verify_jwt=false`).
+  (déployées, `verify_jwt=false`) ; le webhook SMS Twilio, lui, est une route API
+  TanStack Start directe sur Railway (`src/routes/api.twilio.sms-webhook.ts`), pas
+  une Edge Function — signature vérifiée via `X-Twilio-Signature`.
 - **Paiements** : colonnes `payments.provider / provider_status / phone / currency / raw`.
-- **Code** : `src/lib/integrations/*.server.ts` (services), `src/lib/integrations.functions.ts`
-  (server fns), `src/components/livroto/AdminIntegrationsPanel.tsx` (admin),
-  `src/components/livroto/FlexPayDialog.tsx` (checkout).
+- **Code** : `src/lib/integrations/*.server.ts` (services, dont `twilio.server.ts`),
+  `src/lib/integrations.functions.ts` (server fns), `src/components/livroto/AdminIntegrationsPanel.tsx`
+  (admin), `src/components/livroto/FlexPayDialog.tsx` (checkout).
