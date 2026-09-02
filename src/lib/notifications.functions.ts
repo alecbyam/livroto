@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendAfricasTalkingSMS, STATUS_SMS } from "./sms.functions";
 import { getPublicFlag } from "@/lib/integrations/config.server";
 import { getWhatsappConfig, sendWhatsAppText } from "@/lib/integrations/whatsapp.server";
+import { getTwilioConfig, sendTwilioWhatsApp } from "@/lib/integrations/twilio.server";
 import { phoneDigits } from "@/lib/phone";
 import { orderSummaryLines, type OrderLine } from "@/lib/whatsapp";
 
@@ -263,7 +264,26 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
       }
     }
 
-    // 2) Sinon : WhatsApp via CallMeBot si le client a configuré sa clé.
+    // 2) Sinon : WhatsApp via Twilio (BSP alternatif à la Cloud API Meta) — reste
+    //    dormant tant que le Sender WhatsApp Twilio n'est pas approuvé par Meta
+    //    (sendTwilioWhatsApp échoue proprement sans appel réseau dans ce cas).
+    if (!waOk && (await getPublicFlag("twilio_enabled"))) {
+      const twCfg = await getTwilioConfig();
+      if (twCfg) {
+        const r = await sendTwilioWhatsApp(twCfg, order.customer_phone, msg);
+        waOk = r.ok;
+        await logNotification({
+          user_id: order.customer_id,
+          order_id: order.id,
+          to_phone: order.customer_phone,
+          payload: { kind: "customer_status", status: data.status, code: codeLabel, via: "twilio_whatsapp" },
+          ok: r.ok,
+          error: r.ok ? undefined : String(r.error ?? "").slice(0, 200),
+        });
+      }
+    }
+
+    // 3) Sinon : WhatsApp via CallMeBot si le client a configuré sa clé.
     if (!waOk && profile?.callmebot_apikey) {
       const r = await sendCallMeBot(order.customer_phone, msg, profile.callmebot_apikey);
       waOk = r.ok;
@@ -277,7 +297,7 @@ export const notifyOrderStatusChanged = createServerFn({ method: "POST" })
       });
     }
 
-    // 3) Fallback SMS : si aucun canal WhatsApp n'a fonctionné,
+    // 4) Fallback SMS : si aucun canal WhatsApp n'a fonctionné,
     //    on bascule sur Africa's Talking (couvre Airtel/Vodacom/Orange à Bunia).
     if (!waOk && STATUS_SMS[data.status]) {
       const smsText = `${STATUS_SMS[data.status]} (Cmd #${codeLabel})`;

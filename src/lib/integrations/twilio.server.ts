@@ -8,10 +8,12 @@
 //   - SMS classique : `From` = numéro Twilio nu (+243...) — utilisable dès l'achat
 //     du numéro, aucune validation externe requise.
 //   - WhatsApp       : `From`/`To` préfixés "whatsapp:" — nécessite un Sender
-//     WhatsApp approuvé par Meta dans la console Twilio (pas encore fait pour
-//     JuntoxShop au 1/09/2026 — voir mémoire integrations_flexpay_whatsapp).
+//     WhatsApp approuvé par Meta dans la console Twilio (étape manuelle côté
+//     Twilio/Meta, indépendante de JuntoxShop — voir docs/INTEGRATIONS.md §3).
 //     Tant que `twilio_whatsapp_number` n'est pas renseigné, sendTwilioWhatsApp()
-//     échoue proprement sans appel réseau.
+//     échoue proprement sans appel réseau. Une fois renseigné, il est appelé
+//     automatiquement en fallback dans notifyOrderStatusChanged
+//     (notifications.functions.ts), après la Cloud API Meta.
 //
 // Tant que account_sid/auth_token/phone_number ne sont pas renseignés,
 // getTwilioConfig() renvoie null et rien n'est appelé — même pattern que

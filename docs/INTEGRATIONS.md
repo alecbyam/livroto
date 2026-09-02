@@ -85,16 +85,23 @@ sa dernière commande** (recherché par numéro de téléphone), avec un renvoi 
 si aucune commande n'est trouvée. Zéro intervention humaine nécessaire pour ce cas — géré par
 `src/routes/api.twilio.sms-webhook.ts`.
 
-**WhatsApp via Twilio (pas encore activable au 1/09/2026)** : Twilio peut aussi servir de
-fournisseur (BSP) pour WhatsApp Business, mais ça exige une étape manuelle côté Twilio/Meta
-indépendante de JuntoxShop :
+**WhatsApp via Twilio** : Twilio peut aussi servir de fournisseur (BSP) pour WhatsApp Business, en
+complément (fallback) de la Cloud API Meta. Le code est **branché** dans la chaîne de notification
+client (`notifyOrderStatusChanged` → `notifications.functions.ts`) : dès que `twilio_enabled` est
+actif et qu'un numéro WhatsApp Twilio est renseigné, il est essayé automatiquement en 2ᵉ position
+(après la Cloud API Meta, avant CallMeBot puis le SMS). Reste une étape manuelle côté Twilio/Meta,
+indépendante de JuntoxShop, avant de pouvoir renseigner ce numéro :
 1. Console Twilio → **Messaging → Try it out → Send a WhatsApp message** (sandbox pour tester),
    puis **Senders → WhatsApp senders** pour enregistrer un vrai numéro WhatsApp Business — Meta doit
    vérifier le profil (nom, logo, catégorie), ce qui peut prendre de quelques heures à plusieurs jours.
 2. Une fois approuvé, colle le numéro WhatsApp obtenu dans le champ **« Numéro WhatsApp Twilio »**
-   de l'admin — `sendTwilioWhatsApp()` (déjà codé dans `twilio.server.ts`) devient alors utilisable.
+   de l'admin — `sendTwilioWhatsApp()` (`twilio.server.ts`) est alors utilisé automatiquement, sans
+   redéploiement. Tant que ce champ est vide, le canal reste dormant (aucun appel réseau).
 3. Comme pour la Cloud API Meta, envoyer un message **hors** de la fenêtre de 24h (ex : notif de
    statut proactive) exigera un **template pré-approuvé** par Meta — pas juste du texte libre.
+4. Le webhook entrant est **le même** que le SMS (`api.twilio.sms-webhook.ts`) : Twilio répond sur
+   le même canal (SMS ou WhatsApp) que celui du message reçu, donc rien à dupliquer côté JuntoxShop —
+   configure juste ce numéro comme URL de webhook du Sender WhatsApp dans la console Twilio aussi.
 
 ---
 
