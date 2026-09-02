@@ -2,6 +2,31 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getPublicFlag } from "@/lib/integrations/config.server";
+import { getTwilioConfig, sendTwilioSMS } from "@/lib/integrations/twilio.server";
+
+// Alerte SMS à l'admin quand une candidature vendeur/produit attend une
+// approbation — sans ça, une candidature pouvait rester invisible dans la file
+// d'attente admin jusqu'à ce que quelqu'un pense à rouvrir le dashboard, ce qui
+// freine directement la croissance du catalogue (constat du 1/09/2026 : la
+// plateforme n'avait encore qu'1 seul produit réel). Best-effort : ne doit
+// jamais faire échouer la candidature elle-même si l'envoi échoue.
+async function notifyAdminSMS(text: string) {
+  try {
+    if (!(await getPublicFlag("twilio_enabled"))) return;
+    const cfg = await getTwilioConfig();
+    if (!cfg) return;
+    const { data: adminRoles } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "admin");
+    const ids = (adminRoles ?? []).map((r: any) => r.user_id);
+    if (ids.length === 0) return;
+    // Tous les admins ayant un numéro renseigné — pas juste le premier trouvé
+    // (plusieurs comptes admin existent réellement, ne pas dépendre de l'ordre DB).
+    const { data: profiles } = await supabaseAdmin.from("profiles").select("phone").in("id", ids).not("phone", "is", null);
+    await Promise.all((profiles ?? []).map((p: any) => sendTwilioSMS(cfg, p.phone, text)));
+  } catch {
+    /* best-effort, silencieux */
+  }
+}
 
 // ---------- VENDOR ----------
 export const applyAsVendor = createServerFn({ method: "POST" })
@@ -30,6 +55,7 @@ export const applyAsVendor = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    void notifyAdminSMS(`JuntoxShop: nouveau vendeur "${data.shop_name}" veut rejoindre la plateforme. Va l'approuver dans l'admin.`);
     return { vendor: row };
   });
 
@@ -146,6 +172,7 @@ export const createProduct = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    void notifyAdminSMS(`JuntoxShop: nouveau produit "${data.name}" en attente d'approbation.`);
     return { product: row };
   });
 
