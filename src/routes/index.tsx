@@ -376,6 +376,22 @@ function SellerForm() {
               <Check className="h-5 w-5 text-[color:var(--amber)]" /> Paiement cash sécurisé
             </li>
           </ul>
+          {/* Inscription instantanée : contrairement au formulaire WhatsApp ci-contre
+              (simple message, traité manuellement), ce lien crée un vrai compte vendeur
+              en attente d'approbation immédiatement, et alerte l'admin par SMS. */}
+          <div className="mt-6 rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur">
+            <p className="text-sm font-semibold text-white">{t("seller.instantTitle")}</p>
+            <Button
+              asChild
+              size="sm"
+              className="mt-2.5 bg-[color:var(--amber)] text-[color:var(--amber-foreground)] hover:brightness-105"
+            >
+              <Link to="/dashboard" search={{ tab: "home" } as any}>
+                <Store className="h-4 w-4" />
+                {t("seller.instantCta")}
+              </Link>
+            </Button>
+          </div>
         </div>
         <form
           onSubmit={onSubmit}

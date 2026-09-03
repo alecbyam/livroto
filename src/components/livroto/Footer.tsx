@@ -44,6 +44,11 @@ export function Footer() {
               </Link>
             </li>
             <li>
+              <Link to="/dashboard" search={{ tab: "home" } as any} className="font-semibold text-white hover:underline">
+                Vendre sur JuntoxShop
+              </Link>
+            </li>
+            <li>
               <Link to="/aide" className="hover:text-white">
                 Aide & Contact
               </Link>
