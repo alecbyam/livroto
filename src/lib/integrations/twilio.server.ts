@@ -17,6 +17,7 @@
 // getTwilioConfig() renvoie null et rien n'est appelé — même pattern que
 // flexpay.server.ts / whatsapp.server.ts (intégration "dormante" jusqu'aux clés).
 // ============================================================================
+import { timingSafeEqual } from "node:crypto";
 import { loadIntegrationConfig } from "./config.server";
 import { phoneE164 } from "@/lib/phone";
 
@@ -110,6 +111,11 @@ export async function verifyTwilioSignature(
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey("raw", enc.encode(authToken), { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
   const sigBuf = await crypto.subtle.sign("HMAC", key, enc.encode(data));
-  const computed = Buffer.from(sigBuf).toString("base64");
-  return computed === signatureHeader;
+  const computed = Buffer.from(sigBuf);
+  const received = Buffer.from(signatureHeader, "base64");
+  // Comparaison à temps constant — un simple "===" fuiterait la position du
+  // premier octet différent via le timing de la réponse (attaque temporelle
+  // classique sur les vérifications de signature webhook).
+  if (computed.length !== received.length) return false;
+  return timingSafeEqual(computed, received);
 }

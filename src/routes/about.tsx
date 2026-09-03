@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteLayout } from "@/components/livroto/SiteLayout";
 import { Bike, Heart, MapPin, ShieldCheck, Sparkles, Store } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -47,7 +48,7 @@ function AboutPage() {
     <SiteLayout>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(JUNTOX_JSONLD) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(JUNTOX_JSONLD) }}
       />
       <section className="container mx-auto max-w-4xl px-4 py-12 md:py-20">
         <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

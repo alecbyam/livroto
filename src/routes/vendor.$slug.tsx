@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { ReportDialog } from "@/components/livroto/ReportDialog";
 import { PRODUCT_LIST_SELECT } from "@/lib/products";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const Route = createFileRoute("/vendor/$slug")({
   component: VendorPublicPage,
@@ -103,7 +104,7 @@ function VendorPublicPage() {
 
   return (
     <SiteLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       {/* Cover */}
       <div className="relative h-44 sm:h-56 w-full overflow-hidden bg-gradient-to-br from-[color:var(--brand-dark)] to-[color:var(--brand-light)]">
         {vendor.cover_url && (

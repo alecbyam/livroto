@@ -15,6 +15,7 @@ import { ReportDialog } from "@/components/livroto/ReportDialog";
 import { ShareButton } from "@/components/livroto/ShareButton";
 import { getPromo } from "@/lib/promo";
 import { PRODUCT_DETAIL_SELECT, PRODUCT_LIST_SELECT } from "@/lib/products";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const Route = createFileRoute("/product/$productId")({
   component: ProductPage,
@@ -195,7 +196,7 @@ function ProductPage() {
     <SiteLayout>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <div className="container mx-auto px-4 pt-6">
         <Link to="/catalog" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
