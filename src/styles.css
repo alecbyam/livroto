@@ -240,6 +240,15 @@
 @keyframes lv-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes lv-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes lv-shimmer { 100% { transform: translateX(100%); } }
+/* Barre de progression de navigation (RouteProgressBar) : avance par paliers puis
+   ralentit avant 100%, comme YouTube/GitHub — jamais "complète" tant que la page
+   n'est pas vraiment prête (l'opacité gère la disparition, pas ce keyframe). */
+@keyframes lv-route-progress {
+  0% { transform: scaleX(0); }
+  20% { transform: scaleX(.3); }
+  60% { transform: scaleX(.6); }
+  100% { transform: scaleX(.85); }
+}
 
 @layer utilities {
   .animate-fade-up { animation: lv-fade-up .45s cubic-bezier(.22,.61,.36,1) both; }
