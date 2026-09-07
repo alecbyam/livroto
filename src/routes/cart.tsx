@@ -398,7 +398,14 @@ function CartPage() {
       clear();
       toast.success(t("cart.toast.sent"));
       window.open(waUrl, "_blank");
-      setTimeout(() => navigate({ to: "/orders" }), 800);
+      // Redirige vers LA commande qu'on vient de créer (pas la liste générale) —
+      // c'est le moment le plus chargé émotionnellement du parcours ("est-ce que
+      // ça a marché ?"), il mérite un atterrissage précis et rassurant plutôt
+      // qu'une liste où il faut retrouver sa commande parmi d'éventuelles autres.
+      setTimeout(() => {
+        if (firstOrderId) navigate({ to: "/orders/$orderId", params: { orderId: firstOrderId } });
+        else navigate({ to: "/orders" });
+      }, 800);
     } catch (e: any) {
       toast.error(e.message ?? t("cart.toast.error"));
     } finally {
@@ -854,13 +861,17 @@ function CartPage() {
         phone={phone}
         amountLabel={fp?.label ?? ""}
         onPaid={() => {
+          const paidOrderId = fp?.orderId ?? null;
           setFp(null);
           toast.success("Paiement confirmé !");
-          navigate({ to: "/orders" });
+          if (paidOrderId) navigate({ to: "/orders/$orderId", params: { orderId: paidOrderId } });
+          else navigate({ to: "/orders" });
         }}
         onClose={() => {
+          const closedOrderId = fp?.orderId ?? null;
           setFp(null);
-          navigate({ to: "/orders" });
+          if (closedOrderId) navigate({ to: "/orders/$orderId", params: { orderId: closedOrderId } });
+          else navigate({ to: "/orders" });
         }}
       />
     </SiteLayout>

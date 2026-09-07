@@ -256,7 +256,13 @@ function OrderPage() {
         payment: paymentMethod,
       });
       window.open(url, "_blank");
-      setTimeout(() => navigate({ to: "/orders" }), 800);
+      // Atterrit sur LA commande créée, pas la liste générale — même logique
+      // que le panier (cart.tsx) : le moment le plus important du parcours
+      // mérite une confirmation précise, pas une liste à parcourir.
+      setTimeout(() => {
+        if (orderRow.orderId) navigate({ to: "/orders/$orderId", params: { orderId: orderRow.orderId } });
+        else navigate({ to: "/orders" });
+      }, 800);
     } catch (err: any) {
       toast.error(err.message ?? "Erreur");
     } finally {
