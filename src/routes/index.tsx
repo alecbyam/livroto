@@ -43,12 +43,11 @@ export const Route = createFileRoute("/")({
   // 2G/3G de nos utilisateurs à Bunia, ça évite un aller-retour client vers
   // Supabase après le chargement du JS (voir audit perf du 5/07).
   loader: async () => {
-    const [featuredProducts, homeZones, homeTestimonials] = await Promise.all([
+    const [featuredProducts, homeTestimonials] = await Promise.all([
       fetchFeaturedProducts(),
-      fetchHomeZones(),
       fetchHomeTestimonials(),
     ]);
-    return { featuredProducts, homeZones, homeTestimonials };
+    return { featuredProducts, homeTestimonials };
   },
   component: Index,
 });
@@ -67,14 +66,6 @@ async function fetchFeaturedProducts(): Promise<DisplayProduct[]> {
     rating_avg: p.rating_avg ? Number(p.rating_avg) : 0,
     rating_count: p.rating_count ?? 0,
   })) as DisplayProduct[];
-}
-
-type HomeZone = { id: string; name: string };
-
-// Plus de tri par tarif (retiré 6/08/2026, voir Zones() ci-dessous) — ordre alphabétique.
-async function fetchHomeZones(): Promise<HomeZone[]> {
-  const { data } = await supabase.from("zones").select("id,name").eq("active", true).order("name");
-  return data ?? [];
 }
 
 type HomeTestimonial = {
@@ -122,17 +113,6 @@ async function fetchHomeTestimonials(): Promise<HomeTestimonial[]> {
     };
   });
 }
-
-const zones = [
-  { name: "Centre-ville", fee: 2 },
-  { name: "Sayo", fee: 3 },
-  { name: "Lumumba", fee: 3 },
-  { name: "Bankoko", fee: 3 },
-  { name: "Mudzi Pela", fee: 5 },
-  { name: "Nyakasansa", fee: 5 },
-  { name: "Bigo", fee: 5 },
-  { name: "Sukisa", fee: 3 },
-];
 
 function Index() {
   return (
@@ -300,38 +280,30 @@ function HowItWorks() {
 
 function Zones() {
   const { t } = useI18n();
-  // Zones réelles depuis la DB (chargées côté serveur) — sert uniquement à lister les
-  // quartiers déjà connus, plus aucun tarif affiché (demande explicite 6/08/2026 : livraison
-  // sur toute la ville de Bunia et la province de l'Ituri, un forfait par quartier n'a plus
-  // de sens à cette échelle — le tarif est confirmé par le livreur après validation).
-  const { homeZones: dbZones } = Route.useLoaderData();
-  const list = dbZones.length > 0 ? dbZones : zones.map((z) => ({ id: z.name, name: z.name }));
-
+  // Demande explicite (3/09/2026) : plus de liste de quartiers — la couverture réelle
+  // dépasse largement les zones connues en base (livraison sur toute la ville de Bunia
+  // ET toute la province de l'Ituri, cf. décision 6/08/2026 sur le tarif non-forfaitaire).
+  // Lister 8 quartiers précis suggérait à tort une couverture limitée à ceux-ci.
   return (
     <section id="zones" className="container mx-auto px-4 py-16 md:py-24">
       <div className="max-w-2xl">
         <h2 className="font-display text-3xl md:text-4xl font-bold">{t("zones.title")}</h2>
         <p className="mt-3 text-muted-foreground">{t("zones.subtitle")}</p>
       </div>
-      <div className="mt-10 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-        {list.map((z) => (
-          <div
-            key={z.id}
-            className="rounded-xl border border-border bg-card p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-primary" />
-              <span className="font-medium">{z.name}</span>
-            </div>
-            <Check className="h-4 w-4 shrink-0 text-[color:var(--brand-dark)]" />
-          </div>
-        ))}
+      <div className="mt-10 flex items-center gap-4 rounded-2xl border border-border bg-[color:var(--brand-light)]/60 p-6 md:p-8">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--brand-dark)] text-white">
+          <MapPin className="h-6 w-6" />
+        </div>
+        <div>
+          <p className="font-display text-lg md:text-xl font-bold">
+            Nous couvrons tout Bunia et toute la province de l'Ituri
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Où que tu sois, on livre. Le tarif de livraison t'est communiqué par le livreur
+            juste après la validation de ta commande.
+          </p>
+        </div>
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">
-        Et bien plus : JuntoxShop livre partout à Bunia et dans toute la province de l'Ituri.
-        Le tarif de livraison t'est communiqué par le livreur juste après la validation de ta
-        commande.
-      </p>
     </section>
   );
 }
