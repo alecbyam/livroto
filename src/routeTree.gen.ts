@@ -14,8 +14,13 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShopManifestDotwebmanifestRouteImport } from './routes/shop-manifest[.]webmanifest'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as FavoritesRouteImport } from './routes/favorites'
+import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
+import { Route as CgvRouteImport } from './routes/cgv'
+import { Route as CguRouteImport } from './routes/cgu'
 import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as BoutiquesRouteImport } from './routes/boutiques'
@@ -85,14 +90,39 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MentionsLegalesRoute = MentionsLegalesRouteImport.update({
+  id: '/mentions-legales',
+  path: '/mentions-legales',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FavoritesRoute = FavoritesRouteImport.update({
   id: '/favorites',
   path: '/favorites',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
+  id: '/confidentialite',
+  path: '/confidentialite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CgvRoute = CgvRouteImport.update({
+  id: '/cgv',
+  path: '/cgv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CguRoute = CguRouteImport.update({
+  id: '/cgu',
+  path: '/cgu',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogRoute = CatalogRouteImport.update({
@@ -320,8 +350,13 @@ export interface FileRoutesByFullPath {
   '/boutiques': typeof BoutiquesRoute
   '/cart': typeof CartRoute
   '/catalog': typeof CatalogRoute
+  '/cgu': typeof CguRoute
+  '/cgv': typeof CgvRoute
+  '/confidentialite': typeof ConfidentialiteRoute
   '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
   '/favorites': typeof FavoritesRoute
+  '/mentions-legales': typeof MentionsLegalesRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/shop-manifest.webmanifest': typeof ShopManifestDotwebmanifestRoute
@@ -369,8 +404,13 @@ export interface FileRoutesByTo {
   '/boutiques': typeof BoutiquesRoute
   '/cart': typeof CartRoute
   '/catalog': typeof CatalogRoute
+  '/cgu': typeof CguRoute
+  '/cgv': typeof CgvRoute
+  '/confidentialite': typeof ConfidentialiteRoute
   '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
   '/favorites': typeof FavoritesRoute
+  '/mentions-legales': typeof MentionsLegalesRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/shop-manifest.webmanifest': typeof ShopManifestDotwebmanifestRoute
@@ -421,8 +461,13 @@ export interface FileRoutesById {
   '/boutiques': typeof BoutiquesRoute
   '/cart': typeof CartRoute
   '/catalog': typeof CatalogRoute
+  '/cgu': typeof CguRoute
+  '/cgv': typeof CgvRoute
+  '/confidentialite': typeof ConfidentialiteRoute
   '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
   '/favorites': typeof FavoritesRoute
+  '/mentions-legales': typeof MentionsLegalesRoute
   '/reset-password': typeof ResetPasswordRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/shop-manifest.webmanifest': typeof ShopManifestDotwebmanifestRoute
@@ -473,8 +518,13 @@ export interface FileRouteTypes {
     | '/boutiques'
     | '/cart'
     | '/catalog'
+    | '/cgu'
+    | '/cgv'
+    | '/confidentialite'
     | '/contact'
+    | '/cookies'
     | '/favorites'
+    | '/mentions-legales'
     | '/reset-password'
     | '/robots.txt'
     | '/shop-manifest.webmanifest'
@@ -522,8 +572,13 @@ export interface FileRouteTypes {
     | '/boutiques'
     | '/cart'
     | '/catalog'
+    | '/cgu'
+    | '/cgv'
+    | '/confidentialite'
     | '/contact'
+    | '/cookies'
     | '/favorites'
+    | '/mentions-legales'
     | '/reset-password'
     | '/robots.txt'
     | '/shop-manifest.webmanifest'
@@ -573,8 +628,13 @@ export interface FileRouteTypes {
     | '/boutiques'
     | '/cart'
     | '/catalog'
+    | '/cgu'
+    | '/cgv'
+    | '/confidentialite'
     | '/contact'
+    | '/cookies'
     | '/favorites'
+    | '/mentions-legales'
     | '/reset-password'
     | '/robots.txt'
     | '/shop-manifest.webmanifest'
@@ -625,8 +685,13 @@ export interface RootRouteChildren {
   BoutiquesRoute: typeof BoutiquesRoute
   CartRoute: typeof CartRoute
   CatalogRoute: typeof CatalogRoute
+  CguRoute: typeof CguRoute
+  CgvRoute: typeof CgvRoute
+  ConfidentialiteRoute: typeof ConfidentialiteRoute
   ContactRoute: typeof ContactRoute
+  CookiesRoute: typeof CookiesRoute
   FavoritesRoute: typeof FavoritesRoute
+  MentionsLegalesRoute: typeof MentionsLegalesRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   ShopManifestDotwebmanifestRoute: typeof ShopManifestDotwebmanifestRoute
@@ -677,6 +742,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mentions-legales': {
+      id: '/mentions-legales'
+      path: '/mentions-legales'
+      fullPath: '/mentions-legales'
+      preLoaderRoute: typeof MentionsLegalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/favorites': {
       id: '/favorites'
       path: '/favorites'
@@ -684,11 +756,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FavoritesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confidentialite': {
+      id: '/confidentialite'
+      path: '/confidentialite'
+      fullPath: '/confidentialite'
+      preLoaderRoute: typeof ConfidentialiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cgv': {
+      id: '/cgv'
+      path: '/cgv'
+      fullPath: '/cgv'
+      preLoaderRoute: typeof CgvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cgu': {
+      id: '/cgu'
+      path: '/cgu'
+      fullPath: '/cgu'
+      preLoaderRoute: typeof CguRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog': {
@@ -1098,8 +1198,13 @@ const rootRouteChildren: RootRouteChildren = {
   BoutiquesRoute: BoutiquesRoute,
   CartRoute: CartRoute,
   CatalogRoute: CatalogRoute,
+  CguRoute: CguRoute,
+  CgvRoute: CgvRoute,
+  ConfidentialiteRoute: ConfidentialiteRoute,
   ContactRoute: ContactRoute,
+  CookiesRoute: CookiesRoute,
   FavoritesRoute: FavoritesRoute,
+  MentionsLegalesRoute: MentionsLegalesRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   ShopManifestDotwebmanifestRoute: ShopManifestDotwebmanifestRoute,

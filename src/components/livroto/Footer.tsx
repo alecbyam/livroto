@@ -63,6 +63,16 @@ export function Footer() {
                 Conditions générales
               </Link>
             </li>
+            <li>
+              <Link to="/confidentialite" className="hover:text-white">
+                Confidentialité
+              </Link>
+            </li>
+            <li>
+              <Link to="/mentions-legales" className="hover:text-white">
+                Mentions légales
+              </Link>
+            </li>
           </ul>
         </div>
         <div className="text-sm text-white/70">

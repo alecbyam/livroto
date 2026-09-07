@@ -20,6 +20,7 @@ import { FavoritesProvider } from "@/lib/favorites";
 import { CurrencyProvider } from "@/lib/currency";
 import { ThemeProvider } from "@/lib/theme";
 import { RouteProgressBar } from "@/components/livroto/RouteProgressBar";
+import { CookieBanner } from "@/components/livroto/CookieBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { authLog } from "@/lib/auth-log";
 import { runAuthWatchdog } from "@/lib/auth-watchdog";
@@ -266,6 +267,7 @@ function RootComponent() {
               <FavoritesProvider>
                 <RouteProgressBar />
                 <Outlet />
+                <CookieBanner />
                 <Toaster richColors position="top-center" />
               </FavoritesProvider>
             </CartProvider>

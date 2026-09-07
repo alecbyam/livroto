@@ -18,7 +18,15 @@ function TermsPage() {
     <SiteLayout>
       <article className="container mx-auto max-w-3xl px-4 py-12 md:py-16 prose-livroto">
         <h1 className="font-display text-4xl md:text-5xl font-bold">Conditions générales</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Dernière mise à jour : juin 2026</p>
+        <p className="mt-2 text-sm text-muted-foreground">Dernière mise à jour : septembre 2026</p>
+        <p className="mt-4 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+          Ceci est un résumé pratique. Les textes détaillés et à jour sont : les{" "}
+          <Link to="/cgu" className="underline text-foreground">Conditions Générales d'Utilisation</Link>, les{" "}
+          <Link to="/cgv" className="underline text-foreground">Conditions Générales de Vente</Link>, la{" "}
+          <Link to="/confidentialite" className="underline text-foreground">Politique de confidentialité</Link>, la{" "}
+          <Link to="/cookies" className="underline text-foreground">Politique cookies</Link> et les{" "}
+          <Link to="/mentions-legales" className="underline text-foreground">Mentions légales</Link>.
+        </p>
 
         <Section title="1. Présentation">
           JuntoxShop est une marketplace locale qui met en relation des vendeurs, des livreurs et des clients à Bunia
@@ -31,8 +39,10 @@ function TermsPage() {
         </Section>
 
         <Section title="3. Commandes & paiement">
-          Les prix sont affichés en dollars américains (USD). Le paiement se fait <strong>en cash à la livraison</strong>,
-          sauf indication contraire. Les frais de livraison sont <strong>fixes selon le quartier</strong> et affichés clairement avant la validation de la commande — aucun frais caché.
+          Les prix sont affichés en dollars américains (USD). Le paiement se fait <strong>en cash ou en mobile money à la livraison</strong>
+          (M-Pesa, Airtel Money, Orange Money), ou en ligne via FlexPay lorsque l'option est proposée. JuntoxShop livre dans toute la ville
+          de Bunia et la province de l'Ituri — le montant exact des frais de livraison t'est communiqué par le livreur juste après la
+          validation de ta commande, aucun frais caché. Détails complets dans les <Link to="/cgv" className="underline">Conditions Générales de Vente</Link>.
         </Section>
 
         <Section title="4. Rôle de JuntoxShop">
