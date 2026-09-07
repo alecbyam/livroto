@@ -504,6 +504,7 @@ function CartPage() {
                           className="h-8 w-8"
                           onClick={() => setQty(it.id, it.qty - 1)}
                           disabled={it.qty <= 1}
+                          aria-label={`Diminuer la quantité de ${it.name}`}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -514,6 +515,7 @@ function CartPage() {
                           variant="outline"
                           className="h-8 w-8"
                           onClick={() => setQty(it.id, it.qty + 1)}
+                          aria-label={`Augmenter la quantité de ${it.name}`}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -526,6 +528,7 @@ function CartPage() {
                         size="icon"
                         variant="ghost"
                         onClick={() => remove(it.id)}
+                        aria-label={`Retirer ${it.name} du panier`}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -757,6 +760,7 @@ function CartPage() {
                       variant="ghost"
                       className="h-7 w-7"
                       onClick={removeCoupon}
+                      aria-label="Retirer le code promo"
                     >
                       <X className="h-4 w-4" />
                     </Button>
