@@ -19,12 +19,46 @@ import { safeJsonLd } from "@/lib/json-ld";
 
 export const Route = createFileRoute("/product/$productId")({
   component: ProductPage,
-  head: ({ params }) => ({
-    meta: [
-      { title: `Produit ${params.productId.slice(0, 6)} — JuntoxShop Bunia` },
-      { name: "description", content: "Découvre ce produit sur JuntoxShop, livré à ta porte à Bunia. Paiement cash à la livraison." },
-    ],
-  }),
+  // Titre/description/og:image dynamiques à partir du produit réellement chargé
+  // (loaderData, pas juste l'id de l'URL) — cette fiche est le lien le plus
+  // partagé en direct (WhatsApp, statuts, ShareButton) : avant ce fix, un ami
+  // qui recevait un lien produit voyait juste "Produit aaeeb3..." + le logo
+  // générique du site, jamais la vraie photo ni le vrai nom/prix du produit.
+  head: ({ loaderData }) => {
+    // Le type inféré du callback head() ne résout pas toujours le retour du
+    // loader (même piège que useLoaderData() ailleurs dans ce fichier/session) —
+    // annotation explicite plutôt que `never`.
+    const product = (loaderData as { product: Product | null } | undefined)?.product;
+    if (!product) {
+      return {
+        meta: [
+          { title: "Produit — JuntoxShop Bunia" },
+          { name: "description", content: "Découvre ce produit sur JuntoxShop, livré à ta porte à Bunia. Paiement cash à la livraison." },
+        ],
+      };
+    }
+    const price = getPromo(product).price;
+    const title = `${product.name} — $${price.toFixed(2)} | JuntoxShop Bunia`;
+    const description = (
+      product.description?.trim() ||
+      `${product.name} disponible sur JuntoxShop, livré à Bunia et dans toute l'Ituri. Paiement cash à la livraison.`
+    ).slice(0, 200);
+    const image = product.image_url || "https://shop.juntoxrdc.com/icon-512.png";
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:image", content: image },
+        { property: "og:type", content: "product" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: image },
+      ],
+    };
+  },
   // SSR du 1er écran (audit perf du 10/08/2026 : cette fiche est le lien le plus
   // partagé en direct — WhatsApp, statuts — donc la page la plus souvent ouverte
   // "à froid", sans navigation SPA préalable. Sans loader, 1er affichage = skeleton

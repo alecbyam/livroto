@@ -11,12 +11,42 @@ import { safeJsonLd } from "@/lib/json-ld";
 
 export const Route = createFileRoute("/vendor/$slug")({
   component: VendorPublicPage,
-  head: ({ params }) => ({
-    meta: [
-      { title: `Boutique ${params.slug} — JuntoxShop Bunia` },
-      { name: "description", content: `Découvre les produits de ${params.slug} sur JuntoxShop, livrés à Bunia.` },
-    ],
-  }),
+  // Même fix que product.$productId.tsx : titre/description/og:image dynamiques
+  // à partir de la vraie boutique chargée, pas juste le slug de l'URL — un lien
+  // boutique partagé sur WhatsApp montrait "Boutique livroto-officiel" et le
+  // logo générique du site, jamais le vrai nom ni le logo de la boutique.
+  head: ({ loaderData, params }) => {
+    // Même piège de type que product.$productId.tsx : annotation explicite
+    // plutôt que de laisser TS inférer `never` sur loaderData ici.
+    const vendor = (loaderData as { vendor: Vendor } | undefined)?.vendor;
+    if (!vendor) {
+      return {
+        meta: [
+          { title: `Boutique ${params.slug} — JuntoxShop Bunia` },
+          { name: "description", content: `Découvre les produits de ${params.slug} sur JuntoxShop, livrés à Bunia.` },
+        ],
+      };
+    }
+    const title = `${vendor.shop_name} — JuntoxShop Bunia`;
+    const description = (
+      vendor.description?.trim() ||
+      `Découvre les produits de ${vendor.shop_name} sur JuntoxShop, livrés à Bunia et dans toute l'Ituri.`
+    ).slice(0, 200);
+    const image = vendor.logo_url || vendor.cover_url || "https://shop.juntoxrdc.com/icon-512.png";
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:image", content: image },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: image },
+      ],
+    };
+  },
   errorComponent: ({ error }) => (
     <SiteLayout>
       <div className="container mx-auto px-4 py-16 text-center">
